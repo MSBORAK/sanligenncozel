@@ -4,6 +4,9 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import PagerView from 'react-native-pager-view';
 
+// Types
+import { RootStackParamList } from '@/types/navigation';
+
 // Screens
 import HomeScreen from '@/screens/HomeScreen';
 import TransportScreen from '@/screens/TransportScreen';
@@ -23,7 +26,7 @@ import EventDetailScreen from '@/screens/EventDetailScreen';
 // Custom Tab Bar
 import CustomTabBar from './CustomTabBar';
 
-const Stack = createStackNavigator();
+const Stack = createStackNavigator<RootStackParamList>();
 
 // Sayfa isimleri ve sırası
 const TAB_NAMES = ['Home', 'Transport', 'GencKart', 'Assistant', 'Profile'] as const;
