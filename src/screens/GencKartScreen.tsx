@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,14 +11,27 @@ import { useNavigation } from '@react-navigation/native';
 import type { RootStackParamList } from '@/types/navigation';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { useThemeMode } from '@/context/ThemeContext';
+import { BlurView } from 'expo-blur';
 
 
 type Nav = StackNavigationProp<RootStackParamList>;
+
+type Category = 'Tümü' | 'Kafe' | 'Sinema' | 'Giyim';
+
+const CATEGORIES: Category[] = ['Tümü', 'Kafe', 'Sinema', 'Giyim'];
 
 const GencKartScreen = () => {
   const navigation = useNavigation<Nav>();
   const { mode } = useThemeMode();
   const isDark = mode === 'dark';
+  const [selectedCategory, setSelectedCategory] = useState<Category>('Tümü');
+
+  const filteredPartners = useMemo(() => {
+    if (selectedCategory === 'Tümü') {
+      return MOCK_PARTNERS;
+    }
+    return MOCK_PARTNERS.filter(partner => partner.category === selectedCategory);
+  }, [selectedCategory]);
 
   const renderPartnerItem = (item: DiscountPartner) => {
     const Icon = item.icon; 
@@ -107,15 +120,14 @@ const GencKartScreen = () => {
                     </View>
                     <View style={styles.contactlessContainer}>
                         <Wifi color="rgba(255,255,255,0.6)" size={24} style={{ transform: [{ rotate: '90deg' }] }} />
-                        <Text style={styles.cardYear}>2025</Text>
+                        <Text style={styles.cardYear}>2026</Text>
                     </View>
                 </View>
 
                 <View style={styles.cardBottom}>
                     <View>
                         <Text style={styles.cardHolderLabel}>KART SAHİBİ</Text>
-                        <Text style={styles.cardHolderName}>MERT YILMAZ</Text>
-                        <Text style={styles.cardId}>TR-63-9921</Text>
+                        <Text style={styles.cardHolderName}>{MOCK_USER.name.toUpperCase()} YILMAZ</Text>
                     </View>
                 </View>
             </LinearGradient>
@@ -123,11 +135,53 @@ const GencKartScreen = () => {
             {/* Partner List */}
             <View style={styles.listHeader}>
                 <Text style={[styles.sectionTitle, isDark && { color: '#f8fafc' }]}>Anlaşmalı Mekanlar</Text>
-                <Text style={[styles.firsatCount, isDark && { color: '#94a3b8' }]}>{MOCK_PARTNERS.length} Fırsat</Text>
+                <Text style={[styles.firsatCount, isDark && { color: '#94a3b8' }]}>{filteredPartners.length} Fırsat</Text>
             </View>
 
+            {/* Category Filter Chips */}
+            <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.chipContainer}
+            >
+                {CATEGORIES.map((category) => {
+                    const isSelected = selectedCategory === category;
+                    return (
+                        <TouchableOpacity
+                            key={category}
+                            style={[
+                                styles.chip,
+                                isSelected && styles.chipActive,
+                                isDark && !isSelected && { backgroundColor: '#334155' },
+                                isDark && isSelected && { backgroundColor: Colors.primary.indigo }
+                            ]}
+                            onPress={() => setSelectedCategory(category)}
+                            activeOpacity={0.7}
+                        >
+                            <BlurView 
+                                intensity={isSelected ? 90 : 0} 
+                                tint="light" 
+                                style={[styles.chipBlur, isSelected && { borderRadius: 20 }]}
+                            >
+                                <Text 
+                                    style={[
+                                        styles.chipText,
+                                        isSelected && styles.chipTextActive,
+                                        isDark && !isSelected && { color: '#cbd5e1' },
+                                        isDark && isSelected && { color: Colors.white }
+                                    ]}
+                                    numberOfLines={1}
+                                >
+                                    {category}
+                                </Text>
+                            </BlurView>
+                        </TouchableOpacity>
+                    );
+                })}
+            </ScrollView>
+
             <View style={styles.listContainer}>
-                {MOCK_PARTNERS.map((item) => (
+                {filteredPartners.map((item) => (
                     <View key={item.id}>
                         {renderPartnerItem(item)}
                     </View>
@@ -285,7 +339,36 @@ const styles = StyleSheet.create({
       color: '#6b7280',
       fontSize: 12,
       marginTop: 2,
-  }
+  },
+  chipContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  chip: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: Colors.lightGray,
+    marginRight: 8,
+    overflow: 'hidden',
+    minWidth: 70,
+  },
+  chipActive: {
+    backgroundColor: Colors.primary.indigo,
+  },
+  chipBlur: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  chipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.darkGray,
+    textAlign: 'center',
+  },
+  chipTextActive: {
+    color: Colors.white,
+  },
 });
 
 export default GencKartScreen;

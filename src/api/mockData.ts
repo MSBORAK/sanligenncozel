@@ -1,5 +1,5 @@
 import { User, Story, Bus, DiscountPartner, ChatMessage, Event, Magazine, Bulletin, Reward, PointsHistory, NotificationItem } from '@/types';
-import { Coffee, Utensils, Film, Book } from 'lucide-react-native';
+import { Coffee, Utensils, Film, Book, Pill, Library, Route, Shirt } from 'lucide-react-native';
 
 export const MOCK_USER: User = {
   name: 'Mert',
@@ -7,6 +7,7 @@ export const MOCK_USER: User = {
   isVerified: false,
   dob: '2004',
   status: 'Öğrenci',
+  cardNumber: '639921',
 };
 
 export const MOCK_STORIES: Story[] = [
@@ -35,9 +36,63 @@ export const MOCK_PARTNERS: DiscountPartner[] = [
       bgColor: '#ffedd5',
       iconColor: '#f97316',
       icon: Coffee,
+      category: 'Kafe',
     },
-    { id: '2', name: 'Meşhur Ciğerci', offer: 'Ayran İkramı', description: 'Porsiyon ciğer siparişine', icon: Utensils, url: '#', bgColor: '#fee2e2', iconColor: '#ef4444' },
-    { id: '3', name: 'Piazza AVM Sinema', offer: 'Genç Bileti', description: 'Hafta içi seanslarda', icon: Film, url: '#', bgColor: '#e0e7ff', iconColor: '#4f46e5' },
+    { 
+      id: '2', 
+      name: 'Meşhur Ciğerci', 
+      offer: 'Ayran İkramı', 
+      description: 'Porsiyon ciğer siparişine', 
+      icon: Utensils, 
+      url: '#', 
+      bgColor: '#fee2e2', 
+      iconColor: '#ef4444',
+      category: 'Yiyecek',
+    },
+    { 
+      id: '3', 
+      name: 'Piazza AVM Sinema', 
+      offer: 'Genç Bileti', 
+      description: 'Hafta içi seanslarda', 
+      icon: Film, 
+      url: '#', 
+      bgColor: '#e0e7ff', 
+      iconColor: '#4f46e5',
+      category: 'Sinema',
+    },
+    {
+      id: '4',
+      name: 'Urfa Moda',
+      offer: '%15 İndirim',
+      description: 'Tüm giyim ürünlerinde',
+      icon: Shirt,
+      url: '#',
+      bgColor: '#f3e8ff',
+      iconColor: '#a855f7',
+      category: 'Giyim',
+    },
+    {
+      id: '5',
+      name: 'Starbucks',
+      offer: 'İkinci Kahve Bedava',
+      description: 'Her iki kahvede bir',
+      icon: Coffee,
+      url: '#',
+      bgColor: '#ffedd5',
+      iconColor: '#f97316',
+      category: 'Kafe',
+    },
+    {
+      id: '6',
+      name: 'Cinema City',
+      offer: 'Öğrenci İndirimi',
+      description: 'Hafta sonu seanslarında',
+      icon: Film,
+      url: '#',
+      bgColor: '#e0e7ff',
+      iconColor: '#4f46e5',
+      category: 'Sinema',
+    },
 ];
 
 export const MOCK_MESSAGES: ChatMessage[] = [
@@ -143,7 +198,7 @@ export const MOCK_NOTIFICATIONS: NotificationItem[] = [
   {
     id: '2',
     title: 'Bu Akşam Sıra Gecesi',
-    message: 'Balıklıgöl’deki sıra gecesi etkinliği saat 20:00’de başlıyor. Katılmayı unutma!',
+    message: 'Balıklıgöl\'deki sıra gecesi etkinliği saat 20:00\'de başlıyor. Katılmayı unutma!',
     type: 'event',
     createdAt: 'Dün, 18:00',
     isRead: false,
@@ -155,5 +210,215 @@ export const MOCK_NOTIFICATIONS: NotificationItem[] = [
     type: 'discount',
     createdAt: '2 gün önce',
     isRead: true,
+  },
+];
+
+// Eczane verileri
+export interface Pharmacy {
+  id: string;
+  name: string;
+  address: string;
+  phone: string;
+  distance: number; // km cinsinden
+  isOnDuty: boolean; // nöbetçi mi?
+  coordinates: { lat: number; lon: number };
+}
+
+export const MOCK_PHARMACIES: Pharmacy[] = [
+  {
+    id: '1',
+    name: 'Merkez Eczanesi',
+    address: 'Atatürk Bulvarı No: 45, Karaköprü',
+    phone: '0414 123 45 67',
+    distance: 0.8,
+    isOnDuty: true,
+    coordinates: { lat: 37.1674, lon: 38.7955 },
+  },
+  {
+    id: '2',
+    name: 'Şifa Eczanesi',
+    address: 'Vali Fuat Caddesi No: 12, Merkez',
+    phone: '0414 234 56 78',
+    distance: 1.2,
+    isOnDuty: true,
+    coordinates: { lat: 37.1580, lon: 38.7920 },
+  },
+  {
+    id: '3',
+    name: 'Sağlık Eczanesi',
+    address: 'Osmanbey Mahallesi, Üniversite Caddesi No: 8',
+    phone: '0414 345 67 89',
+    distance: 2.5,
+    isOnDuty: false,
+    coordinates: { lat: 37.1800, lon: 38.8000 },
+  },
+  {
+    id: '4',
+    name: 'Hilal Eczanesi',
+    address: 'Balıklıgöl Caddesi No: 25',
+    phone: '0414 456 78 90',
+    distance: 0.5,
+    isOnDuty: true,
+    coordinates: { lat: 37.1650, lon: 38.7900 },
+  },
+  {
+    id: '5',
+    name: 'Yıldız Eczanesi',
+    address: 'Piazza AVM Yanı, Diyarbakır Yolu',
+    phone: '0414 567 89 01',
+    distance: 3.1,
+    isOnDuty: false,
+    coordinates: { lat: 37.1900, lon: 38.8100 },
+  },
+];
+
+// Kütüphane verileri
+export interface Library {
+  id: string;
+  name: string;
+  address: string;
+  phone: string;
+  distance: number; // km cinsinden
+  workingHours: string;
+  coordinates: { lat: number; lon: number };
+}
+
+export const MOCK_LIBRARIES: Library[] = [
+  {
+    id: '1',
+    name: 'Şanlıurfa İl Halk Kütüphanesi',
+    address: 'Atatürk Bulvarı No: 120, Merkez',
+    phone: '0414 123 45 67',
+    distance: 1.0,
+    workingHours: '08:00 - 18:00',
+    coordinates: { lat: 37.1680, lon: 38.7930 },
+  },
+  {
+    id: '2',
+    name: 'Harran Üniversitesi Kütüphanesi',
+    address: 'Osmanbey Kampüsü, Üniversite Caddesi',
+    phone: '0414 234 56 78',
+    distance: 2.8,
+    workingHours: '08:00 - 20:00',
+    coordinates: { lat: 37.1820, lon: 38.8020 },
+  },
+  {
+    id: '3',
+    name: 'Çocuk Kütüphanesi',
+    address: 'Karaali Parkı Yanı, Şehitlik Mahallesi',
+    phone: '0414 345 67 89',
+    distance: 1.5,
+    workingHours: '09:00 - 17:00',
+    coordinates: { lat: 37.1700, lon: 38.7970 },
+  },
+  {
+    id: '4',
+    name: 'Karaköprü Şube Kütüphanesi',
+    address: 'Karaköprü Belediye Binası Yanı',
+    phone: '0414 456 78 90',
+    distance: 0.9,
+    workingHours: '08:00 - 17:00',
+    coordinates: { lat: 37.1600, lon: 38.7910 },
+  },
+];
+
+// Hafta Sonu Planları verileri
+export interface WeekendPlan {
+  id: string;
+  title: string;
+  description: string;
+  activities: string[]; // Aktivite listesi
+  duration: string; // tahmini süre
+  category: 'tam-gün' | 'yarım-gün' | 'akşam';
+  image?: string;
+  tips?: string; // İpuçları
+}
+
+export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
+  {
+    id: '1',
+    title: 'Göbeklitepe + Balıklıgöl Turu',
+    description: 'Tarihin sıfır noktasını keşfedip, şehir merkezinde kültürel bir gün geçirin',
+    activities: [
+      'Sabah Göbeklitepe ziyareti (2-3 saat)',
+      'Öğle yemeği molası',
+      'Balıklıgöl ve çevresindeki tarihi çarşılar',
+      'Akşam Balıklıgöl\'de çay keyfi'
+    ],
+    duration: 'Tam Gün',
+    category: 'tam-gün',
+    tips: 'Göbeklitepe için erken saatlerde gitmenizi öneririz. Balıklıgöl\'de gün batımını izlemeyi unutmayın!',
+  },
+  {
+    id: '2',
+    title: 'Müze Gezisi + Kafe Molası',
+    description: 'Şanlıurfa\'nın zengin tarihini keşfedip, modern kafelerde mola verin',
+    activities: [
+      'Arkeoloji Müzesi ziyareti',
+      'Mozaik Müzesi turu',
+      'Haleplibahçe kompleksi',
+      'Mırra Kahve Evi\'nde mola'
+    ],
+    duration: 'Yarım Gün',
+    category: 'yarım-gün',
+    tips: 'Müze kartı ile giriş yapabilirsiniz. Genç Kart ile kafede indirim var!',
+  },
+  {
+    id: '3',
+    title: 'Harran Evleri + Fırat Kıyısı',
+    description: 'Geleneksel mimariyi görüp, doğayla iç içe bir gün geçirin',
+    activities: [
+      'Harran\'a yolculuk (45 dk)',
+      'Harran Evleri ve antik kent kalıntıları',
+      'Öğle yemeği',
+      'Fırat Nehri kıyısında yürüyüş ve piknik'
+    ],
+    duration: 'Tam Gün',
+    category: 'tam-gün',
+    tips: 'Harran\'da güneş koruyucu ve şapka almayı unutmayın. Fırat kıyısında gün batımı muhteşem!',
+  },
+  {
+    id: '4',
+    title: 'Şehir Merkezi Keşif Turu',
+    description: 'Urfa\'nın kalbinde tarihi yerleri ve modern mekanları keşfedin',
+    activities: [
+      'Balıklıgöl ve çevresi',
+      'Tarihi çarşılar (Bakırcılar, Sipahi Pazarı)',
+      'Urfa Kalesi ziyareti',
+      'Karaali Parkı\'nda dinlenme',
+      'Akşam yemeği ve sıra gecesi'
+    ],
+    duration: 'Yarım Gün',
+    category: 'yarım-gün',
+    tips: 'Çarşılarda alışveriş yapabilir, yerel lezzetleri deneyebilirsiniz.',
+  },
+  {
+    id: '5',
+    title: 'Akşam Kültür Gezisi',
+    description: 'Şehir merkezinde akşam saatlerinde yapılacaklar',
+    activities: [
+      'Balıklıgöl\'de akşam yürüyüşü',
+      'Tarihi çarşılar (akşam saatleri)',
+      'Geleneksel Urfa yemekleri',
+      'Sıra gecesi veya canlı müzik'
+    ],
+    duration: 'Akşam',
+    category: 'akşam',
+    tips: 'Akşam saatlerinde Balıklıgöl çok güzel aydınlatılıyor. Fotoğraf çekmeyi unutmayın!',
+  },
+  {
+    id: '6',
+    title: 'Doğa ve Tarih Kombinasyonu',
+    description: 'Hem doğayı hem tarihi bir arada keşfedin',
+    activities: [
+      'Karaali Parkı sabah yürüyüşü',
+      'Arkeoloji Müzesi ziyareti',
+      'Öğle yemeği',
+      'Fırat kıyısında öğleden sonra',
+      'Gün batımı izleme'
+    ],
+    duration: 'Tam Gün',
+    category: 'tam-gün',
+    tips: 'Hava durumuna göre plan yapın. Fırat kıyısında piknik için hazırlıklı gelin.',
   },
 ];

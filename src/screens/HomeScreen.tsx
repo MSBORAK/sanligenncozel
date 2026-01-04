@@ -21,14 +21,14 @@ import {
   Calendar, BookOpen, User, Megaphone, Palette, Bus, Users, 
   Flame, QrCode, X, ChevronLeft, ChevronRight,
   CloudRain, Sun, Cloud, CloudSnow, CloudLightning, CloudDrizzle,
-  Tag, Coffee, Shirt, Smartphone, Ticket, GraduationCap, Gift
+  Tag, Coffee, Shirt, Smartphone, Ticket, GraduationCap, Gift,
+  Pill, Library, Route
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Colors } from '@/constants/Colors';
 import { MOCK_BUSES, MOCK_PARTNERS, MOCK_EVENTS } from '@/api/mockData';
 import { HomeScreenProps, MainTabParamList } from '@/types/navigation';
 import { useThemeMode } from '@/context/ThemeContext';
-import MustafaImage from '../assets/images/mustafa.jpg';
 import { supabase, processImageUrl } from '@/lib/supabase';
 
 // Supabase Veri Tipleri
@@ -60,17 +60,18 @@ const ICON_MAP: Record<string, any> = {
 };
 
 const DEFAULT_STORIES = [
-  { name: 'Başkan', icon: User, image: MustafaImage },
-  { name: 'Duyurular', icon: Megaphone, image: 'https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?q=80&w=2670&auto=format&fit=crop' },
   { name: 'Kültür Sanat', icon: Palette, image: 'https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?q=80&w=2670&auto=format&fit=crop' },
   { name: 'Ulaşım', icon: Bus, image: 'https://images.unsplash.com/photo-1570125909232-eb263c1869e7?q=80&w=2670&auto=format&fit=crop' },
   { name: 'Gençlik', icon: Users, image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=2670&auto=format&fit=crop' },
+  { name: 'Duyurular', icon: Megaphone, image: 'https://images.unsplash.com/photo-1551434678-e076c223a692?q=80&w=2670&auto=format&fit=crop' },
 ];
 
 const QUICK_ACCESS_NAV = [
-    { name: 'Etkinlik', icon: Calendar, color: '#fee2e2', iconColor: '#ef4444', screen: 'Events', type: 'stack' },
-    { name: 'Keşfet', icon: BookOpen, color: '#dbeafe', iconColor: '#3b82f6', screen: 'Magazine', type: 'stack' },
-    { name: 'Genç Kart', icon: QrCode, color: '#e0e7ff', iconColor: Colors.primary.indigo, screen: 'GencKart', type: 'tab' },
+    { name: 'Etkinlik', icon: Calendar, color: '#fee2e2', iconColor: '#dc2626', screen: 'Events', type: 'stack' },
+    { name: 'Keşfet', icon: BookOpen, color: '#dbeafe', iconColor: '#2563eb', screen: 'Magazine', type: 'stack' },
+    { name: 'Nöbetçi Eczane', icon: Pill, color: '#fee2e2', iconColor: '#dc2626', screen: 'PharmacyList', type: 'stack' },
+    { name: 'Kütüphaneler', icon: Library, color: '#dcfce7', iconColor: '#16a34a', screen: 'LibraryList', type: 'stack' },
+    { name: 'Gezi Rotası', icon: Route, color: '#fef3c7', iconColor: '#d97706', screen: 'CulturalRoute', type: 'stack' },
 ];
 
 const QUOTES_OF_DAY = [
@@ -82,11 +83,10 @@ const QUOTES_OF_DAY = [
 ];
 
 const STORY_DETAILS: Record<string, { description: string }> = {
-  Başkan: { description: 'Başkanın gençlere özel mesajlarını ve projelerini keşfet.' },
-  Duyurular: { description: 'Şanlıurfa’da gençleri ilgilendiren en güncel haber ve duyurular.' },
   'Kültür Sanat': { description: 'Konserler, sergiler, tiyatrolar ve çok daha fazlası burada.' },
   Ulaşım: { description: 'Otobüs hatları, seferler ve kampüs ulaşımı hakkında hızlı bilgiler.' },
   Gençlik: { description: 'Gençlik merkezleri, kulüpler ve etkinliklerden haberdar ol.' },
+  Duyurular: { description: 'Önemli duyurular, haberler ve güncellemeler burada.' },
 };
 
 const HomeScreen = () => {
@@ -120,11 +120,10 @@ const HomeScreen = () => {
     
     // Default detaylar
     const DEFAULT_STORY_DETAILS: Record<string, { description: string }> = {
-      Başkan: { description: 'Başkanın gençlere özel mesajlarını ve projelerini keşfet.' },
-      Duyurular: { description: 'Şanlıurfa\'da gençleri ilgilendiren en güncel haber ve duyurular.' },
       'Kültür Sanat': { description: 'Konserler, sergiler, tiyatrolar ve çok daha fazlası burada.' },
       Ulaşım: { description: 'Otobüs hatları, seferler ve kampüs ulaşımı hakkında hızlı bilgiler.' },
       Gençlik: { description: 'Gençlik merkezleri, kulüpler ve etkinliklerden haberdar ol.' },
+      Duyurular: { description: 'Önemli duyurular, haberler ve güncellemeler burada.' },
     };
     
     return DEFAULT_STORY_DETAILS[storyName] || { description: '' };
@@ -320,7 +319,7 @@ const HomeScreen = () => {
       if(item.type === 'tab') {
           navigation.navigate('Main', { screen: item.screen as keyof MainTabParamList });
       } else {
-          navigation.navigate(item.screen as 'Events' | 'Magazine');
+          navigation.navigate(item.screen as 'Events' | 'Magazine' | 'PharmacyList' | 'LibraryList' | 'CulturalRoute');
       }
   }
 
@@ -383,8 +382,7 @@ const HomeScreen = () => {
     switch (story.name) {
       case 'Ulaşım': navigation.navigate('Main', { screen: 'Transport' as keyof MainTabParamList }); break;
       case 'Kültür Sanat': navigation.navigate('Magazine'); break;
-      case 'Gençlik':
-      case 'Duyurular': navigation.navigate('Events'); break;
+      case 'Gençlik': navigation.navigate('Events'); break;
       default: navigation.navigate('Profile'); break;
     }
     setActiveStoryIndex(null);
@@ -523,23 +521,8 @@ const HomeScreen = () => {
           </LinearGradient>
 
           <View style={styles.content}>
-            <Text style={[styles.sectionTitle, isDark && { color: '#94a3b8' }]}>HIZLI ERİŞİM</Text>
-            <View style={styles.quickAccessContainer}>
-                {QUICK_ACCESS_NAV.map(item => (
-                    <TouchableOpacity key={item.name} style={styles.quickAccessItem} onPress={() => handleNavigation(item)}>
-                        <View style={styles.quickAccessIcon}>
-                            <BlurView intensity={90} tint="light" style={styles.blurView}>
-                                <View style={[styles.colorOverlay, { backgroundColor: item.color, opacity: 0.6 }, isDark && { backgroundColor: '#334155', opacity: 0.8 }]} />
-                                <item.icon color={isDark ? '#e2e8f0' : item.iconColor} size={24} />
-                            </BlurView>
-                        </View>
-                        <Text style={[styles.quickAccessText, isDark && { color: '#f8fafc' }]}>{item.name}</Text>
-                    </TouchableOpacity>
-                ))}
-            </View>
-
+            {/* Quote of the day Widget - Full Width */}
             <View style={styles.widgetsContainer}>
-                {/* Quote of the day Widget - Full Width */}
                 <TouchableOpacity style={[styles.widgetCard, styles.quoteCard, { width: '100%' }, isDark && { backgroundColor: '#312e81' }]}>
                     <View style={styles.quoteHeaderRow}>
                       <Text style={[styles.widgetLabel, styles.widgetLabelQuote, isDark && { color: '#a5b4fc' }]}>GÜNÜN SÖZÜ</Text>
@@ -547,6 +530,51 @@ const HomeScreen = () => {
                     </View>
                     <Text style={[styles.quoteText, isDark && { color: '#e0e7ff' }]} numberOfLines={2}>"{quoteOfDay}"</Text>
                 </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.sectionTitle, styles.sectionTitleWithMargin, isDark && { color: '#94a3b8' }]}>HIZLI ERİŞİM</Text>
+            
+            <View style={styles.quickAccessContainer}>
+                <View style={styles.quickAccessGrid}>
+                    {QUICK_ACCESS_NAV.slice(0, 3).map(item => (
+                        <TouchableOpacity 
+                            key={item.name} 
+                            style={styles.quickAccessItem} 
+                            onPress={() => handleNavigation(item)}
+                            activeOpacity={0.8}
+                        >
+                            <View style={styles.quickAccessIcon}>
+                                <BlurView intensity={90} tint={isDark ? "dark" : "light"} style={styles.blurView}>
+                                    <View style={[styles.colorOverlay, { backgroundColor: item.color, opacity: 1 }]} />
+                                    <item.icon color={item.iconColor} size={24} />
+                                </BlurView>
+                            </View>
+                            <Text style={[styles.quickAccessText, isDark && { color: '#cbd5e1', opacity: 0.9 }]} numberOfLines={2}>
+                                {item.name}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+                <View style={styles.quickAccessGridBottom}>
+                    {QUICK_ACCESS_NAV.slice(3, 5).map(item => (
+                        <TouchableOpacity 
+                            key={item.name} 
+                            style={styles.quickAccessItem} 
+                            onPress={() => handleNavigation(item)}
+                            activeOpacity={0.8}
+                        >
+                            <View style={styles.quickAccessIcon}>
+                                <BlurView intensity={90} tint={isDark ? "dark" : "light"} style={styles.blurView}>
+                                    <View style={[styles.colorOverlay, { backgroundColor: item.color, opacity: 1 }]} />
+                                    <item.icon color={item.iconColor} size={24} />
+                                </BlurView>
+                            </View>
+                            <Text style={[styles.quickAccessText, isDark && { color: '#cbd5e1', opacity: 0.9 }]} numberOfLines={2}>
+                                {item.name}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
             </View>
 
             <Text style={[styles.sectionTitle, { marginTop: 28 }, isDark && { color: '#94a3b8' }]}>Genç Kart Fırsatları</Text>
@@ -926,19 +954,48 @@ const styles = StyleSheet.create({
     weatherStatsRow: { flexDirection: 'row', alignItems: 'center' },
     calendarStatsRow: { flexDirection: 'row', alignItems: 'center' },
     content: { paddingVertical: 20 },
-    sectionTitle: { fontSize: 14, fontWeight: 'bold', color: '#9ca3af', paddingHorizontal: 20, marginBottom: 15 },
-    quickAccessContainer: { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 20 },
-    quickAccessItem: { alignItems: 'center', flex: 1 },
-    quickAccessIcon: { width: 60, height: 60, borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.5)' },
+    sectionTitle: { fontSize: 14, fontWeight: 'bold', color: '#9ca3af', paddingHorizontal: 20, marginBottom: 12 },
+    sectionTitleWithMargin: { marginTop: 24 },
+    quickAccessContainer: { paddingHorizontal: 20, marginTop: 8 },
+    quickAccessGrid: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 16,
+    },
+    quickAccessGridBottom: {
+        flexDirection: 'row',
+        justifyContent: 'flex-start',
+        gap: 12,
+    },
+    quickAccessItem: { 
+        alignItems: 'center', 
+        width: '31%',
+    },
+    quickAccessIcon: { 
+        width: 56, 
+        height: 56, 
+        borderRadius: 18, 
+        overflow: 'hidden', 
+        borderWidth: 1, 
+        borderColor: 'rgba(255, 255, 255, 0.5)' 
+    },
     blurView: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     colorOverlay: { ...StyleSheet.absoluteFillObject },
-    quickAccessText: { marginTop: 8, fontWeight: '600', color: Colors.darkGray },
+    quickAccessText: { 
+        marginTop: 10, 
+        fontWeight: '500', 
+        color: Colors.darkGray, 
+        fontSize: 10, 
+        textAlign: 'center',
+        opacity: 0.8,
+        lineHeight: 14,
+    },
     partnersScrollContent: { paddingHorizontal: 20, paddingVertical: 4 },
     partnerCard: { width: 170, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 14, marginRight: 12, justifyContent: 'space-between', backgroundColor: '#fff7ed' },
     partnerIconWrapper: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
     partnerName: { fontSize: 14, fontWeight: '600', color: Colors.darkGray, marginBottom: 4 },
     partnerOffer: { fontSize: 13, fontWeight: '500', color: '#4b5563' },
-    widgetsContainer: { flexDirection: 'row', paddingHorizontal: 20, marginTop: 12, justifyContent: 'space-between' },
+    widgetsContainer: { flexDirection: 'row', paddingHorizontal: 20, marginTop: 12, marginBottom: 8, justifyContent: 'space-between' },
     // widgetCard styles (General shape)
     widgetCard: { borderRadius: 18, paddingHorizontal: 10, paddingVertical: 8, width: '48%', height: 70 },
     widgetLabel: { color: 'rgba(255,255,255,0.9)', fontWeight: '600', marginBottom: 4, fontSize: 10 },
@@ -946,7 +1003,7 @@ const styles = StyleSheet.create({
     weatherCard: { justifyContent: 'space-between', flexDirection: 'row', alignItems: 'center' },
     weatherTemp: { color: Colors.white, fontSize: 24, fontWeight: 'bold' },
     weatherIconWrapper: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
-    quoteCard: { backgroundColor: '#c7d2fe', borderRadius: 18, paddingHorizontal: 10, paddingVertical: 8, justifyContent: 'flex-start' },
+    quoteCard: { backgroundColor: '#c7d2fe', borderRadius: 18, paddingHorizontal: 16, paddingVertical: 14, justifyContent: 'flex-start' },
     quoteHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     widgetLabelQuote: { color: Colors.primary.indigo },
     quoteText: { marginTop: 4, fontSize: 11, lineHeight: 15, fontWeight: '600', color: '#111827' },

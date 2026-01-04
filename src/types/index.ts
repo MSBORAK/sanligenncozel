@@ -4,6 +4,7 @@ export interface User {
   isVerified: boolean;
   dob: string;
   status: string;
+  cardNumber?: string;
 }
 
 export interface Story {
@@ -23,13 +24,14 @@ export interface Bus {
 export interface DiscountPartner {
   id: string;
   name: string;
-  icon: React.ComponentType<LucideIconProps>;
+  icon: React.ComponentType<any>;
   iconColor: string;
   bgColor: string;
   offer: string;
   description: string;
   imageUrl?: string; // Add this line
   url: string;
+  category?: 'Kafe' | 'Sinema' | 'Giyim' | 'Yiyecek' | 'Diğer';
 }
 
 export interface ChatMessage {

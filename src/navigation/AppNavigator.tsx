@@ -22,6 +22,9 @@ import NotificationsScreen from '@/screens/NotificationsScreen';
 import WeatherDetailScreen from '@/screens/WeatherDetailScreen';
 import LoginScreen from '@/screens/LoginScreen';
 import EventDetailScreen from '@/screens/EventDetailScreen';
+import PharmacyListScreen from '@/screens/PharmacyListScreen';
+import LibraryListScreen from '@/screens/LibraryListScreen';
+import CulturalRouteScreen from '@/screens/CulturalRouteScreen';
 
 // Custom Tab Bar
 import CustomTabBar from './CustomTabBar';
@@ -111,6 +114,9 @@ const AppNavigator = () => {
         <Stack.Screen name="HeritageDetail" component={HeritageDetailScreen} />
         <Stack.Screen name="WeatherDetail" component={WeatherDetailScreen} />
         <Stack.Screen name="EventDetail" component={EventDetailScreen} />
+        <Stack.Screen name="PharmacyList" component={PharmacyListScreen} />
+        <Stack.Screen name="LibraryList" component={LibraryListScreen} />
+        <Stack.Screen name="CulturalRoute" component={CulturalRouteScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

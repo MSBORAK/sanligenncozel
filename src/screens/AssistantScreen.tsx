@@ -13,7 +13,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { SendHorizonal, Bot, MapPin, TicketPercent, Sparkles, Activity } from 'lucide-react-native';
+import { SendHorizonal, Bot, MapPin, TicketPercent, Sparkles, Activity, Calendar, BookOpen, Navigation, HelpCircle, Coffee, Film } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/Colors';
 import { MOCK_MESSAGES } from '@/api/mockData';
@@ -52,6 +52,48 @@ const QUICK_ACTIONS = [
     label: '🎉 Etkinlikler',
     text: 'Bugün veya yakında hangi etkinlikler var?',
     icon: Sparkles,
+  },
+  {
+    id: 'calendar',
+    label: '📅 Takvim',
+    text: 'Bu ay hangi özel günler var?',
+    icon: Calendar,
+  },
+  {
+    id: 'library',
+    label: '📚 Kütüphaneler',
+    text: 'Şanlıurfa\'da hangi kütüphaneler var?',
+    icon: BookOpen,
+  },
+  {
+    id: 'pharmacy',
+    label: '💊 Nöbetçi Eczane',
+    text: 'Nöbetçi eczaneleri gösterir misin?',
+    icon: Navigation,
+  },
+  {
+    id: 'cultural',
+    label: '🗺️ Kültürel Rotalar',
+    text: 'Şanlıurfa\'da hangi kültürel rotalar var?',
+    icon: Navigation,
+  },
+  {
+    id: 'cafe',
+    label: '☕ Kafeler',
+    text: 'Genç Kart geçerli kafeler hangileri?',
+    icon: Coffee,
+  },
+  {
+    id: 'cinema',
+    label: '🎬 Sinemalar',
+    text: 'Sinema indirimleri hakkında bilgi verir misin?',
+    icon: Film,
+  },
+  {
+    id: 'help',
+    label: '❓ Yardım',
+    text: 'Uygulamayı nasıl kullanabilirim?',
+    icon: HelpCircle,
   },
 ];
 
