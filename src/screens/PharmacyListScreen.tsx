@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,18 +11,23 @@ const PharmacyListScreen = () => {
   const { mode } = useThemeMode();
   const isDark = mode === 'dark';
 
-  const handleDirections = (pharmacy: Pharmacy) => {
+  const handleDirections = useCallback((pharmacy: Pharmacy) => {
     // Adres string'i ile yönlendirme (koordinat gerekmez)
     const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(pharmacy.address)}`;
     Linking.openURL(url).catch(err => console.error('Yol tarifi açılamadı:', err));
-  };
+  }, []);
 
-  const handleCall = (phone: string) => {
+  const handleCall = useCallback((phone: string) => {
     Linking.openURL(`tel:${phone}`).catch(err => console.error('Arama yapılamadı:', err));
-  };
+  }, []);
 
-  const renderPharmacyItem = ({ item }: { item: Pharmacy }) => {
-    return (
+  const pharmacyData = useMemo(() => {
+    const nöbetçi = MOCK_PHARMACIES.filter(p => p.isOnDuty);
+    const diğer = MOCK_PHARMACIES.filter(p => !p.isOnDuty);
+    return [...nöbetçi, ...diğer];
+  }, []);
+
+  const renderPharmacyItem = useCallback(({ item }: { item: Pharmacy }) => (
       <TouchableOpacity
         style={[styles.pharmacyCard, isDark && { backgroundColor: '#1e293b', borderWidth: 1, borderColor: '#334155' }]}
         activeOpacity={0.9}
@@ -63,11 +68,9 @@ const PharmacyListScreen = () => {
           <Navigation color={Colors.primary.indigo} size={20} />
         </TouchableOpacity>
       </TouchableOpacity>
-    );
-  };
+  ), [isDark, handleCall, handleDirections]);
 
-  const nöbetçiEczaneler = MOCK_PHARMACIES.filter(p => p.isOnDuty);
-  const diğerEczaneler = MOCK_PHARMACIES.filter(p => !p.isOnDuty);
+  const nöbetçiCount = useMemo(() => pharmacyData.filter(p => p.isOnDuty).length, [pharmacyData]);
 
   return (
     <SafeAreaView
@@ -79,15 +82,19 @@ const PharmacyListScreen = () => {
         style={styles.header}
       >
         <Text style={styles.headerTitle}>Nöbetçi Eczaneler</Text>
-        <Text style={styles.headerSubtitle}>{nöbetçiEczaneler.length} nöbetçi eczane bulundu</Text>
+        <Text style={styles.headerSubtitle}>{nöbetçiCount} nöbetçi eczane bulundu</Text>
       </LinearGradient>
 
       <FlatList
-        data={[...nöbetçiEczaneler, ...diğerEczaneler]}
+        data={pharmacyData}
         renderItem={renderPharmacyItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        initialNumToRender={8}
+        maxToRenderPerBatch={6}
+        windowSize={7}
+        removeClippedSubviews
       />
     </SafeAreaView>
   );

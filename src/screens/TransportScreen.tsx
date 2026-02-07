@@ -9,6 +9,7 @@ import { Colors } from '@/constants/Colors';
 import { MOCK_STOPS } from '@/data/transport';
 import { estimateTime, calculateDistance } from '@/utils/estimateTime';
 import { useThemeMode } from '@/context/ThemeContext';
+import { useFavorites } from '@/context/FavoritesContext';
 
 const FAVORITE_STOPS = [
   { id: 'abide', name: 'Abide Durağı', lines: '63, 73, 90' },
@@ -31,7 +32,7 @@ const TransportScreen = () => {
   const [nearestStop, setNearestStop] = useState<typeof MOCK_STOPS[0] | null>(null);
   const [upcomingBuses, setUpcomingBuses] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [favorites, setFavorites] = useState<string[]>(['abide', 'osmanbey']);
+  const { favoriteStopIds: favorites, isFavoriteStop, toggleFavorite } = useFavorites();
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [fromStop, setFromStop] = useState<typeof MOCK_STOPS[0] | null>(null);
   const [toStop, setToStop] = useState<typeof MOCK_STOPS[0] | null>(null);
@@ -44,15 +45,7 @@ const TransportScreen = () => {
     transferStop?: typeof MOCK_STOPS[0];
   }>>([]);
 
-  const toggleFavorite = (stopId: string) => {
-    setFavorites((prev) => {
-      if (prev.includes(stopId)) {
-        return prev.filter((id) => id !== stopId);
-      } else {
-        return [...prev, stopId];
-      }
-    });
-  };
+  const onToggleFavorite = (stopId: string) => toggleFavorite('stop', stopId);
 
   // Filtreleme mantığı
   const filteredStops = MOCK_STOPS.filter((stop) => {
@@ -551,16 +544,16 @@ const TransportScreen = () => {
                 key={area}
                 style={[
                   styles.areaPill,
-                  isDark && { backgroundColor: '#1e293b' },
-                  (selectedArea === area || (area === 'Tümü' && selectedArea === null)) && (isDark ? { backgroundColor: '#059669' } : styles.areaPillActive),
+                  isDark && !(selectedArea === area || (area === 'Tümü' && selectedArea === null)) && { backgroundColor: '#1e293b' },
+                  (selectedArea === area || (area === 'Tümü' && selectedArea === null)) && styles.areaPillActive,
                 ]}
                 onPress={() => setSelectedArea(area === 'Tümü' ? null : area)}
               >
                 <Text
                   style={[
                     styles.areaPillText,
-                    isDark && { color: '#94a3b8' },
-                    (selectedArea === area || (area === 'Tümü' && selectedArea === null)) && (isDark ? { color: 'white' } : styles.areaPillTextActive),
+                    !(selectedArea === area || (area === 'Tümü' && selectedArea === null)) && (isDark ? { color: '#94a3b8' } : {}),
+                    (selectedArea === area || (area === 'Tümü' && selectedArea === null)) && styles.areaPillTextActive,
                   ]}
                 >
                   {area}
@@ -609,7 +602,7 @@ const TransportScreen = () => {
                     </Text>
                     <TouchableOpacity
                       style={styles.favoriteStar}
-                      onPress={() => toggleFavorite(stop.id)}
+                      onPress={() => onToggleFavorite(stop.id)}
                     >
                       <Star color="#facc15" size={16} fill="#facc15" />
                     </TouchableOpacity>
@@ -895,7 +888,7 @@ const TransportScreen = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.lightGray,
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -1089,14 +1082,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#f3f4f6',
   },
   areaPillActive: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: '#134e4a',
   },
   areaPillText: {
     color: '#6b7280',
     fontWeight: '500',
   },
   areaPillTextActive: {
-    color: '#16a34a',
+    color: '#ffffff',
   },
   sectionHeaderRow: {
     flexDirection: 'row',

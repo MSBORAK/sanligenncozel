@@ -13,19 +13,23 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { 
-  Calendar, BookOpen, User, Megaphone, Palette, Bus, Users, 
-  Flame, QrCode, X, ChevronLeft, ChevronRight,
+  Calendar, BookOpen, User, Megaphone, Palette, Bus, Users, Search,
+  Flame, QrCode, X, ChevronLeft, ChevronRight, Sparkles,
   CloudRain, Sun, Cloud, CloudSnow, CloudLightning, CloudDrizzle,
   Tag, Coffee, Shirt, Smartphone, Ticket, GraduationCap, Gift,
   Pill, Library, Route
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Colors } from '@/constants/Colors';
+import AnimatedPressable from '@/components/AnimatedPressable';
+import AnimatedListItem from '@/components/AnimatedListItem';
+import Skeleton from '@/components/Skeleton';
 import { MOCK_BUSES, MOCK_PARTNERS, MOCK_EVENTS } from '@/api/mockData';
 import { HomeScreenProps, MainTabParamList } from '@/types/navigation';
 import { useThemeMode } from '@/context/ThemeContext';
@@ -67,11 +71,11 @@ const DEFAULT_STORIES = [
 ];
 
 const QUICK_ACCESS_NAV = [
-    { name: 'Etkinlik', icon: Calendar, color: '#fee2e2', iconColor: '#dc2626', screen: 'Events', type: 'stack' },
-    { name: 'Keşfet', icon: BookOpen, color: '#dbeafe', iconColor: '#2563eb', screen: 'Magazine', type: 'stack' },
-    { name: 'Nöbetçi Eczane', icon: Pill, color: '#fee2e2', iconColor: '#dc2626', screen: 'PharmacyList', type: 'stack' },
-    { name: 'Kütüphaneler', icon: Library, color: '#dcfce7', iconColor: '#16a34a', screen: 'LibraryList', type: 'stack' },
-    { name: 'Gezi Rotası', icon: Route, color: '#fef3c7', iconColor: '#d97706', screen: 'CulturalRoute', type: 'stack' },
+    { name: 'Etkinlik', icon: Calendar, color: '#fecaca', iconColor: '#b91c1c', screen: 'Events', type: 'stack' },
+    { name: 'Keşfet', icon: BookOpen, color: '#bfdbfe', iconColor: '#1d4ed8', screen: 'Magazine', type: 'stack' },
+    { name: 'Nöbetçi Eczane', icon: Pill, color: '#fbcfe8', iconColor: '#be185d', screen: 'PharmacyList', type: 'stack' },
+    { name: 'Kütüphaneler', icon: Library, color: '#bbf7d0', iconColor: '#15803d', screen: 'LibraryList', type: 'stack' },
+    { name: 'Gezi Rotası', icon: Route, color: '#ddd6fe', iconColor: '#6d28d9', screen: 'CulturalRoute', type: 'stack' },
 ];
 
 const QUOTES_OF_DAY = [
@@ -110,6 +114,7 @@ const HomeScreen = () => {
   // Supabase Story State
   const [stories, setStories] = useState<StoryData[]>([]);
   const [loadingStories, setLoadingStories] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   
   // Story detayları - Supabase'den gelen veriler varsa onları kullan
   const getStoryDetails = (storyName: string): { description: string } => {
@@ -271,6 +276,18 @@ const HomeScreen = () => {
     fetchStories();
   }, []);
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    setLoadingFirsatlar(true);
+    setLoadingStories(true);
+    await Promise.all([
+      fetchAllWeatherData(),
+      fetchFirsatlar(),
+      fetchStories(),
+    ]);
+    setRefreshing(false);
+  };
+
   const fetchAllWeatherData = async () => {
     try {
       // Paralel olarak tüm API'leri çağır
@@ -379,13 +396,23 @@ const HomeScreen = () => {
   const handleStoryDetail = () => {
     if (activeStoryIndex === null) return;
     const story = headerNav[activeStoryIndex];
+    setActiveStoryIndex(null); // Modal'ı kapat
     switch (story.name) {
-      case 'Ulaşım': navigation.navigate('Main', { screen: 'Transport' as keyof MainTabParamList }); break;
-      case 'Kültür Sanat': navigation.navigate('Magazine'); break;
-      case 'Gençlik': navigation.navigate('Events'); break;
-      default: navigation.navigate('Profile'); break;
+      case 'Ulaşım': 
+        navigation.navigate('Main', { screen: 'Transport' as keyof MainTabParamList }); 
+        break;
+      case 'Kültür Sanat': 
+        navigation.navigate('Magazine'); 
+        break;
+      case 'Gençlik': 
+        navigation.navigate('Events'); 
+        break;
+      case 'Duyurular':
+        navigation.navigate('Notifications');
+        break;
+      default: 
+        break;
     }
-    setActiveStoryIndex(null);
   };
 
   useEffect(() => {
@@ -445,16 +472,34 @@ const HomeScreen = () => {
     <View style={[styles.root, isDark && { backgroundColor: Colors.black }]}>
       <SafeAreaView style={[styles.statusBarArea, isDark && { backgroundColor: Colors.black }]} edges={['top']} />
       <SafeAreaView style={[styles.container, isDark && { backgroundColor: '#020617' }]} edges={['left', 'right', 'bottom']}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+        <ScrollView 
+          showsVerticalScrollIndicator={false} 
+          contentContainerStyle={{ paddingBottom: 120 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={isDark ? '#818cf8' : Colors.primary.indigo}
+              colors={[Colors.primary.indigo]}
+            />
+          }
+        >
         {/* Header */}
         <LinearGradient
-          colors={isDark ? ['#020617', '#1f2937'] : [Colors.primary.violet, Colors.primary.indigo]}
+          colors={isDark ? ['#020617', '#1f2937'] : ['#134e4a', '#0f766e']}
           style={styles.header}
         >
           <View style={styles.headerTop}>
             <View style={styles.badge}>
               <Text style={styles.badgeText}>◎ ŞANLIURFA</Text>
             </View>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('GlobalSearch')}
+              style={styles.headerSearchBtn}
+              activeOpacity={0.8}
+            >
+              <Search color={Colors.white} size={22} />
+            </TouchableOpacity>
           </View>
           <Text style={styles.greeting}>Selam, Mert! 👋</Text>
           <Text style={styles.greetingSub}>Bugün nasıl gidiyor?</Text>
@@ -468,7 +513,7 @@ const HomeScreen = () => {
                     onPress={() => setActiveStoryIndex(index)}
                   >
                       <LinearGradient
-                        colors={[Colors.primary.indigo, Colors.primary.violet, Colors.accent.rose]}
+                        colors={['#0f766e', '#134e4a', '#115e59']}
                         style={styles.storyBorder}
                       >
                         <Image source={typeof item.image === 'string' ? { uri: item.image } : item.image} style={styles.headerNavImage} />
@@ -482,7 +527,7 @@ const HomeScreen = () => {
         {/* Dashboard */}
         <View style={styles.dashboardInner}>
           <LinearGradient
-            colors={isDark ? ['#1e293b', '#334155'] : [Colors.primary.indigo, Colors.primary.violet]}
+            colors={isDark ? ['#1e293b', '#334155'] : ['#134e4a', '#0f766e']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.statsCard}
@@ -495,7 +540,7 @@ const HomeScreen = () => {
               >
                   <Text style={styles.statsTitleWhite}>HAVA DURUMU</Text>
                   <View style={styles.weatherStatsRow}>
-                    {getWeatherIcon(22, '#fbbf24')}
+                    {getWeatherIcon(22, '#f8fafc')}
                     <Text style={[styles.statsValueWhite, { marginLeft: 6 }]}>
                       {weatherData ? `${Math.round(weatherData.main.temp)}°` : '--'}
                     </Text>
@@ -512,7 +557,7 @@ const HomeScreen = () => {
               >
                   <Text style={styles.statsTitleWhite}>TAKVİM</Text>
                   <View style={styles.calendarStatsRow}>
-                    <Calendar color="#818cf8" size={22} />
+                    <Calendar color="#5eead4" size={22} />
                     <Text style={[styles.statsValueWhite, { marginLeft: 6 }]}>
                       {new Date().getDate()} {['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'][new Date().getMonth()]}
                     </Text>
@@ -523,12 +568,12 @@ const HomeScreen = () => {
           <View style={styles.content}>
             {/* Quote of the day Widget - Full Width */}
             <View style={styles.widgetsContainer}>
-                <TouchableOpacity style={[styles.widgetCard, styles.quoteCard, { width: '100%' }, isDark && { backgroundColor: '#312e81' }]}>
+                <TouchableOpacity style={[styles.widgetCard, styles.quoteCard, { width: '100%' }, isDark && { backgroundColor: '#134e4a' }]}>
                     <View style={styles.quoteHeaderRow}>
-                      <Text style={[styles.widgetLabel, styles.widgetLabelQuote, isDark && { color: '#a5b4fc' }]}>GÜNÜN SÖZÜ</Text>
-                      <Flame color={isDark ? '#fb7185' : Colors.accent.rose} size={20} />
+                      <Text style={[styles.widgetLabel, styles.widgetLabelQuote]}>GÜNÜN SÖZÜ</Text>
+                      <Flame color="#ffffff" size={20} />
                     </View>
-                    <Text style={[styles.quoteText, isDark && { color: '#e0e7ff' }]} numberOfLines={2}>"{quoteOfDay}"</Text>
+                    <Text style={styles.quoteText} numberOfLines={2}>"{quoteOfDay}"</Text>
                 </TouchableOpacity>
             </View>
 
@@ -537,11 +582,10 @@ const HomeScreen = () => {
             <View style={styles.quickAccessContainer}>
                 <View style={styles.quickAccessGrid}>
                     {QUICK_ACCESS_NAV.slice(0, 3).map(item => (
-                        <TouchableOpacity 
+                        <AnimatedPressable 
                             key={item.name} 
                             style={styles.quickAccessItem} 
                             onPress={() => handleNavigation(item)}
-                            activeOpacity={0.8}
                         >
                             <View style={styles.quickAccessIcon}>
                                 <BlurView intensity={90} tint={isDark ? "dark" : "light"} style={styles.blurView}>
@@ -552,16 +596,15 @@ const HomeScreen = () => {
                             <Text style={[styles.quickAccessText, isDark && { color: '#cbd5e1', opacity: 0.9 }]} numberOfLines={2}>
                                 {item.name}
                             </Text>
-                        </TouchableOpacity>
+                        </AnimatedPressable>
                     ))}
                 </View>
                 <View style={styles.quickAccessGridBottom}>
                     {QUICK_ACCESS_NAV.slice(3, 5).map(item => (
-                        <TouchableOpacity 
+                        <AnimatedPressable 
                             key={item.name} 
                             style={styles.quickAccessItem} 
                             onPress={() => handleNavigation(item)}
-                            activeOpacity={0.8}
                         >
                             <View style={styles.quickAccessIcon}>
                                 <BlurView intensity={90} tint={isDark ? "dark" : "light"} style={styles.blurView}>
@@ -572,21 +615,52 @@ const HomeScreen = () => {
                             <Text style={[styles.quickAccessText, isDark && { color: '#cbd5e1', opacity: 0.9 }]} numberOfLines={2}>
                                 {item.name}
                             </Text>
-                        </TouchableOpacity>
+                        </AnimatedPressable>
                     ))}
                 </View>
             </View>
 
-            <Text style={[styles.sectionTitle, { marginTop: 28 }, isDark && { color: '#94a3b8' }]}>Genç Kart Fırsatları</Text>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitleInHeader, isDark && { color: '#94a3b8' }]}>Genç Kart Fırsatları</Text>
+              <TouchableOpacity 
+                onPress={() => navigation.navigate('Main', { screen: 'GencKart' as keyof MainTabParamList })}
+                style={styles.seeAllButton}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.seeAllText, isDark && { color: '#818cf8' }]}>Tümünü Gör</Text>
+                <ChevronRight color={isDark ? '#818cf8' : Colors.primary.indigo} size={16} />
+              </TouchableOpacity>
+            </View>
             
             <View style={styles.partnersScrollWrapper}>
               {loadingFirsatlar ? (
-                  <View style={{height: 100, justifyContent:'center', alignItems:'center'}}>
-                      <ActivityIndicator color={Colors.primary.indigo} />
-                  </View>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.partnersScrollContent}>
+                    {[1, 2, 3].map((i) => (
+                      <View key={i} style={[styles.partnerCard, isDark && { backgroundColor: '#1e293b' }]}>
+                        <Skeleton width={32} height={32} borderRadius={16} isDark={isDark} />
+                        <Skeleton width="80%" height={14} borderRadius={6} isDark={isDark} />
+                        <Skeleton width="60%" height={12} borderRadius={6} isDark={isDark} />
+                      </View>
+                    ))}
+                  </ScrollView>
               ) : firsatlar.length === 0 ? (
-                  <View style={{height: 100, justifyContent:'center', alignItems:'center'}}>
-                      <Text style={{color: isDark ? '#cbd5e1' : '#64748b'}}>Henüz aktif fırsat bulunmuyor.</Text>
+                  <View style={[styles.emptyFirsatContainer, isDark && styles.emptyFirsatContainerDark]}>
+                    <View style={[styles.emptyFirsatIconWrap, isDark && { backgroundColor: '#334155' }]}>
+                      <Gift color={isDark ? '#94a3b8' : Colors.primary.indigo} size={32} />
+                    </View>
+                    <Text style={[styles.emptyFirsatTitle, isDark && { color: '#f8fafc' }]}>
+                      Bugün öne çıkan fırsat yok
+                    </Text>
+                    <Text style={[styles.emptyFirsatSub, isDark && { color: '#94a3b8' }]}>
+                      Genç Kart ile indirimler yakında burada
+                    </Text>
+                    <AnimatedPressable
+                      onPress={() => navigation.navigate('Main', { screen: 'GencKart' as keyof MainTabParamList })}
+                      style={[styles.emptyFirsatCta, isDark && { backgroundColor: '#334155' }]}
+                    >
+                      <Sparkles color={isDark ? '#e2e8f0' : Colors.primary.indigo} size={18} />
+                      <Text style={[styles.emptyFirsatCtaText, isDark && { color: '#e2e8f0' }]}>Genç Kart'ı Keşfet</Text>
+                    </AnimatedPressable>
                   </View>
               ) : (
                   <>
@@ -599,12 +673,12 @@ const HomeScreen = () => {
                         snapToInterval={170 + 12}
                         decelerationRate="fast"
                     >
-                        {firsatlar.map(partner => {
+                        {firsatlar.map((partner, index) => {
                             const theme = getCategoryTheme(partner.kategori);
                             const Icon = theme.icon;
                             return (
+                                <AnimatedListItem key={partner.id} index={index} delay={80}>
                                 <TouchableOpacity
-                                key={partner.id}
                                 style={[
                                     styles.partnerCard, 
                                     { backgroundColor: theme.bg || '#fff7ed' }, 
@@ -619,6 +693,7 @@ const HomeScreen = () => {
                                 <Text style={[styles.partnerName, isDark && { color: '#f8fafc' }]} numberOfLines={1}>{partner.baslik}</Text>
                                 <Text style={[styles.partnerOffer, isDark && { color: '#cbd5e1' }]} numberOfLines={1}>{partner.kategori}</Text>
                                 </TouchableOpacity>
+                                </AnimatedListItem>
                             );
                         })}
                     </ScrollView>
@@ -926,16 +1001,17 @@ const HomeScreen = () => {
 };
 
 const styles = StyleSheet.create({
-    root: { flex: 1, backgroundColor: Colors.primary.violet },
-    statusBarArea: { backgroundColor: Colors.primary.violet },
+    root: { flex: 1, backgroundColor: '#134e4a' },
+    statusBarArea: { backgroundColor: '#134e4a' },
     container: { flex: 1, backgroundColor: Colors.lightGray },
     dashboardInner: { paddingBottom: 24 },
     header: { borderBottomLeftRadius: 40, borderBottomRightRadius: 40, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 60 },
     headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    headerSearchBtn: { padding: 8 },
     badge: { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-    badgeText: { color: Colors.white, fontWeight: 'bold' },
-    greeting: { fontSize: 32, fontWeight: 'bold', color: Colors.white, marginTop: 10 },
-    greetingSub: { fontSize: 16, color: 'rgba(255,255,255,0.85)', marginTop: 4 },
+    badgeText: { fontFamily: 'PlusJakartaSans_700Bold', color: Colors.white },
+    greeting: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 32, color: Colors.white, marginTop: 10 },
+    greetingSub: { fontFamily: 'PlusJakartaSans_500Medium', fontSize: 16, color: 'rgba(255,255,255,0.9)', marginTop: 4 },
     headerNavContainer: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 20 },
     headerNavItem: { alignItems: 'center' },
     storyBorder: { width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center' },
@@ -956,6 +1032,29 @@ const styles = StyleSheet.create({
     content: { paddingVertical: 20 },
     sectionTitle: { fontSize: 14, fontWeight: 'bold', color: '#9ca3af', paddingHorizontal: 20, marginBottom: 12 },
     sectionTitleWithMargin: { marginTop: 24 },
+    sectionHeader: { 
+        flexDirection: 'row', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        paddingHorizontal: 20,
+        marginTop: 28,
+        marginBottom: 12,
+    },
+    sectionTitleInHeader: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#9ca3af',
+    },
+    seeAllButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    seeAllText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: Colors.primary.indigo,
+    },
     quickAccessContainer: { paddingHorizontal: 20, marginTop: 8 },
     quickAccessGrid: {
         flexDirection: 'row',
@@ -991,6 +1090,13 @@ const styles = StyleSheet.create({
         lineHeight: 14,
     },
     partnersScrollContent: { paddingHorizontal: 20, paddingVertical: 4 },
+    emptyFirsatContainer: { minHeight: 140, justifyContent: 'center', alignItems: 'center', paddingVertical: 24, paddingHorizontal: 20, backgroundColor: 'rgba(13,148,136,0.08)', borderRadius: 20, marginHorizontal: 20 },
+    emptyFirsatContainerDark: { backgroundColor: 'rgba(51,65,85,0.5)' },
+    emptyFirsatIconWrap: { width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(13,148,136,0.15)', justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+    emptyFirsatTitle: { fontSize: 16, fontWeight: '600', color: Colors.darkGray, marginBottom: 4 },
+    emptyFirsatSub: { fontSize: 14, color: '#64748b', marginBottom: 16 },
+    emptyFirsatCta: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: 'rgba(13,148,136,0.12)', borderRadius: 12 },
+    emptyFirsatCtaText: { fontSize: 14, fontWeight: '600', color: Colors.primary.indigo },
     partnerCard: { width: 170, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 14, marginRight: 12, justifyContent: 'space-between', backgroundColor: '#fff7ed' },
     partnerIconWrapper: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
     partnerName: { fontSize: 14, fontWeight: '600', color: Colors.darkGray, marginBottom: 4 },
@@ -1003,10 +1109,10 @@ const styles = StyleSheet.create({
     weatherCard: { justifyContent: 'space-between', flexDirection: 'row', alignItems: 'center' },
     weatherTemp: { color: Colors.white, fontSize: 24, fontWeight: 'bold' },
     weatherIconWrapper: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
-    quoteCard: { backgroundColor: '#c7d2fe', borderRadius: 18, paddingHorizontal: 16, paddingVertical: 14, justifyContent: 'flex-start' },
+    quoteCard: { backgroundColor: '#0d9488', borderRadius: 18, paddingHorizontal: 16, paddingVertical: 14, justifyContent: 'flex-start' },
     quoteHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    widgetLabelQuote: { color: Colors.primary.indigo },
-    quoteText: { marginTop: 4, fontSize: 11, lineHeight: 15, fontWeight: '600', color: '#111827' },
+    widgetLabelQuote: { color: '#ffffff' },
+    quoteText: { marginTop: 4, fontSize: 11, lineHeight: 15, fontWeight: '600', color: '#ffffff' },
     storyModalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
     storyModalCard: { width: '100%', maxWidth: 420, aspectRatio: 9 / 16, borderRadius: 26, overflow: 'hidden', backgroundColor: Colors.black },
     storyProgressBarBackground: { position: 'absolute', top: 10, left: 12, right: 12, height: 3, borderRadius: 999, backgroundColor: 'rgba(148,163,184,0.6)', overflow: 'hidden', zIndex: 2 },

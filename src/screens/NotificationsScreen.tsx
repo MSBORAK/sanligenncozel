@@ -37,6 +37,10 @@ const NotificationsScreen = () => {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        initialNumToRender={10}
+        maxToRenderPerBatch={6}
+        windowSize={8}
+        removeClippedSubviews
         renderItem={({ item }) => (
           <TouchableOpacity
             activeOpacity={0.9}
@@ -70,7 +74,7 @@ const NotificationsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F8FA',
+    backgroundColor: Colors.lightGray,
   },
   header: {
     paddingHorizontal: 20,

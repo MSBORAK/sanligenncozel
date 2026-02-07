@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,14 +11,13 @@ const LibraryListScreen = () => {
   const { mode } = useThemeMode();
   const isDark = mode === 'dark';
 
-  const handleDirections = (library: LibraryType) => {
+  const handleDirections = useCallback((library: LibraryType) => {
     // Adres string'i ile yönlendirme (koordinat gerekmez)
     const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(library.address)}`;
     Linking.openURL(url).catch(err => console.error('Yol tarifi açılamadı:', err));
-  };
+  }, []);
 
-  const renderLibraryItem = ({ item }: { item: LibraryType }) => {
-    return (
+  const renderLibraryItem = useCallback(({ item }: { item: LibraryType }) => (
       <TouchableOpacity
         style={[styles.libraryCard, isDark && { backgroundColor: '#1e293b', borderWidth: 1, borderColor: '#334155' }]}
         activeOpacity={0.9}
@@ -48,8 +47,7 @@ const LibraryListScreen = () => {
           <Navigation color={Colors.primary.indigo} size={20} />
         </TouchableOpacity>
       </TouchableOpacity>
-    );
-  };
+  ), [isDark, handleDirections]);
 
   return (
     <SafeAreaView
@@ -70,6 +68,10 @@ const LibraryListScreen = () => {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        initialNumToRender={8}
+        maxToRenderPerBatch={6}
+        windowSize={7}
+        removeClippedSubviews
       />
     </SafeAreaView>
   );

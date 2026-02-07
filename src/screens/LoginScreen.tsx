@@ -18,7 +18,7 @@ import { Eye, EyeOff, Mail, Lock, CheckCircle2, Circle } from 'lucide-react-nati
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
-import { Colors } from '@/constants/Colors';
+import { Colors, Gradients } from '@/constants/Colors';
 import BackgroundImage from '@/assets/images/background.jpg';
 
 const { width, height } = Dimensions.get('window');
@@ -49,12 +49,12 @@ const LoginScreen = () => {
       <ImageBackground source={BackgroundImage} style={StyleSheet.absoluteFill}>
         {/* Arka Plan Gradyanı ve Efektler */}
         <LinearGradient
-          colors={['rgba(26,11,46,0.4)', 'rgba(45,27,77,0.5)', 'rgba(26,11,46,0.7)']}
+          colors={['rgba(15,118,110,0.5)', 'rgba(13,148,136,0.4)', 'rgba(20,184,166,0.3)']}
           style={StyleSheet.absoluteFill}
         >
-          {/* Dekoratif Işık Efektleri */}
-          <View style={[styles.glow, { top: '10%', left: '-10%', backgroundColor: '#6d28d9' }]} />
-          <View style={[styles.glow, { bottom: '20%', right: '-10%', backgroundColor: '#4c1d95' }]} />
+          {/* Dekoratif Işık - Balıklıgöl teal & Urfa taşı */}
+          <View style={[styles.glow, { top: '10%', left: '-10%', backgroundColor: '#0d9488' }]} />
+          <View style={[styles.glow, { bottom: '20%', right: '-10%', backgroundColor: '#14b8a6' }]} />
         </LinearGradient>
       </ImageBackground>
 
@@ -227,7 +227,7 @@ const LoginScreen = () => {
                     style={styles.loginBtnWrapper}
                   >
                     <LinearGradient
-                      colors={['#a855f7', '#6366f1']}
+                      colors={[...Gradients.hero]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={styles.loginBtn}
@@ -268,7 +268,7 @@ const LoginScreen = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#1a0b2e',
+    backgroundColor: '#0f172a',
   },
   glow: {
     position: 'absolute',
@@ -292,19 +292,19 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: {
+    fontFamily: 'PlusJakartaSans_800ExtraBold',
     fontSize: 42,
-    fontWeight: 'bold',
     color: '#fff',
-    textShadowColor: 'rgba(168, 85, 247, 0.9)',
+    textShadowColor: 'rgba(13,148,136,0.8)',
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 20,
+    textShadowRadius: 24,
     letterSpacing: 2,
   },
   subtitle: {
+    fontFamily: 'PlusJakartaSans_500Medium',
     fontSize: 16,
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(255,255,255,0.85)',
     marginTop: 8,
-    fontWeight: '500',
     letterSpacing: 0.5,
   },
   cardContainer: {
@@ -312,9 +312,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
-    shadowColor: '#a855f7',
+    shadowColor: '#0d9488',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.25,
     shadowRadius: 30,
     elevation: 10,
   },
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   activeTab: {
-    backgroundColor: '#6d28d9',
+    backgroundColor: Colors.primary.indigo,
   },
   tabText: {
     color: 'rgba(255,255,255,0.6)',
@@ -411,26 +411,26 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#a855f7',
+    shadowColor: '#0d9488',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
-    shadowRadius: 10,
+    shadowRadius: 12,
   },
   loginBtnText: {
+    fontFamily: 'PlusJakartaSans_700Bold',
     color: '#fff',
     fontSize: 18,
-    fontWeight: 'bold',
     letterSpacing: 1,
   },
   guestLoginButton: {
     alignItems: 'center',
     paddingVertical: 12,
-    borderRadius: 28, // Main buton ile aynı yuvarlaklığı koruyalım
-    backgroundColor: 'rgba(139, 92, 246, 0.15)', // Violet renginin şeffaf bir tonu
+    borderRadius: 28,
+    backgroundColor: 'rgba(13,148,136,0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.3)', // Daha belirgin bir kenarlık
-    marginTop: 10, // Ana butondan biraz boşluk bırakalım
-    shadowColor: Colors.primary.violet,
+    borderColor: 'rgba(13,148,136,0.4)',
+    marginTop: 10,
+    shadowColor: Colors.primary.indigo,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 5,

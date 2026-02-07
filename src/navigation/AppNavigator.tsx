@@ -25,6 +25,7 @@ import EventDetailScreen from '@/screens/EventDetailScreen';
 import PharmacyListScreen from '@/screens/PharmacyListScreen';
 import LibraryListScreen from '@/screens/LibraryListScreen';
 import CulturalRouteScreen from '@/screens/CulturalRouteScreen';
+import GlobalSearchScreen from '@/screens/GlobalSearchScreen';
 
 // Custom Tab Bar
 import CustomTabBar from './CustomTabBar';
@@ -97,12 +98,33 @@ const MainTabs = () => {
   );
 };
 
+const slideFromRight = ({ current }: any) => ({
+  cardStyle: {
+    transform: [
+      {
+        translateX: current.progress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [50, 0],
+        }),
+      },
+    ],
+    opacity: current.progress,
+  },
+});
+
 const AppNavigator = () => {
   return (
     <NavigationContainer>
       <Stack.Navigator
         initialRouteName="Login"
-        screenOptions={{ headerShown: false }}
+        screenOptions={{
+          headerShown: false,
+          cardStyleInterpolator: slideFromRight,
+          transitionSpec: {
+            open: { animation: 'spring', config: { stiffness: 300, damping: 30 } },
+            close: { animation: 'spring', config: { stiffness: 300, damping: 30 } },
+          },
+        }}
       >
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
@@ -117,6 +139,7 @@ const AppNavigator = () => {
         <Stack.Screen name="PharmacyList" component={PharmacyListScreen} />
         <Stack.Screen name="LibraryList" component={LibraryListScreen} />
         <Stack.Screen name="CulturalRoute" component={CulturalRouteScreen} />
+        <Stack.Screen name="GlobalSearch" component={GlobalSearchScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

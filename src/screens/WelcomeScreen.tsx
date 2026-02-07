@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ImageBackground } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors } from '@/constants/Colors';
+import { Colors, Gradients } from '@/constants/Colors';
 import BackgroundImage from '@/assets/images/background.jpg';
 import { useThemeMode } from '@/context/ThemeContext';
 import type { StackScreenProps } from '@react-navigation/stack';
@@ -45,7 +45,7 @@ const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
 
         <View style={styles.content}>
           <LinearGradient
-            colors={['#a855f7', '#6366f1']}
+            colors={[...Gradients.hero]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.cardOuter}

@@ -138,13 +138,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ item }) => {
         ]}
       >
         {item.sender === 'bot' && (
-          <View style={styles.botAvatar}>
-            <Bot color={Colors.primary.indigo} size={20} />
+          <View style={[styles.botAvatar, isDark && styles.botAvatarDark]}>
+            <Bot color={isDark ? '#5eead4' : Colors.primary.indigo} size={20} />
           </View>
         )}
         {item.sender === 'user' ? (
           <LinearGradient
-            colors={[Colors.primary.indigo, Colors.primary.violet]}
+            colors={['#134e4a', '#0f766e']}
             style={[styles.bubble, styles.userBubble]}
           >
             <Text style={styles.userBubbleText}>
@@ -376,8 +376,11 @@ const AssistantScreen = () => {
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.chatContainer}
             showsVerticalScrollIndicator={false}
-            inverted 
+            inverted
             style={{ flex: 1 }}
+            initialNumToRender={12}
+            maxToRenderPerBatch={4}
+            windowSize={10}
           />
 
           {/* Typing indicator */}
@@ -389,8 +392,8 @@ const AssistantScreen = () => {
                 { paddingHorizontal: 15 },
               ]}
             >
-              <View style={styles.botAvatar}>
-                <Bot color={Colors.primary.indigo} size={20} />
+              <View style={[styles.botAvatar, isDark && styles.botAvatarDark]}>
+                <Bot color={isDark ? '#5eead4' : Colors.primary.indigo} size={20} />
               </View>
               <View style={[styles.bubble, styles.botBubble, styles.typingBubble, isDark && { backgroundColor: '#334155' }]}>
                 <Text style={[styles.typingText, isDark && { color: '#f8fafc' }]}>{typingDots}</Text>
@@ -414,7 +417,7 @@ const AssistantScreen = () => {
               onPress={() => sendUserMessage(inputText)}
               activeOpacity={0.9}
             >
-               <LinearGradient colors={[Colors.primary.indigo, Colors.primary.violet]} style={styles.sendButtonGradient}>
+               <LinearGradient colors={['#134e4a', '#0f766e']} style={styles.sendButtonGradient}>
                   <SendHorizonal color={Colors.white} size={24} />
                </LinearGradient>
             </TouchableOpacity>
@@ -432,7 +435,7 @@ const styles = StyleSheet.create({
   },
   bubblePage: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: Colors.lightGray,
     marginHorizontal: 10,
     marginBottom: 95, 
     borderRadius: 30,
@@ -507,9 +510,12 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#e0e7ff',
+    backgroundColor: '#ccfbf1',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  botAvatarDark: {
+    backgroundColor: '#134e4a',
   },
   bubble: {
     padding: 15,
@@ -519,8 +525,10 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 5,
   },
   botBubble: {
-    backgroundColor: Colors.lightGray,
+    backgroundColor: '#ffffff',
     borderBottomLeftRadius: 5,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   userBubbleText: {
     color: Colors.white,

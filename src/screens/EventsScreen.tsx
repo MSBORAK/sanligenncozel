@@ -1,18 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ImageBackground, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Heart } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
 import { Colors } from '@/constants/Colors';
+import AnimatedListItem from '@/components/AnimatedListItem';
+import Skeleton from '@/components/Skeleton';
 import { MOCK_EVENTS } from '@/api/mockData';
 import { Event } from '@/types';
 import { useThemeMode } from '@/context/ThemeContext';
+import { useFavorites } from '@/context/FavoritesContext';
 import { supabase, processImageUrl } from '@/lib/supabase';
 
-const CATEGORIES = ['Tümü', 'Konser', 'Gezi', 'Spor'];
+const CATEGORIES = ['Tümü', 'Favorilerim', 'Konser', 'Gezi', 'Spor'];
 
 // Supabase Event Veri Tipi
 interface EventData {
@@ -31,10 +34,12 @@ const EventsScreen = () => {
   const { mode } = useThemeMode();
   const isDark = mode === 'dark';
   const navigation = useNavigation<EventScreenNavigationProp>();
-  const [activeTab, setActiveTab] = useState('Tümü');
+  const route = useRoute();
+  const initialTab = (route.params as { initialTab?: string } | undefined)?.initialTab;
+  const [activeTab, setActiveTab] = useState(initialTab === 'Favorilerim' ? 'Favorilerim' : 'Tümü');
   const [events, setEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [favoriteEvents, setFavoriteEvents] = useState<string[]>([]);
+  const { favoriteEventIds, isFavoriteEvent, toggleFavorite } = useFavorites();
 
   // Supabase'den etkinlikleri çek
   const fetchEvents = async () => {
@@ -57,32 +62,29 @@ const EventsScreen = () => {
     fetchEvents();
   }, []);
 
-  // Filtrelenmiş etkinlikler
-  const filteredEvents = activeTab === 'Tümü' 
-    ? events 
-    : activeTab === 'Favorilerim'
-      ? events.filter(event => favoriteEvents.includes(event.id.toString()))
-      : events.filter(event => event.kategori === activeTab);
+  // Filtrelenmiş etkinlikler (useMemo - gereksiz re-filter önler)
+  const filteredEvents = useMemo(() => {
+    if (activeTab === 'Tümü') return events;
+    if (activeTab === 'Favorilerim') return events.filter(e => favoriteEventIds.includes(e.id.toString()));
+    return events.filter(e => e.kategori === activeTab);
+  }, [events, activeTab, favoriteEventIds]);
 
   // Event verisini UI'a uygun formata çevir
-  const formatEvent = (event: EventData): Event => ({
+  const formatEvent = useCallback((event: EventData): Event => ({
     id: event.id.toString(),
     title: event.baslik,
     date: event.tarih,
     location: event.konum,
     category: (event.kategori as 'Konser' | 'Gezi' | 'Spor') || 'Gezi',
     image: processImageUrl(event.resim_url, 'etkinlik_resimleri') || 'https://via.placeholder.com/400x300',
-  });
+  }), []);
 
-  const toggleFavorite = (eventId: string) => {
-    setFavoriteEvents(prevFavorites => 
-      prevFavorites.includes(eventId)
-        ? prevFavorites.filter(id => id !== eventId)
-        : [...prevFavorites, eventId]
-    );
-  };
+  const listData = useMemo(() => filteredEvents.map(formatEvent), [filteredEvents, formatEvent]);
 
-  const renderEventItem = ({ item }: { item: Event }) => (
+  const onToggleFavorite = useCallback((eventId: string) => toggleFavorite('event', eventId), [toggleFavorite]);
+
+  const renderEventItem = useCallback(({ item, index }: { item: Event; index: number }) => (
+    <AnimatedListItem index={index} delay={60}>
     <TouchableOpacity style={styles.eventCard} onPress={() => navigation.navigate('EventDetail', { eventId: item.id })}>
       <ImageBackground source={{ uri: item.image }} style={styles.eventImage} imageStyle={{ borderRadius: 20 }}>
         <LinearGradient
@@ -92,8 +94,8 @@ const EventsScreen = () => {
         <View style={styles.badgeContainer}>
           <Text style={styles.categoryBadge}>{item.category}</Text>
         </View>
-        <TouchableOpacity style={styles.likeButton} onPress={() => toggleFavorite(item.id)}>
-          <Heart color={Colors.white} size={24} fill={favoriteEvents.includes(item.id) ? Colors.primary.violet : "transparent"} />
+        <TouchableOpacity style={styles.likeButton} onPress={() => onToggleFavorite(item.id)}>
+          <Heart color={Colors.white} size={24} fill={isFavoriteEvent(item.id) ? Colors.primary.violet : "transparent"} />
         </TouchableOpacity>
         <View style={styles.eventInfo}>
           <Text style={styles.eventTitle}>{item.title}</Text>
@@ -101,7 +103,8 @@ const EventsScreen = () => {
         </View>
       </ImageBackground>
     </TouchableOpacity>
-  );
+    </AnimatedListItem>
+  ), [isFavoriteEvent, navigation, onToggleFavorite]);
 
   return (
     <SafeAreaView
@@ -143,7 +146,15 @@ const EventsScreen = () => {
 
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator color={Colors.primary.indigo} size="large" />
+            {[1, 2, 3].map((i) => (
+              <View key={i} style={[styles.eventCard, { overflow: 'hidden' }]}>
+                <Skeleton width="100%" height={280} borderRadius={20} isDark={isDark} />
+                <View style={{ padding: 16, gap: 8 }}>
+                  <Skeleton width="70%" height={18} borderRadius={6} isDark={isDark} />
+                  <Skeleton width="50%" height={14} borderRadius={6} isDark={isDark} />
+                </View>
+              </View>
+            ))}
           </View>
         ) : filteredEvents.length === 0 ? (
           <View style={styles.emptyContainer}>
@@ -155,11 +166,15 @@ const EventsScreen = () => {
           </View>
         ) : (
           <FlatList
-            data={filteredEvents.map(formatEvent)}
+            data={listData}
             renderItem={renderEventItem}
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContainer}
+            initialNumToRender={6}
+            maxToRenderPerBatch={4}
+            windowSize={6}
+            removeClippedSubviews
           />
         )}
     </SafeAreaView>
@@ -170,7 +185,7 @@ const EventsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F8FA',
+    backgroundColor: Colors.lightGray,
   },
   header: {
     paddingHorizontal: 20,
@@ -276,9 +291,9 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingHorizontal: 20,
     paddingTop: 100,
+    gap: 20,
   },
   emptyContainer: {
     flex: 1,

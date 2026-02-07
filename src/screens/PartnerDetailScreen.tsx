@@ -129,7 +129,7 @@ const PartnerDetailScreen: React.FC<Props> = ({ route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F8FA',
+    backgroundColor: Colors.lightGray,
   },
   imageContainer: {
     marginHorizontal: 20,

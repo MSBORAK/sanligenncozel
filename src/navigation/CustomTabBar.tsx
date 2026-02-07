@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Home, Bus, QrCode, MessageSquare, User } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { Colors } from '@/constants/Colors';
+import AnimatedPressable from '@/components/AnimatedPressable';
 
 const ICONS = {
   Home,
@@ -35,17 +36,16 @@ const CustomTabBar = ({ activeIndex, onTabPress, tabNames }: CustomTabBarProps) 
           };
 
           return (
-            <TouchableOpacity
+            <AnimatedPressable
               key={tabName}
-              accessibilityRole="button"
-              accessibilityState={isFocused ? { selected: true } : {}}
               onPress={onPress}
               style={styles.tabButton}
+              scaleTo={0.9}
             >
               <View style={[styles.iconContainer, isFocused ? styles.iconFocused : {}]}>
                 <Icon color={isFocused ? Colors.primary.indigo : '#9ca3af'} size={28} />
               </View>
-            </TouchableOpacity>
+            </AnimatedPressable>
           );
         })}
       </BlurView>

@@ -2,8 +2,9 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowUpRight, MapPin, Wifi } from 'lucide-react-native';
+import { ArrowUpRight, MapPin, Wifi, Heart } from 'lucide-react-native';
 import { Colors } from '@/constants/Colors';
+import AnimatedListItem from '@/components/AnimatedListItem';
 import { MOCK_USER, MOCK_PARTNERS } from '@/api/mockData';
 import { DiscountPartner } from '@/types';
 import { UrfaIcon_Balik, UrfaIcon_Gobeklitepe, UrfaIcon_Harran } from '@/components/icons/Custom/UrfaIcons';
@@ -11,6 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { RootStackParamList } from '@/types/navigation';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { useThemeMode } from '@/context/ThemeContext';
+import { useFavorites } from '@/context/FavoritesContext';
 import { BlurView } from 'expo-blur';
 
 
@@ -24,6 +26,7 @@ const GencKartScreen = () => {
   const navigation = useNavigation<Nav>();
   const { mode } = useThemeMode();
   const isDark = mode === 'dark';
+  const { isFavoritePartner, toggleFavorite } = useFavorites();
   const [selectedCategory, setSelectedCategory] = useState<Category>('Tümü');
 
   const filteredPartners = useMemo(() => {
@@ -34,13 +37,21 @@ const GencKartScreen = () => {
   }, [selectedCategory]);
 
   const renderPartnerItem = (item: DiscountPartner) => {
-    const Icon = item.icon; 
+    const Icon = item.icon;
+    const isFav = isFavoritePartner(item.id);
     return (
         <TouchableOpacity 
             style={[styles.partnerCard, isDark && { backgroundColor: '#1e293b' }]} 
             activeOpacity={0.9} 
             onPress={() => navigation.navigate('PartnerDetail', { partnerId: item.id })}
         >
+            <TouchableOpacity
+              style={styles.partnerHeartButton}
+              onPress={(e) => { e.stopPropagation(); toggleFavorite('partner', item.id); }}
+              activeOpacity={0.8}
+            >
+              <Heart color={isFav ? Colors.primary.violet : (isDark ? '#94a3b8' : '#9ca3af')} size={20} fill={isFav ? Colors.primary.violet : 'transparent'} />
+            </TouchableOpacity>
             <View style={[styles.partnerIconContainer, { backgroundColor: item.bgColor }, isDark && { backgroundColor: '#334155' }]}>
                 <Icon color={isDark ? '#e2e8f0' : item.iconColor} size={24}/>
             </View>
@@ -67,7 +78,7 @@ const GencKartScreen = () => {
 
             {/* Genç Kart */}
             <LinearGradient
-                colors={['#374151', '#581c87', '#0f172a']}
+                colors={['#0f766e', '#1c1917', '#0d9488']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.gencKart}
@@ -181,10 +192,10 @@ const GencKartScreen = () => {
             </ScrollView>
 
             <View style={styles.listContainer}>
-                {filteredPartners.map((item) => (
-                    <View key={item.id}>
+                {filteredPartners.map((item, index) => (
+                    <AnimatedListItem key={item.id} index={index} delay={60}>
                         {renderPartnerItem(item)}
-                    </View>
+                    </AnimatedListItem>
                 ))}
             </View>
       </ScrollView>
@@ -195,7 +206,7 @@ const GencKartScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F8FA',
+    backgroundColor: Colors.lightGray,
   },
   header: {
       paddingHorizontal: 20,
@@ -302,6 +313,13 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     paddingHorizontal: 20,
+  },
+  partnerHeartButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 1,
+    padding: 6,
   },
   partnerCard: {
     flexDirection: 'row',

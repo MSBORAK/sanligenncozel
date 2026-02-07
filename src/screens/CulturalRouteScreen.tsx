@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,7 +25,7 @@ const CulturalRouteScreen = () => {
     }
   };
 
-  const renderPlanItem = ({ item }: { item: WeekendPlan }) => {
+  const renderPlanItem = useCallback(({ item }: { item: WeekendPlan }) => {
     const categoryTheme = getCategoryColor(item.category);
     return (
       <TouchableOpacity
@@ -77,7 +77,7 @@ const CulturalRouteScreen = () => {
         )}
       </TouchableOpacity>
     );
-  };
+  }, [isDark]);
 
   return (
     <SafeAreaView
@@ -98,6 +98,10 @@ const CulturalRouteScreen = () => {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        initialNumToRender={6}
+        maxToRenderPerBatch={4}
+        windowSize={6}
+        removeClippedSubviews
       />
     </SafeAreaView>
   );

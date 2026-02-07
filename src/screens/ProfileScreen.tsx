@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, ScrollView, Platform, Switch, KeyboardAvoidingView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, ScrollView, Platform, Switch, KeyboardAvoidingView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronRight, Bell, ShieldCheck, LogOut, User as UserIcon, X, Settings, HelpCircle, Info, Edit3, ArrowLeft, Moon } from 'lucide-react-native';
+import { ChevronRight, Bell, ShieldCheck, LogOut, User as UserIcon, X, Settings, HelpCircle, Info, Edit3, ArrowLeft, Moon, MessageSquare, Send, AlertCircle, Lightbulb, Heart } from 'lucide-react-native';
 import { Colors } from '@/constants/Colors';
 import { MOCK_USER } from '@/api/mockData';
 import { useThemeMode } from '@/context/ThemeContext';
+import { useFavorites } from '@/context/FavoritesContext';
+import { supabase } from '@/lib/supabase';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/types/navigation';
 
@@ -24,10 +26,16 @@ const ProfileScreen = () => {
   const [locationNotificationsEnabled, setLocationNotificationsEnabled] = useState(false);
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
   const [personalizationEnabled, setPersonalizationEnabled] = useState(true);
+  const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
+  const [feedbackType, setFeedbackType] = useState<'complaint' | 'bug' | 'feature'>('complaint');
+  const [feedbackTitle, setFeedbackTitle] = useState('');
+  const [feedbackDescription, setFeedbackDescription] = useState('');
   const navigation = useNavigation<Nav>();
 
   const userInitial = (userName?.charAt(0) ?? '').toUpperCase();
   const isDark = mode === 'dark';
+  const { events: favEvents, partners: favPartners, heritage: favHeritage, stops: favStops } = useFavorites();
+  const favoritesCount = favEvents.length + favPartners.length + favHeritage.length + favStops.length;
 
   const handleLogout = () => {
     navigation.reset({
@@ -70,12 +78,6 @@ const ProfileScreen = () => {
               end={{ x: 1, y: 0 }}
               style={styles.gradientHeader}
             >
-              <TouchableOpacity 
-                style={styles.backButton}
-                onPress={() => navigation.goBack()}
-              >
-                <ArrowLeft color="#fff" size={24} />
-              </TouchableOpacity>
             </LinearGradient>
             
             {/* Avatar Section - Overlapping Header */}
@@ -122,6 +124,11 @@ const ProfileScreen = () => {
           <View style={styles.menuSection}>
             <View style={[styles.menuCard, isDark && { backgroundColor: '#1e293b' }]}>
               <MenuItem 
+                label={favoritesCount > 0 ? `Favorilerim (${favoritesCount})` : 'Favorilerim'} 
+                icon={<Heart color={isDark ? '#f472b6' : '#ec4899'} size={22} fill={favoritesCount > 0 ? (isDark ? '#f472b6' : '#ec4899') : 'transparent'} />}
+                onPress={() => navigation.navigate('Events', { initialTab: 'Favorilerim' })}
+              />
+              <MenuItem 
                 label="Hesap Ayarları" 
                 icon={<UserIcon color={isDark ? '#fff' : '#000'} size={22} />}
                 onPress={() => setAccountSettingsVisible(true)}
@@ -130,6 +137,11 @@ const ProfileScreen = () => {
                 label="Gizlilik ve Güvenlik"
                 icon={<ShieldCheck color={isDark ? '#fff' : '#000'} size={22} />}
                 onPress={() => setPrivacyModalVisible(true)}
+              />
+              <MenuItem
+                label="Geri Bildirim"
+                icon={<MessageSquare color={isDark ? '#fff' : '#000'} size={22} />}
+                onPress={() => setFeedbackModalVisible(true)}
                 isLast
               />
             </View>
@@ -292,6 +304,164 @@ const ProfileScreen = () => {
               </View>
             </View>
           </Modal>
+
+          {/* Feedback Modal */}
+          <Modal
+            animationType="slide"
+            transparent={true}
+            visible={feedbackModalVisible}
+            onRequestClose={() => setFeedbackModalVisible(!feedbackModalVisible)}
+          >
+            <KeyboardAvoidingView 
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={styles.modalBackdrop}
+            >
+              <View style={[styles.modalView, isDark && { backgroundColor: '#1e293b' }]}>
+                <TouchableOpacity style={styles.closeButton} onPress={() => setFeedbackModalVisible(false)}>
+                  <X color={isDark ? '#94a3b8' : '#9ca3af'} size={24} />
+                </TouchableOpacity>
+                <Text style={[styles.modalTitle, isDark && { color: '#f8fafc' }]}>Geri Bildirim</Text>
+                <Text style={[styles.modalSubtitle, isDark && { color: '#94a3b8' }]}>
+                  Görüşleriniz bizim için çok değerli. Lütfen geri bildiriminizi paylaşın.
+                </Text>
+
+                {/* Feedback Type Selection */}
+                <View style={styles.feedbackTypeContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.feedbackTypeButton,
+                      feedbackType === 'complaint' && styles.feedbackTypeButtonActive,
+                      isDark && feedbackType === 'complaint' && { backgroundColor: '#334155' },
+                      isDark && { borderColor: '#475569' }
+                    ]}
+                    onPress={() => setFeedbackType('complaint')}
+                  >
+                    <AlertCircle color={feedbackType === 'complaint' ? (isDark ? '#f8fafc' : Colors.primary.indigo) : (isDark ? '#94a3b8' : '#9ca3af')} size={20} />
+                    <Text style={[
+                      styles.feedbackTypeText,
+                      feedbackType === 'complaint' && styles.feedbackTypeTextActive,
+                      isDark && { color: feedbackType === 'complaint' ? '#f8fafc' : '#94a3b8' }
+                    ]}>
+                      Şikayet/Öneri
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.feedbackTypeButton,
+                      feedbackType === 'bug' && styles.feedbackTypeButtonActive,
+                      isDark && feedbackType === 'bug' && { backgroundColor: '#334155' },
+                      isDark && { borderColor: '#475569' }
+                    ]}
+                    onPress={() => setFeedbackType('bug')}
+                  >
+                    <AlertCircle color={feedbackType === 'bug' ? (isDark ? '#f8fafc' : Colors.primary.indigo) : (isDark ? '#94a3b8' : '#9ca3af')} size={20} />
+                    <Text style={[
+                      styles.feedbackTypeText,
+                      feedbackType === 'bug' && styles.feedbackTypeTextActive,
+                      isDark && { color: feedbackType === 'bug' ? '#f8fafc' : '#94a3b8' }
+                    ]}>
+                      Hata Bildirimi
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.feedbackTypeButton,
+                      feedbackType === 'feature' && styles.feedbackTypeButtonActive,
+                      isDark && feedbackType === 'feature' && { backgroundColor: '#334155' },
+                      isDark && { borderColor: '#475569' }
+                    ]}
+                    onPress={() => setFeedbackType('feature')}
+                  >
+                    <Lightbulb color={feedbackType === 'feature' ? (isDark ? '#f8fafc' : Colors.primary.indigo) : (isDark ? '#94a3b8' : '#9ca3af')} size={20} />
+                    <Text style={[
+                      styles.feedbackTypeText,
+                      feedbackType === 'feature' && styles.feedbackTypeTextActive,
+                      isDark && { color: feedbackType === 'feature' ? '#f8fafc' : '#94a3b8' }
+                    ]}>
+                      Özellik İsteği
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView showsVerticalScrollIndicator={false} style={styles.modalScrollView}>
+                  <Text style={[styles.inputLabel, isDark && { color: '#94a3b8' }]}>Başlık</Text>
+                  <TextInput
+                    placeholder={feedbackType === 'complaint' ? 'Şikayet/Öneri başlığı' : feedbackType === 'bug' ? 'Hata başlığı' : 'Özellik isteği başlığı'}
+                    placeholderTextColor={isDark ? '#64748b' : '#9ca3af'}
+                    style={[styles.modalInput, isDark && { backgroundColor: '#334155', color: '#f8fafc' }]}
+                    value={feedbackTitle}
+                    onChangeText={setFeedbackTitle}
+                    autoCapitalize="sentences"
+                  />
+
+                  <Text style={[styles.inputLabel, isDark && { color: '#94a3b8' }]}>Açıklama</Text>
+                  <TextInput
+                    placeholder={feedbackType === 'complaint' ? 'Lütfen şikayet veya önerinizi detaylı bir şekilde yazın...' : feedbackType === 'bug' ? 'Hatanın nasıl oluştuğunu ve ne yaptığınızı açıklayın...' : 'İstediğiniz özelliği detaylı bir şekilde açıklayın...'}
+                    placeholderTextColor={isDark ? '#64748b' : '#9ca3af'}
+                    style={[styles.modalTextArea, isDark && { backgroundColor: '#334155', color: '#f8fafc' }]}
+                    value={feedbackDescription}
+                    onChangeText={setFeedbackDescription}
+                    multiline
+                    numberOfLines={6}
+                    textAlignVertical="top"
+                    autoCapitalize="sentences"
+                  />
+                </ScrollView>
+
+                <TouchableOpacity 
+                  style={[styles.modalButton, (!feedbackTitle.trim() || !feedbackDescription.trim()) && styles.modalButtonDisabled]} 
+                  onPress={async () => {
+                    if (feedbackTitle.trim() && feedbackDescription.trim()) {
+                      try {
+                        // Supabase'e geri bildirim kaydet
+                        const { error } = await supabase
+                          .from('geri_bildirimler')
+                          .insert({
+                            kullanici_id: MOCK_USER.name, // Gerçek kullanıcı ID'si kullanılabilir
+                            tur: feedbackType === 'complaint' ? 'sikayet_oneri' : feedbackType === 'bug' ? 'hata' : 'ozellik_istegi',
+                            baslik: feedbackTitle.trim(),
+                            aciklama: feedbackDescription.trim(),
+                            durum: 'beklemede',
+                            olusturma_tarihi: new Date().toISOString(),
+                          });
+
+                        if (error) {
+                          throw error;
+                        }
+
+                        // Başarı mesajı
+                        Alert.alert(
+                          'Geri Bildirim Gönderildi',
+                          'Geri bildiriminiz için teşekkür ederiz. En kısa sürede değerlendirilecektir.',
+                          [{ text: 'Tamam', onPress: () => {
+                            setFeedbackModalVisible(false);
+                            setFeedbackTitle('');
+                            setFeedbackDescription('');
+                            setFeedbackType('complaint');
+                          }}]
+                        );
+                      } catch (error: any) {
+                        console.error('Geri bildirim gönderme hatası:', error);
+                        Alert.alert(
+                          'Hata',
+                          'Geri bildirim gönderilirken bir hata oluştu. Lütfen tekrar deneyin.',
+                          [{ text: 'Tamam' }]
+                        );
+                      }
+                    }
+                  }}
+                  disabled={!feedbackTitle.trim() || !feedbackDescription.trim()}
+                >
+                  <View style={styles.sendButtonContent}>
+                    <Send color={Colors.white} size={20} />
+                    <Text style={styles.modalButtonText}>Gönder</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </KeyboardAvoidingView>
+          </Modal>
         </ScrollView>
     </SafeAreaView>
   );
@@ -300,7 +470,7 @@ const ProfileScreen = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Colors.lightGray,
   },
   scrollView: {
     flex: 1,
@@ -567,6 +737,56 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 16,
     fontWeight: '600',
+  },
+  modalButtonDisabled: {
+    opacity: 0.5,
+  },
+  sendButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  feedbackTypeContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 20,
+  },
+  feedbackTypeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+  },
+  feedbackTypeButtonActive: {
+    backgroundColor: '#e0e7ff',
+    borderColor: Colors.primary.indigo,
+  },
+  feedbackTypeText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6b7280',
+  },
+  feedbackTypeTextActive: {
+    color: Colors.primary.indigo,
+    fontWeight: '600',
+  },
+  modalTextArea: {
+    width: '100%',
+    minHeight: 120,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 12,
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    fontSize: 16,
   },
 });
 

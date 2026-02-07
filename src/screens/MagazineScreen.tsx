@@ -1,14 +1,16 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { Download, ChevronRight } from 'lucide-react-native';
+import { Heart } from 'lucide-react-native';
 import { Colors } from '@/constants/Colors';
-import { MOCK_MAGAZINES, MOCK_BULLETINS } from '@/api/mockData';
-import DergiCover from '@/assets/images/dergi.png';
+import AnimatedListItem from '@/components/AnimatedListItem';
+import Skeleton from '@/components/Skeleton';
+import { MOCK_MAGAZINES } from '@/api/mockData';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/types/navigation';
 import { useThemeMode } from '@/context/ThemeContext';
+import { useFavorites } from '@/context/FavoritesContext';
 import { supabase, processImageUrl } from '@/lib/supabase';
 
 type Nav = StackNavigationProp<RootStackParamList>;
@@ -26,6 +28,7 @@ const MagazineScreen = () => {
   const navigation = useNavigation<Nav>();
   const { mode } = useThemeMode();
   const isDark = mode === 'dark';
+  const { isFavoriteHeritage, toggleFavorite } = useFavorites();
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'historic' | 'museum' | 'nature'>('all');
   const [magazines, setMagazines] = useState<MagazineData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,16 +54,14 @@ const MagazineScreen = () => {
     fetchMagazines();
   }, []);
 
-  // Magazine verisini UI'a uygun formata çevir
-  const formatMagazine = (mag: MagazineData): any => ({
+  // Magazine verisini UI'a uygun formata çevir (useMemo - gereksiz re-map önler)
+  const formattedMagazines = useMemo(() => magazines.map((mag) => ({
     id: mag.id.toString(),
     title: mag.baslik,
     description: mag.aciklama,
     category: (mag.kategori as 'historic' | 'museum' | 'nature') || 'historic',
     image: processImageUrl(mag.resim_url, 'kesfet_resimleri') || 'https://via.placeholder.com/400x300',
-  });
-
-  const formattedMagazines = magazines.map(formatMagazine);
+  })), [magazines]);
 
   const filteredMagazines = useMemo(
     () =>
@@ -166,9 +167,13 @@ const MagazineScreen = () => {
         </ScrollView>
 
         {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator color={Colors.primary.indigo} size="large" />
-          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalList}>
+            {[1, 2, 3].map((i) => (
+              <View key={i} style={[styles.heritageCard, isDark && { backgroundColor: '#1e293b' }]}>
+                <Skeleton width="100%" height="100%" borderRadius={20} isDark={isDark} />
+              </View>
+            ))}
+          </ScrollView>
         ) : filteredMagazines.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={[styles.emptyText, isDark && { color: '#94a3b8' }]}>
@@ -179,53 +184,44 @@ const MagazineScreen = () => {
           <FlatList
             horizontal
             data={filteredMagazines}
-            renderItem={({ item }) => {
+            renderItem={({ item, index }) => {
               const imageSource = typeof item.image === 'string'
                 ? { uri: item.image }
                 : item.image;
 
+              const isFav = isFavoriteHeritage(item.id);
               return (
+                <AnimatedListItem index={index} delay={70}>
                 <TouchableOpacity
                   style={[styles.heritageCard, isDark && { backgroundColor: '#1e293b' }]}
                   activeOpacity={0.9}
                   onPress={() => navigation.navigate('HeritageDetail', { id: item.id })}
                 >
+                  <TouchableOpacity
+                    style={styles.heritageHeartButton}
+                    onPress={(e) => { e.stopPropagation(); toggleFavorite('heritage', item.id); }}
+                    activeOpacity={0.8}
+                  >
+                    <Heart color={isFav ? Colors.primary.violet : 'rgba(255,255,255,0.9)'} size={18} fill={isFav ? Colors.primary.violet : 'transparent'} />
+                  </TouchableOpacity>
                   <Image source={imageSource} style={styles.heritageImage} />
                   <View style={styles.heritageOverlay} />
                   <View style={styles.heritageTextContainer}>
                     <Text style={styles.heritageTitle}>{item.title}</Text>
                   </View>
                 </TouchableOpacity>
+                </AnimatedListItem>
               );
             }}
             keyExtractor={(item) => item.id}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.horizontalList}
+            initialNumToRender={4}
+            maxToRenderPerBatch={3}
+            windowSize={5}
+            removeClippedSubviews
           />
         )}
-
-        {/* E-Dergi */}
-        <Text style={[styles.sectionTitle, isDark && { color: '#94a3b8' }]}>E-Dergi</Text>
-        <TouchableOpacity style={[styles.eDergiCard, isDark && { borderColor: '#334155' }]}>
-          <Image 
-            source={DergiCover}
-            style={[styles.eDergiImage, isDark && { borderColor: '#334155' }]} 
-          />
-        </TouchableOpacity>
-
-        {/* Bulletins */}
-        <Text style={styles.sectionTitle}>Bültenler</Text>
-        <View style={[styles.menuContainer, isDark && { backgroundColor: '#1e293b', borderColor: '#334155' }]}>
-            {MOCK_BULLETINS.map((item, index) => (
-                <TouchableOpacity key={item.id} style={[styles.bulletinRow, index === MOCK_BULLETINS.length - 1 && { borderBottomWidth: 0 }, isDark && { borderBottomColor: '#334155' }]}>
-                    <View style={styles.bulletinLeft}>
-                        <Download color={isDark ? '#94a3b8' : '#6b7280'} size={24} />
-                        <Text style={[styles.bulletinTitle, isDark && { color: '#f8fafc' }]}>{item.title}</Text>
-                    </View>
-                    <ChevronRight color={isDark ? '#64748b' : '#9ca3af'} size={24} />
-                </TouchableOpacity>
-            ))}
-        </View>
 
       </ScrollView>
     </SafeAreaView>
@@ -235,7 +231,7 @@ const MagazineScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F8FA',
+    backgroundColor: Colors.lightGray,
   },
   header: {
     paddingHorizontal: 20,
@@ -257,6 +253,15 @@ const styles = StyleSheet.create({
   },
   horizontalList: {
     paddingLeft: 20,
+  },
+  heritageHeartButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 2,
+    padding: 6,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 20,
   },
   heritageCard: {
     width: 220,
@@ -289,43 +294,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.white,
     fontSize: 16,
-  },
-  eDergiCard: {
-    height: 200,
-    marginHorizontal: 20,
-    borderRadius: 20,
-  },
-  eDergiImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#e5e7eb'
-  },
-  menuContainer: {
-      backgroundColor: Colors.white,
-      borderRadius: 20,
-      marginHorizontal: 20,
-      borderWidth: 1,
-      borderColor: '#e5e7eb'
-  },
-  bulletinRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingVertical: 15,
-      paddingHorizontal: 20,
-      borderBottomWidth: 1,
-      borderBottomColor: '#f3f4f6'
-  },
-  bulletinLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-  },
-  bulletinTitle: {
-      fontSize: 16,
-      marginLeft: 15,
-      color: Colors.darkGray
   },
   categoryRow: {
     paddingHorizontal: 20,

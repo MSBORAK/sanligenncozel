@@ -1,17 +1,20 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Heart } from 'lucide-react-native';
 import { Colors } from '@/constants/Colors';
 import { MOCK_MAGAZINES } from '@/api/mockData';
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/types/navigation';
 import { useThemeMode } from '@/context/ThemeContext';
+import { useFavorites } from '@/context/FavoritesContext';
 
 type Props = StackScreenProps<RootStackParamList, 'HeritageDetail'>;
 
 const HeritageDetailScreen: React.FC<Props> = ({ route }) => {
   const { mode } = useThemeMode();
   const isDark = mode === 'dark';
+  const { isFavoriteHeritage, toggleFavorite } = useFavorites();
   const { id } = route.params;
   const place = MOCK_MAGAZINES.find(m => m.id === id);
 
@@ -39,8 +42,11 @@ const HeritageDetailScreen: React.FC<Props> = ({ route }) => {
       edges={['top']}
     >
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>{place.title}</Text>
+        <View style={[styles.header, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+          <Text style={[styles.headerTitle, isDark && { color: '#f8fafc' }]}>{place.title}</Text>
+          <TouchableOpacity onPress={() => toggleFavorite('heritage', id)} style={styles.favoriteButton} activeOpacity={0.8}>
+            <Heart color={isFavoriteHeritage(id) ? Colors.primary.violet : (isDark ? '#94a3b8' : '#6b7280')} size={24} fill={isFavoriteHeritage(id) ? Colors.primary.violet : 'transparent'} />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.imageCard}>
@@ -60,7 +66,7 @@ const HeritageDetailScreen: React.FC<Props> = ({ route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F8FA',
+    backgroundColor: Colors.lightGray,
   },
   header: {
     paddingHorizontal: 20,
@@ -68,9 +74,13 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   headerTitle: {
+    flex: 1,
     fontSize: 28,
     fontWeight: 'bold',
     color: Colors.darkGray,
+  },
+  favoriteButton: {
+    padding: 8,
   },
   imageCard: {
     marginHorizontal: 20,

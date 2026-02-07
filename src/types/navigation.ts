@@ -16,7 +16,7 @@ export type RootStackParamList = {
   Welcome: undefined;
   Login: undefined;
   Main: NavigatorScreenParams<MainTabParamList>; // Tab menüsünü bir ekran olarak içerir
-  Events: undefined;
+  Events: { initialTab?: string } | undefined;
   Magazine: undefined;
   Rewards: undefined;
   Notifications: undefined;
@@ -27,6 +27,7 @@ export type RootStackParamList = {
    PharmacyList: undefined;
    LibraryList: undefined;
    CulturalRoute: undefined;
+  GlobalSearch: undefined;
 };
 
 // HomeScreen için özel tip oluşturma. Bu, hem Stack hem de Tab tiplerini birleştirir.
