@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Library, MapPin, Clock, Navigation } from 'lucide-react-native';
-import { Colors } from '@/constants/Colors';
+import { Colors, Gradients } from '@/constants/Colors';
 import { MOCK_LIBRARIES, Library as LibraryType } from '@/api/mockData';
 import { useThemeMode } from '@/context/ThemeContext';
 
@@ -19,10 +19,10 @@ const LibraryListScreen = () => {
 
   const renderLibraryItem = useCallback(({ item }: { item: LibraryType }) => (
       <TouchableOpacity
-        style={[styles.libraryCard, isDark && { backgroundColor: '#1e293b', borderWidth: 1, borderColor: '#334155' }]}
+        style={[styles.libraryCard, isDark && { backgroundColor: Colors.dark.card, borderWidth: 1, borderColor: Colors.dark.border }]}
         activeOpacity={0.9}
       >
-        <View style={[styles.iconContainer, { backgroundColor: '#f0fdf4' }, isDark && { backgroundColor: '#334155' }]}>
+        <View style={[styles.iconContainer, { backgroundColor: '#f0fdf4' }, isDark && { backgroundColor: Colors.dark.border }]}>
           <Library color={isDark ? '#86efac' : '#22c55e'} size={24} />
         </View>
         <View style={styles.infoContainer}>
@@ -40,7 +40,7 @@ const LibraryListScreen = () => {
           </View>
         </View>
         <TouchableOpacity
-          style={[styles.directionsButton, isDark && { backgroundColor: '#334155' }]}
+          style={[styles.directionsButton, isDark && { backgroundColor: Colors.dark.border }]}
           onPress={() => handleDirections(item)}
           activeOpacity={0.9}
         >
@@ -51,11 +51,11 @@ const LibraryListScreen = () => {
 
   return (
     <SafeAreaView
-      style={[styles.container, isDark && { backgroundColor: '#020617' }]}
+      style={[styles.container, isDark && { backgroundColor: Colors.dark.background }]}
       edges={['top']}
     >
       <LinearGradient
-        colors={isDark ? ['#020617', '#1f2937'] : [Colors.primary.violet, Colors.primary.indigo]}
+        colors={isDark ? Gradients.dark : Gradients.hero}
         style={styles.header}
       >
         <Text style={styles.headerTitle}>Kütüphaneler</Text>

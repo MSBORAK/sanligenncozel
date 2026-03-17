@@ -50,7 +50,7 @@ const { width } = Dimensions.get('window');
 
 type WeatherDetailScreenProps = StackScreenProps<RootStackParamList, 'WeatherDetail'>;
 
-const API_KEY = "86c0bfac95367500f94f82e107ad2332";
+const API_KEY = process.env.EXPO_PUBLIC_OPENWEATHER_KEY ?? '';
 const SEHIR_KOORDINAT = { lat: 37.1674, lon: 38.7955 };
 
 // Gün isimleri
@@ -417,7 +417,7 @@ const WeatherDetailScreen: React.FC<WeatherDetailScreenProps> = ({ route, naviga
 
     // Rüzgar
     if (windSpeed > 40) {
-      suggestions.push({ icon: Wind, text: 'Kuvvetli rüzgar, dikkatli olun', color: '#8b5cf6' });
+      suggestions.push({ icon: Wind, text: 'Kuvvetli rüzgar, dikkatli olun', color: '#758956' });
     }
 
     // Varsayılan öneri

@@ -66,7 +66,7 @@ const PartnerDetailScreen: React.FC<Props> = ({ route }) => {
   if (loading) {
     return (
       <SafeAreaView
-        style={[styles.container, isDark && { backgroundColor: '#020617' }]}
+        style={[styles.container, isDark && { backgroundColor: Colors.dark.background }]}
         edges={['top']}
       >
         <View style={styles.loadingContainer}>
@@ -79,7 +79,7 @@ const PartnerDetailScreen: React.FC<Props> = ({ route }) => {
   if (!partner) {
     return (
       <SafeAreaView
-        style={[styles.container, isDark && { backgroundColor: '#020617' }]}
+        style={[styles.container, isDark && { backgroundColor: Colors.dark.background }]}
         edges={['top']}
       >
         <View style={styles.header}>
@@ -94,7 +94,7 @@ const PartnerDetailScreen: React.FC<Props> = ({ route }) => {
 
   return (
     <SafeAreaView
-      style={[styles.container, isDark && { backgroundColor: '#020617' }]}
+      style={[styles.container, isDark && { backgroundColor: Colors.dark.background }]}
       edges={['top']}
     >
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>

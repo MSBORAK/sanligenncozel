@@ -26,7 +26,7 @@ import {
   Pill, Library, Route
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Colors } from '@/constants/Colors';
+import { Colors, Gradients } from '@/constants/Colors';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import Skeleton from '@/components/Skeleton';
@@ -34,6 +34,8 @@ import { MOCK_BUSES, MOCK_PARTNERS, MOCK_EVENTS } from '@/api/mockData';
 import { HomeScreenProps, MainTabParamList } from '@/types/navigation';
 import { useThemeMode } from '@/context/ThemeContext';
 import { supabase, processImageUrl } from '@/lib/supabase';
+import * as Haptics from 'expo-haptics';
+import LottieView from 'lottie-react-native';
 
 // Supabase Veri Tipleri
 interface FirsatData {
@@ -115,6 +117,19 @@ const HomeScreen = () => {
   const [stories, setStories] = useState<StoryData[]>([]);
   const [loadingStories, setLoadingStories] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Etkinlik Lottie ref - tıklanınca .play() ile tekrar oynat
+  const etkinlikLottieRef = useRef<LottieView>(null);
+
+  // Bento giriş animasyonu (stagger - dalga efekti)
+  const bentoAnims = useRef(
+    [0, 1, 2, 3, 4].map(() => new Animated.Value(0))
+  ).current;
+  useEffect(() => {
+    Animated.stagger(100, bentoAnims.map(anim =>
+      Animated.timing(anim, { toValue: 1, duration: 420, useNativeDriver: true })
+    )).start();
+  }, []);
   
   // Story detayları - Supabase'den gelen veriler varsa onları kullan
   const getStoryDetails = (storyName: string): { description: string } => {
@@ -134,14 +149,8 @@ const HomeScreen = () => {
     return DEFAULT_STORY_DETAILS[storyName] || { description: '' };
   };
   
-  // Dinamik HEADER_NAV - Supabase'den gelen veriler varsa onları kullan, yoksa default
-  const headerNav = stories.length > 0 
-    ? stories.map(story => ({
-        name: story.baslik,
-        icon: story.icon ? (ICON_MAP[story.icon.toLowerCase()] || User) : User,
-        image: processImageUrl(story.resim_url, 'hikaye_resimleri') || 'https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?q=80&w=2670&auto=format&fit=crop',
-      }))
-    : DEFAULT_STORIES;
+  // HEADER_NAV - Her zaman Kültür Sanat, Ulaşım, Gençlik, Duyurular (varsayılan hikayeler)
+  const headerNav = DEFAULT_STORIES;
   
   const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
   const DAYS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
@@ -231,7 +240,7 @@ const HomeScreen = () => {
   const [weatherData, setWeatherData] = useState<any>(null);
   const [forecastData, setForecastData] = useState<any>(null);
   const [airQualityData, setAirQualityData] = useState<any>(null);
-  const API_KEY = "86c0bfac95367500f94f82e107ad2332"; 
+  const API_KEY = process.env.EXPO_PUBLIC_OPENWEATHER_KEY ?? ''; 
   const SEHIR_KOORDINAT = { lat: 37.1674, lon: 38.7955 };
 
   // Fırsatları Supabase'den Çek
@@ -257,7 +266,7 @@ const HomeScreen = () => {
       const { data, error } = await supabase
         .from('hikayeler')
         .select('*')
-        .order('sira', { ascending: true });
+        .order('created_at', { ascending: true });
       
       if (data && data.length > 0) {
         setStories(data);
@@ -338,7 +347,12 @@ const HomeScreen = () => {
       } else {
           navigation.navigate(item.screen as 'Events' | 'Magazine' | 'PharmacyList' | 'LibraryList' | 'CulturalRoute');
       }
-  }
+  };
+
+  const handleBentoPress = (item: typeof QUICK_ACCESS_NAV[0]) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    handleNavigation(item);
+  };
 
   const handleCardScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const slideSize = 170 + 12; 
@@ -469,9 +483,15 @@ const HomeScreen = () => {
   const isDark = mode === 'dark';
 
   return (
-    <View style={[styles.root, isDark && { backgroundColor: Colors.black }]}>
-      <SafeAreaView style={[styles.statusBarArea, isDark && { backgroundColor: Colors.black }]} edges={['top']} />
-      <SafeAreaView style={[styles.container, isDark && { backgroundColor: '#020617' }]} edges={['left', 'right', 'bottom']}>
+    <View style={styles.root}>
+      {/* Base gradient */}
+      <LinearGradient colors={Gradients.background} style={StyleSheet.absoluteFill} />
+      {/* Mesh: köşelerden sızan atmosferik geçişler */}
+      <LinearGradient colors={Gradients.meshMarigold} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.meshLayer]} pointerEvents="none" />
+      <LinearGradient colors={Gradients.meshNavy} start={{ x: 1, y: 1 }} end={{ x: 0, y: 0 }} style={[StyleSheet.absoluteFill, styles.meshLayer]} pointerEvents="none" />
+      <LinearGradient colors={Gradients.meshPearl} start={{ x: 1, y: 0 }} end={{ x: 0, y: 0.5 }} style={[StyleSheet.absoluteFill, styles.meshLayer]} pointerEvents="none" />
+      <SafeAreaView style={styles.statusBarArea} edges={['top']} />
+      <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
         <ScrollView 
           showsVerticalScrollIndicator={false} 
           contentContainerStyle={{ paddingBottom: 120 }}
@@ -479,14 +499,14 @@ const HomeScreen = () => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={isDark ? '#818cf8' : Colors.primary.indigo}
+              tintColor={isDark ? Colors.dark.accent : Colors.primary.indigo}
               colors={[Colors.primary.indigo]}
             />
           }
         >
         {/* Header */}
         <LinearGradient
-          colors={isDark ? ['#020617', '#1f2937'] : ['#134e4a', '#0f766e']}
+          colors={isDark ? Gradients.dark : Gradients.hero}
           style={styles.header}
         >
           <View style={styles.headerTop}>
@@ -513,7 +533,7 @@ const HomeScreen = () => {
                     onPress={() => setActiveStoryIndex(index)}
                   >
                       <LinearGradient
-                        colors={['#0f766e', '#134e4a', '#115e59']}
+                        colors={Gradients.heroWarm}
                         style={styles.storyBorder}
                       >
                         <Image source={typeof item.image === 'string' ? { uri: item.image } : item.image} style={styles.headerNavImage} />
@@ -527,7 +547,7 @@ const HomeScreen = () => {
         {/* Dashboard */}
         <View style={styles.dashboardInner}>
           <LinearGradient
-            colors={isDark ? ['#1e293b', '#334155'] : ['#134e4a', '#0f766e']}
+            colors={isDark ? [Colors.dark.card, Colors.dark.border] : Gradients.hero}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.statsCard}
@@ -540,8 +560,8 @@ const HomeScreen = () => {
               >
                   <Text style={styles.statsTitleWhite}>HAVA DURUMU</Text>
                   <View style={styles.weatherStatsRow}>
-                    {getWeatherIcon(22, '#f8fafc')}
-                    <Text style={[styles.statsValueWhite, { marginLeft: 6 }]}>
+                    {getWeatherIcon(22, Colors.buff)}
+                    <Text style={[styles.statsValueWhite, { marginLeft: 6, color: Colors.buff }]}>
                       {weatherData ? `${Math.round(weatherData.main.temp)}°` : '--'}
                     </Text>
                   </View>
@@ -557,7 +577,7 @@ const HomeScreen = () => {
               >
                   <Text style={styles.statsTitleWhite}>TAKVİM</Text>
                   <View style={styles.calendarStatsRow}>
-                    <Calendar color="#5eead4" size={22} />
+                    <Calendar color={Colors.primaryHex} size={22} />
                     <Text style={[styles.statsValueWhite, { marginLeft: 6 }]}>
                       {new Date().getDate()} {['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'][new Date().getMonth()]}
                     </Text>
@@ -566,69 +586,123 @@ const HomeScreen = () => {
           </LinearGradient>
 
           <View style={styles.content}>
-            {/* Quote of the day Widget - Full Width */}
+            {/* Quote of the day Widget - Citrine Brown → Marigold gradient */}
             <View style={styles.widgetsContainer}>
-                <TouchableOpacity style={[styles.widgetCard, styles.quoteCard, { width: '100%' }, isDark && { backgroundColor: '#134e4a' }]}>
+                <TouchableOpacity style={[styles.widgetCard, styles.quoteCard, { width: '100%' }]} activeOpacity={0.9}>
+                    <LinearGradient colors={Gradients.quoteCard} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
                     <View style={styles.quoteHeaderRow}>
-                      <Text style={[styles.widgetLabel, styles.widgetLabelQuote]}>GÜNÜN SÖZÜ</Text>
-                      <Flame color="#ffffff" size={20} />
+                      <Text style={[styles.widgetLabel, styles.widgetLabelQuote, { color: Colors.buff }]}>GÜNÜN SÖZÜ</Text>
+                      <Flame color={Colors.buff} size={22} />
                     </View>
                     <Text style={styles.quoteText} numberOfLines={2}>"{quoteOfDay}"</Text>
                 </TouchableOpacity>
             </View>
 
-            <Text style={[styles.sectionTitle, styles.sectionTitleWithMargin, isDark && { color: '#94a3b8' }]}>HIZLI ERİŞİM</Text>
+            <Text style={[styles.sectionTitle, styles.sectionTitleWithMargin, { color: Colors.buff }]}>HIZLI ERİŞİM</Text>
             
-            <View style={styles.quickAccessContainer}>
-                <View style={styles.quickAccessGrid}>
-                    {QUICK_ACCESS_NAV.slice(0, 3).map(item => (
-                        <AnimatedPressable 
-                            key={item.name} 
-                            style={styles.quickAccessItem} 
-                            onPress={() => handleNavigation(item)}
-                        >
-                            <View style={styles.quickAccessIcon}>
-                                <BlurView intensity={90} tint={isDark ? "dark" : "light"} style={styles.blurView}>
-                                    <View style={[styles.colorOverlay, { backgroundColor: item.color, opacity: 1 }]} />
-                                    <item.icon color={item.iconColor} size={24} />
-                                </BlurView>
-                            </View>
-                            <Text style={[styles.quickAccessText, isDark && { color: '#cbd5e1', opacity: 0.9 }]} numberOfLines={2}>
-                                {item.name}
-                            </Text>
-                        </AnimatedPressable>
-                    ))}
-                </View>
-                <View style={styles.quickAccessGridBottom}>
-                    {QUICK_ACCESS_NAV.slice(3, 5).map(item => (
-                        <AnimatedPressable 
-                            key={item.name} 
-                            style={styles.quickAccessItem} 
-                            onPress={() => handleNavigation(item)}
-                        >
-                            <View style={styles.quickAccessIcon}>
-                                <BlurView intensity={90} tint={isDark ? "dark" : "light"} style={styles.blurView}>
-                                    <View style={[styles.colorOverlay, { backgroundColor: item.color, opacity: 1 }]} />
-                                    <item.icon color={item.iconColor} size={24} />
-                                </BlurView>
-                            </View>
-                            <Text style={[styles.quickAccessText, isDark && { color: '#cbd5e1', opacity: 0.9 }]} numberOfLines={2}>
-                                {item.name}
-                            </Text>
-                        </AnimatedPressable>
-                    ))}
-                </View>
+            {/* Bento Grid - Glassmorphism (Blur + Police Blue %15 + asimetrik border + inner shadow) */}
+            <View style={styles.bentoGrid}>
+              {/* Row 1: Etkinlik (tam genişlik) */}
+              <Animated.View style={[styles.bentoFullWidth, { opacity: bentoAnims[0], transform: [{ translateY: bentoAnims[0].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+                <AnimatedPressable
+                  scaleTo={0.96}
+                  style={styles.bentoGlassWrapper}
+                  onPress={() => {
+                    etkinlikLottieRef.current?.play();
+                    handleBentoPress(QUICK_ACCESS_NAV[0]);
+                  }}
+                >
+                  <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
+                  <View style={[StyleSheet.absoluteFill, styles.bentoPoliceOverlay]} />
+                  <LinearGradient colors={Gradients.innerShadow} style={[StyleSheet.absoluteFill, styles.bentoInnerShadow]} />
+                  <LinearGradient colors={Gradients.glassReflection} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.bentoGlassReflection]} pointerEvents="none" />
+                  <View style={styles.bentoGlass}>
+                    <View style={[styles.bentoIconGlow, styles.etkinlikLottieWrapper]}>
+                      <LottieView
+                        ref={etkinlikLottieRef}
+                        source={require('@/assets/images/El calendario.json')}
+                        autoPlay
+                        loop={false}
+                        style={styles.etkinlikLottie}
+                      />
+                    </View>
+                    <Text style={styles.bentoTitle}>{QUICK_ACCESS_NAV[0].name}</Text>
+                  </View>
+                </AnimatedPressable>
+              </Animated.View>
+              {/* Row 2: Keşfet (2/3) + Eczane (1/3) yan yana */}
+              <View style={styles.bentoRow2}>
+                <Animated.View style={[styles.bentoLarge, { opacity: bentoAnims[1], transform: [{ translateY: bentoAnims[1].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+                  <AnimatedPressable scaleTo={0.96} style={styles.bentoGlassWrapper} onPress={() => handleBentoPress(QUICK_ACCESS_NAV[1])}>
+                    <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
+                    <View style={[StyleSheet.absoluteFill, styles.bentoPoliceOverlay]} />
+                    <LinearGradient colors={Gradients.innerShadow} style={[StyleSheet.absoluteFill, styles.bentoInnerShadow]} />
+                    <LinearGradient colors={Gradients.glassReflection} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.bentoGlassReflection]} pointerEvents="none" />
+                    <View style={styles.bentoGlass}>
+                      <View style={[styles.bentoIconGlow, { shadowColor: Colors.primaryHex }]}>
+                        <BookOpen color={Colors.primaryHex} size={34} />
+                      </View>
+                      <Text style={styles.bentoTitle}>{QUICK_ACCESS_NAV[1].name}</Text>
+                    </View>
+                  </AnimatedPressable>
+                </Animated.View>
+                <Animated.View style={[styles.bentoSmall, { opacity: bentoAnims[2], transform: [{ translateY: bentoAnims[2].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+                  <AnimatedPressable scaleTo={0.96} style={styles.bentoGlassWrapper} onPress={() => handleBentoPress(QUICK_ACCESS_NAV[2])}>
+                    <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
+                    <View style={[StyleSheet.absoluteFill, styles.bentoPoliceOverlay]} />
+                    <LinearGradient colors={Gradients.innerShadow} style={[StyleSheet.absoluteFill, styles.bentoInnerShadow]} />
+                    <LinearGradient colors={Gradients.glassReflection} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.bentoGlassReflection]} pointerEvents="none" />
+                    <View style={styles.bentoGlass}>
+                      <View style={[styles.bentoIconGlow, { shadowColor: Colors.primaryHex }]}>
+                        <Pill color={Colors.primaryHex} size={32} />
+                      </View>
+                      <Text style={styles.bentoTitleSmall}>{QUICK_ACCESS_NAV[2].name}</Text>
+                    </View>
+                  </AnimatedPressable>
+                </Animated.View>
+              </View>
+              {/* Row 3: Kütüphane (1/3) + Gezi (2/3) yan yana */}
+              <View style={styles.bentoRow2}>
+                <Animated.View style={[styles.bentoSmall, { opacity: bentoAnims[3], transform: [{ translateY: bentoAnims[3].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+                  <AnimatedPressable scaleTo={0.96} style={styles.bentoGlassWrapper} onPress={() => handleBentoPress(QUICK_ACCESS_NAV[3])}>
+                    <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
+                    <View style={[StyleSheet.absoluteFill, styles.bentoPoliceOverlay]} />
+                    <LinearGradient colors={Gradients.innerShadow} style={[StyleSheet.absoluteFill, styles.bentoInnerShadow]} />
+                    <LinearGradient colors={Gradients.glassReflection} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.bentoGlassReflection]} pointerEvents="none" />
+                    <View style={styles.bentoGlass}>
+                      <View style={[styles.bentoIconGlow, { shadowColor: Colors.primaryHex }]}>
+                        <Library color={Colors.primaryHex} size={32} />
+                      </View>
+                      <Text style={styles.bentoTitleSmall}>{QUICK_ACCESS_NAV[3].name}</Text>
+                    </View>
+                  </AnimatedPressable>
+                </Animated.View>
+                <Animated.View style={[styles.bentoLarge, { opacity: bentoAnims[4], transform: [{ translateY: bentoAnims[4].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+                  <AnimatedPressable scaleTo={0.96} style={styles.bentoGlassWrapper} onPress={() => handleBentoPress(QUICK_ACCESS_NAV[4])}>
+                    <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
+                    <View style={[StyleSheet.absoluteFill, styles.bentoPoliceOverlay]} />
+                    <LinearGradient colors={Gradients.innerShadow} style={[StyleSheet.absoluteFill, styles.bentoInnerShadow]} />
+                    <LinearGradient colors={Gradients.glassReflection} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.bentoGlassReflection]} pointerEvents="none" />
+                    <View style={styles.bentoGlass}>
+                      <View style={[styles.bentoIconGlow, { shadowColor: Colors.cta }]}>
+                        <Route color={Colors.cta} size={34} />
+                      </View>
+                      <Text style={styles.bentoTitle}>{QUICK_ACCESS_NAV[4].name}</Text>
+                    </View>
+                  </AnimatedPressable>
+                </Animated.View>
+              </View>
             </View>
 
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitleInHeader, isDark && { color: '#94a3b8' }]}>Genç Kart Fırsatları</Text>
+              <Text style={[styles.sectionTitleInHeader, { color: Colors.buff }]}>Genç Kart Fırsatları</Text>
               <TouchableOpacity 
                 onPress={() => navigation.navigate('Main', { screen: 'GencKart' as keyof MainTabParamList })}
                 style={styles.seeAllButton}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.seeAllText, isDark && { color: '#818cf8' }]}>Tümünü Gör</Text>
-                <ChevronRight color={isDark ? '#818cf8' : Colors.primary.indigo} size={16} />
+                <Text style={[styles.seeAllText, { color: Colors.primaryHex }]}>Tümünü Gör</Text>
+                <ChevronRight color={Colors.primaryHex} size={16} />
               </TouchableOpacity>
             </View>
             
@@ -658,7 +732,7 @@ const HomeScreen = () => {
                       onPress={() => navigation.navigate('Main', { screen: 'GencKart' as keyof MainTabParamList })}
                       style={[styles.emptyFirsatCta, isDark && { backgroundColor: '#334155' }]}
                     >
-                      <Sparkles color={isDark ? '#e2e8f0' : Colors.primary.indigo} size={18} />
+                      <Sparkles color={Colors.cta} size={18} />
                       <Text style={[styles.emptyFirsatCtaText, isDark && { color: '#e2e8f0' }]}>Genç Kart'ı Keşfet</Text>
                     </AnimatedPressable>
                   </View>
@@ -1001,9 +1075,20 @@ const HomeScreen = () => {
 };
 
 const styles = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#134e4a' },
-    statusBarArea: { backgroundColor: '#134e4a' },
-    container: { flex: 1, backgroundColor: Colors.lightGray },
+    root: { flex: 1, backgroundColor: 'transparent' },
+    meshLayer: { opacity: 0.95 },
+    ambientOrbsContainer: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
+    ambientOrb: {
+      position: 'absolute',
+      borderRadius: 999,
+      width: 180,
+      height: 180,
+    },
+    ambientOrb1: { top: '38%', left: '-15%', backgroundColor: 'rgba(229, 157, 44, 0.06)' },
+    ambientOrb2: { top: '42%', right: '-10%', backgroundColor: 'rgba(243, 213, 141, 0.05)' },
+    ambientOrb3: { top: '52%', left: '25%', backgroundColor: 'rgba(235, 221, 197, 0.04)' },
+    statusBarArea: { backgroundColor: 'transparent' },
+    container: { flex: 1, backgroundColor: 'transparent' },
     dashboardInner: { paddingBottom: 24 },
     header: { borderBottomLeftRadius: 40, borderBottomRightRadius: 40, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 60 },
     headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -1030,7 +1115,7 @@ const styles = StyleSheet.create({
     weatherStatsRow: { flexDirection: 'row', alignItems: 'center' },
     calendarStatsRow: { flexDirection: 'row', alignItems: 'center' },
     content: { paddingVertical: 20 },
-    sectionTitle: { fontSize: 14, fontWeight: 'bold', color: '#9ca3af', paddingHorizontal: 20, marginBottom: 12 },
+    sectionTitle: { fontSize: 14, fontWeight: 'bold', color: Colors.primaryHex, paddingHorizontal: 20, marginBottom: 12 },
     sectionTitleWithMargin: { marginTop: 24 },
     sectionHeader: { 
         flexDirection: 'row', 
@@ -1043,7 +1128,7 @@ const styles = StyleSheet.create({
     sectionTitleInHeader: {
         fontSize: 14,
         fontWeight: 'bold',
-        color: '#9ca3af',
+        color: Colors.primaryHex,
     },
     seeAllButton: {
         flexDirection: 'row',
@@ -1056,6 +1141,40 @@ const styles = StyleSheet.create({
         color: Colors.primary.indigo,
     },
     quickAccessContainer: { paddingHorizontal: 20, marginTop: 8 },
+    bentoGrid: { paddingHorizontal: 20, marginTop: 12, gap: 12 },
+    bentoRow1: { flexDirection: 'row', gap: 12, marginBottom: 12 },
+    bentoRow2: { flexDirection: 'row', gap: 12, marginBottom: 12 },
+    bentoGlassReflection: { borderRadius: 24, pointerEvents: 'none' },
+    bentoFullWidth: {
+      width: '100%', minHeight: 100, borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin, marginBottom: 12,
+      shadowColor: '#1a2740', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.38, shadowRadius: 24, elevation: 12,
+    },
+    bentoLarge: {
+      flex: 2, minHeight: 100, borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin,
+      shadowColor: '#1a2740', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.38, shadowRadius: 24, elevation: 12,
+    },
+    bentoSmall: {
+      flex: 1, minHeight: 100, borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin,
+      shadowColor: '#1a2740', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.38, shadowRadius: 24, elevation: 12,
+    },
+    bentoMedium: { flex: 1, minHeight: 100, borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin, shadowColor: Colors.pearl, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 4 },
+    bentoSquare: { flex: 1, aspectRatio: 1, minHeight: 90, borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin, shadowColor: Colors.pearl, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 4 },
+    bentoWide: { minHeight: 80, borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin, shadowColor: Colors.pearl, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 4 },
+    bentoGlassWrapper: { position: 'relative' },
+    bentoPoliceOverlay: { backgroundColor: Colors.glassOverlay, borderRadius: 24 },
+    bentoInnerShadow: { borderRadius: 24, pointerEvents: 'none' },
+    bentoOverlay: { borderRadius: 24 },
+    bentoGlass: { flex: 1, padding: 16, justifyContent: 'center', alignItems: 'center' },
+    bentoIconGlow: {
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.45,
+      shadowRadius: 10,
+      elevation: 6,
+    },
+    etkinlikLottieWrapper: { width: 48, height: 48, justifyContent: 'center', alignItems: 'center' },
+    etkinlikLottie: { width: 48, height: 48 },
+    bentoTitle: { marginTop: 10, fontSize: 13, fontWeight: '400', letterSpacing: 1.2, color: Colors.primaryHex },
+    bentoTitleSmall: { marginTop: 8, fontSize: 10, fontWeight: '400', letterSpacing: 0.8, color: Colors.primaryHex },
     quickAccessGrid: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -1109,7 +1228,7 @@ const styles = StyleSheet.create({
     weatherCard: { justifyContent: 'space-between', flexDirection: 'row', alignItems: 'center' },
     weatherTemp: { color: Colors.white, fontSize: 24, fontWeight: 'bold' },
     weatherIconWrapper: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
-    quoteCard: { backgroundColor: '#0d9488', borderRadius: 18, paddingHorizontal: 16, paddingVertical: 14, justifyContent: 'flex-start' },
+    quoteCard: { position: 'relative', borderRadius: 18, paddingHorizontal: 16, paddingVertical: 14, justifyContent: 'flex-start', overflow: 'hidden' },
     quoteHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     widgetLabelQuote: { color: '#ffffff' },
     quoteText: { marginTop: 4, fontSize: 11, lineHeight: 15, fontWeight: '600', color: '#ffffff' },

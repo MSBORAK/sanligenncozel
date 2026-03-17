@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowUpRight, MapPin, Wifi, Heart } from 'lucide-react-native';
-import { Colors } from '@/constants/Colors';
+import { Colors, Gradients } from '@/constants/Colors';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import { MOCK_USER, MOCK_PARTNERS } from '@/api/mockData';
 import { DiscountPartner } from '@/types';
@@ -41,7 +41,7 @@ const GencKartScreen = () => {
     const isFav = isFavoritePartner(item.id);
     return (
         <TouchableOpacity 
-            style={[styles.partnerCard, isDark && { backgroundColor: '#1e293b' }]} 
+            style={[styles.partnerCard, isDark && { backgroundColor: Colors.dark.card }]} 
             activeOpacity={0.9} 
             onPress={() => navigation.navigate('PartnerDetail', { partnerId: item.id })}
         >
@@ -52,7 +52,7 @@ const GencKartScreen = () => {
             >
               <Heart color={isFav ? Colors.primary.violet : (isDark ? '#94a3b8' : '#9ca3af')} size={20} fill={isFav ? Colors.primary.violet : 'transparent'} />
             </TouchableOpacity>
-            <View style={[styles.partnerIconContainer, { backgroundColor: item.bgColor }, isDark && { backgroundColor: '#334155' }]}>
+            <View style={[styles.partnerIconContainer, { backgroundColor: item.bgColor }, isDark && { backgroundColor: Colors.dark.border }]}>
                 <Icon color={isDark ? '#e2e8f0' : item.iconColor} size={24}/>
             </View>
             <View style={styles.partnerInfo}>
@@ -67,7 +67,7 @@ const GencKartScreen = () => {
 
   return (
     <SafeAreaView
-      style={[styles.container, isDark && { backgroundColor: '#020617' }]}
+      style={[styles.container, isDark && { backgroundColor: Colors.dark.background }]}
       edges={['top']}
     >
         <ScrollView showsVerticalScrollIndicator={false}>
@@ -78,7 +78,7 @@ const GencKartScreen = () => {
 
             {/* Genç Kart */}
             <LinearGradient
-                colors={['#0f766e', '#1c1917', '#0d9488']}
+                colors={Gradients.hero}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.gencKart}
@@ -86,39 +86,39 @@ const GencKartScreen = () => {
                 {/* Urfa Pattern Overlay - GÜLSÜZ & YOĞUN VERSİYON */}
                 <View style={styles.patternContainer}>
                     {/* Arka plan büyük elemanlar */}
-                    <UrfaIcon_Gobeklitepe size={85} opacity={0.15} style={{ position: 'absolute', top: 50, right: 15, transform: [{ rotate: '-15deg' }] }} />
-                    <UrfaIcon_Harran size={75} opacity={0.12} style={{ position: 'absolute', bottom: 5, left: 10, transform: [{ rotate: '10deg' }] }} />
+                    <UrfaIcon_Gobeklitepe color={Colors.primaryHex} size={85} opacity={0.15} style={{ position: 'absolute', top: 50, right: 15, transform: [{ rotate: '-15deg' }] }} />
+                    <UrfaIcon_Harran color={Colors.primaryHex} size={75} opacity={0.12} style={{ position: 'absolute', bottom: 5, left: 10, transform: [{ rotate: '10deg' }] }} />
 
                     {/* Orta katman elemanlar */}
-                    <UrfaIcon_Balik size={60} opacity={0.2} style={{ position: 'absolute', top: 15, left: 20, transform: [{ rotate: '25deg' }] }} />
-                    <UrfaIcon_Balik size={50} opacity={0.18} style={{ position: 'absolute', bottom: 25, right: -10, transform: [{ rotate: '-20deg' }] }} />
+                    <UrfaIcon_Balik color={Colors.primaryHex} size={60} opacity={0.2} style={{ position: 'absolute', top: 15, left: 20, transform: [{ rotate: '25deg' }] }} />
+                    <UrfaIcon_Balik color={Colors.primaryHex} size={50} opacity={0.18} style={{ position: 'absolute', bottom: 25, right: -10, transform: [{ rotate: '-20deg' }] }} />
 
                     {/* Küçük dolgu elemanları */}
-                    <UrfaIcon_Gobeklitepe size={40} opacity={0.1} style={{ position: 'absolute', bottom: 85, left: 95, transform: [{ rotate: '20deg' }] }} />
-                    <UrfaIcon_Balik size={35} opacity={0.15} style={{ position: 'absolute', top: 10, right: 100, transform: [{ rotate: '-5deg' }] }} />
-                    <UrfaIcon_Harran size={45} opacity={0.12} style={{ position: 'absolute', bottom: 10, right: 130, transform: [{ rotate: '45deg' }] }} />
+                    <UrfaIcon_Gobeklitepe color={Colors.primaryHex} size={40} opacity={0.1} style={{ position: 'absolute', bottom: 85, left: 95, transform: [{ rotate: '20deg' }] }} />
+                    <UrfaIcon_Balik color={Colors.primaryHex} size={35} opacity={0.15} style={{ position: 'absolute', top: 10, right: 100, transform: [{ rotate: '-5deg' }] }} />
+                    <UrfaIcon_Harran color={Colors.primaryHex} size={45} opacity={0.12} style={{ position: 'absolute', bottom: 10, right: 130, transform: [{ rotate: '45deg' }] }} />
                     
                     {/* --- İLK EKLEME --- */}
-                    <UrfaIcon_Harran size={35} opacity={0.08} style={{ position: 'absolute', top: 90, left: 15, transform: [{ rotate: '-10deg' }] }} />
-                    <UrfaIcon_Balik size={25} opacity={0.1} style={{ position: 'absolute', bottom: 60, right: 80, transform: [{ rotate: '30deg' }] }} />
-                    <UrfaIcon_Gobeklitepe size={30} opacity={0.1} style={{ position: 'absolute', top: 5, left: 120, transform: [{ rotate: '15deg' }] }} />
-                    <UrfaIcon_Balik size={30} opacity={0.07} style={{ position: 'absolute', top: 120, right: 100, transform: [{ rotate: '-30deg' }] }} />
-                    <UrfaIcon_Harran size={25} opacity={0.09} style={{ position: 'absolute', top: 140, left: 50, transform: [{ rotate: '15deg' }] }} />
-                    <UrfaIcon_Gobeklitepe size={20} opacity={0.12} style={{ position: 'absolute', bottom: 5, right: 70, transform: [{ rotate: '-5deg' }] }} />
+                    <UrfaIcon_Harran color={Colors.primaryHex} size={35} opacity={0.08} style={{ position: 'absolute', top: 90, left: 15, transform: [{ rotate: '-10deg' }] }} />
+                    <UrfaIcon_Balik color={Colors.primaryHex} size={25} opacity={0.1} style={{ position: 'absolute', bottom: 60, right: 80, transform: [{ rotate: '30deg' }] }} />
+                    <UrfaIcon_Gobeklitepe color={Colors.primaryHex} size={30} opacity={0.1} style={{ position: 'absolute', top: 5, left: 120, transform: [{ rotate: '15deg' }] }} />
+                    <UrfaIcon_Balik color={Colors.primaryHex} size={30} opacity={0.07} style={{ position: 'absolute', top: 120, right: 100, transform: [{ rotate: '-30deg' }] }} />
+                    <UrfaIcon_Harran color={Colors.primaryHex} size={25} opacity={0.09} style={{ position: 'absolute', top: 140, left: 50, transform: [{ rotate: '15deg' }] }} />
+                    <UrfaIcon_Gobeklitepe color={Colors.primaryHex} size={20} opacity={0.12} style={{ position: 'absolute', bottom: 5, right: 70, transform: [{ rotate: '-5deg' }] }} />
 
                     {/* --- İKİNCİ EKLEME (DAHA FAZLA YOĞUNLUK) --- */}
-                    <UrfaIcon_Balik size={22} opacity={0.15} style={{ position: 'absolute', top: 80, right: 90, transform: [{ rotate: '180deg' }] }} />
-                    <UrfaIcon_Gobeklitepe size={28} opacity={0.1} style={{ position: 'absolute', bottom: 60, left: 30, transform: [{ rotate: '-25deg' }] }} />
-                    <UrfaIcon_Harran size={33} opacity={0.11} style={{ position: 'absolute', top: 40, left: 150, transform: [{ rotate: '35deg' }] }} />
+                    <UrfaIcon_Balik color={Colors.primaryHex} size={22} opacity={0.15} style={{ position: 'absolute', top: 80, right: 90, transform: [{ rotate: '180deg' }] }} />
+                    <UrfaIcon_Gobeklitepe color={Colors.primaryHex} size={28} opacity={0.1} style={{ position: 'absolute', bottom: 60, left: 30, transform: [{ rotate: '-25deg' }] }} />
+                    <UrfaIcon_Harran color={Colors.primaryHex} size={33} opacity={0.11} style={{ position: 'absolute', top: 40, left: 150, transform: [{ rotate: '35deg' }] }} />
 
                     {/* --- ÜÇÜNCÜ EKLEME (SON DOKUNUŞLAR) --- */}
-                    <UrfaIcon_Gobeklitepe size={25} opacity={0.06} style={{ position: 'absolute', top: 130, left: 140, transform: [{ rotate: '-10deg' }] }} />
-                    <UrfaIcon_Balik size={20} opacity={0.08} style={{ position: 'absolute', bottom: 45, left: 160, transform: [{ rotate: '10deg' }] }} />
+                    <UrfaIcon_Gobeklitepe color={Colors.primaryHex} size={25} opacity={0.06} style={{ position: 'absolute', top: 130, left: 140, transform: [{ rotate: '-10deg' }] }} />
+                    <UrfaIcon_Balik color={Colors.primaryHex} size={20} opacity={0.08} style={{ position: 'absolute', bottom: 45, left: 160, transform: [{ rotate: '10deg' }] }} />
                     
                     {/* --- DÖRDÜNCÜ EKLEME (MAKSİMUM YOĞUNLUK) --- */}
-                    <UrfaIcon_Harran size={20} opacity={0.1} style={{ position: 'absolute', top: 160, right: 40, transform: [{ rotate: '-40deg' }] }} />
-                    <UrfaIcon_Balik size={28} opacity={0.12} style={{ position: 'absolute', top: 60, left: 60, transform: [{ rotate: '60deg' }] }} />
-                    <UrfaIcon_Gobeklitepe size={26} opacity={0.09} style={{ position: 'absolute', bottom: 90, right: 140, transform: [{ rotate: '5deg' }] }} />
+                    <UrfaIcon_Harran color={Colors.primaryHex} size={20} opacity={0.1} style={{ position: 'absolute', top: 160, right: 40, transform: [{ rotate: '-40deg' }] }} />
+                    <UrfaIcon_Balik color={Colors.primaryHex} size={28} opacity={0.12} style={{ position: 'absolute', top: 60, left: 60, transform: [{ rotate: '60deg' }] }} />
+                    <UrfaIcon_Gobeklitepe color={Colors.primaryHex} size={26} opacity={0.09} style={{ position: 'absolute', bottom: 90, right: 140, transform: [{ rotate: '5deg' }] }} />
                 </View>
 
                 <View style={styles.cardTop}>

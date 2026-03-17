@@ -53,7 +53,7 @@ const LoginScreen = () => {
           style={StyleSheet.absoluteFill}
         >
           {/* Dekoratif Işık - Balıklıgöl teal & Urfa taşı */}
-          <View style={[styles.glow, { top: '10%', left: '-10%', backgroundColor: '#0d9488' }]} />
+          <View style={[styles.glow, { top: '10%', left: '-10%', backgroundColor: '#758956' }]} />
           <View style={[styles.glow, { bottom: '20%', right: '-10%', backgroundColor: '#14b8a6' }]} />
         </LinearGradient>
       </ImageBackground>
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
-    shadowColor: '#0d9488',
+    shadowColor: '#758956',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.25,
     shadowRadius: 30,
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#0d9488',
+    shadowColor: '#758956',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,

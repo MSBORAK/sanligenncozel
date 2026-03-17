@@ -19,7 +19,7 @@ export const MOCK_STORIES: Story[] = [
 ];
 
 export const MOCK_BUSES: Bus[] = [
-    { id: '1', lineNumber: '90', destination: 'OSMANBEY KAMPÜS', arrivalTime: 3, lineColor: '#8b5cf6', stops: ['Abide', 'Valilik', 'Karaköprü', 'Osmanbey'] },
+    { id: '1', lineNumber: '90', destination: 'OSMANBEY KAMPÜS', arrivalTime: 3, lineColor: '#758956', stops: ['Abide', 'Valilik', 'Karaköprü', 'Osmanbey'] },
     { id: '2', lineNumber: '63', destination: 'KARAKÖPRÜ', arrivalTime: 5, lineColor: '#22c55e', stops: ['Toplama Merkezi', 'Müze', 'Piazza', 'Diyarbakır Yolu'] },
     { id: '3', lineNumber: '74', destination: 'ESENTEPE', arrivalTime: 8, lineColor: '#f97316', stops: ['Çevik Kuvvet', 'Belediye', 'Adliye', 'Esentepe'] },
     { id: '4', lineNumber: '24', destination: 'SIRA GECESİ', arrivalTime: 12, lineColor: '#3b82f6', stops: ['Haleplibahçe', 'Balıklıgöl', 'Haşimiye', 'Belediye Konuk Evi'] },

@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronRight, Bell, ShieldCheck, LogOut, User as UserIcon, X, Settings, HelpCircle, Info, Edit3, ArrowLeft, Moon, MessageSquare, Send, AlertCircle, Lightbulb, Heart } from 'lucide-react-native';
-import { Colors } from '@/constants/Colors';
+import { Colors, Gradients } from '@/constants/Colors';
 import { MOCK_USER } from '@/api/mockData';
 import { useThemeMode } from '@/context/ThemeContext';
 import { useFavorites } from '@/context/FavoritesContext';
@@ -46,7 +46,7 @@ const ProfileScreen = () => {
 
   const MenuItem = ({ label, icon, onPress, isLast, isDestructive }: { label: string, icon: React.ReactNode, onPress?: () => void, isLast?: boolean, isDestructive?: boolean }) => (
     <TouchableOpacity 
-      style={[styles.menuItem, isLast && styles.menuItemLast, isDark && { borderBottomColor: '#334155' }]} 
+      style={[styles.menuItem, isLast && styles.menuItemLast, isDark && { borderBottomColor: Colors.dark.border }]} 
       onPress={onPress}
       activeOpacity={0.7}
     >
@@ -54,16 +54,16 @@ const ProfileScreen = () => {
         <View style={styles.menuIconContainer}>
           {icon}
         </View>
-        <Text style={[styles.menuItemText, isDark && { color: '#f8fafc' }, isDestructive && { color: Colors.accent.rose }]}>
+        <Text style={[styles.menuItemText, isDark && { color: Colors.dark.text }, isDestructive && { color: Colors.accent.rose }]}>
           {label}
         </Text>
       </View>
-      <ChevronRight color={isDark ? '#64748b' : '#9ca3af'} size={20} />
+      <ChevronRight color={isDark ? Colors.dark.textMuted : '#9ca3af'} size={20} />
     </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={[styles.root, isDark && { backgroundColor: '#0f172a' }]} edges={['top']}>
+    <SafeAreaView style={[styles.root, isDark && { backgroundColor: Colors.dark.background }]} edges={['top']}>
       <ScrollView 
         showsVerticalScrollIndicator={false} 
         contentContainerStyle={styles.scrollContent}
@@ -73,7 +73,7 @@ const ProfileScreen = () => {
           {/* Gradient Header */}
           <View style={styles.headerContainer}>
             <LinearGradient
-              colors={['#8b5cf6', '#ec4899', '#3b82f6']}
+              colors={Gradients.header}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.gradientHeader}
@@ -84,23 +84,23 @@ const ProfileScreen = () => {
             <View style={styles.avatarContainer}>
               <View style={styles.avatarWrapper}>
                 <LinearGradient
-                  colors={['#8b5cf6', '#ec4899', '#f59e0b', '#3b82f6']}
+                  colors={Gradients.header}
                   style={styles.avatarGradientBorder}
                 >
-                  <View style={[styles.avatarInner, isDark && { backgroundColor: '#1e293b' }]}>
-                    <Text style={[styles.avatarText, isDark && { color: '#f8fafc' }]}>{userInitial}</Text>
+                  <View style={[styles.avatarInner, isDark && { backgroundColor: Colors.dark.card }]}>
+                    <Text style={[styles.avatarText, isDark && { color: Colors.dark.text }]}>{userInitial}</Text>
                   </View>
                 </LinearGradient>
               </View>
-              <Text style={[styles.userName, isDark && { color: '#f8fafc' }]}>{userName}</Text>
-              <Text style={[styles.userStatus, isDark && { color: '#94a3b8' }]}>{MOCK_USER.status}</Text>
+              <Text style={[styles.userName, isDark && { color: Colors.dark.text }]}>{userName}</Text>
+              <Text style={[styles.userStatus, isDark && { color: Colors.dark.textMuted }]}>{MOCK_USER.status}</Text>
             </View>
           </View>
 
           {/* Verification Card */}
           {!MOCK_USER.isVerified && (
             <TouchableOpacity 
-              style={[styles.verificationCard, isDark && { backgroundColor: '#1e1b16', borderColor: '#3b341f' }]} 
+              style={[styles.verificationCard, isDark && { backgroundColor: Colors.dark.card, borderColor: Colors.dark.border }]} 
               onPress={() => setModalVisible(true)}
               activeOpacity={0.8}
             >
@@ -122,10 +122,10 @@ const ProfileScreen = () => {
 
           {/* Settings Menu Items */}
           <View style={styles.menuSection}>
-            <View style={[styles.menuCard, isDark && { backgroundColor: '#1e293b' }]}>
+            <View style={[styles.menuCard, isDark && { backgroundColor: Colors.dark.card }]}>
               <MenuItem 
                 label={favoritesCount > 0 ? `Favorilerim (${favoritesCount})` : 'Favorilerim'} 
-                icon={<Heart color={isDark ? '#f472b6' : '#ec4899'} size={22} fill={favoritesCount > 0 ? (isDark ? '#f472b6' : '#ec4899') : 'transparent'} />}
+                icon={<Heart color={isDark ? Colors.dark.accent : Colors.accent.amber} size={22} fill={favoritesCount > 0 ? (isDark ? Colors.dark.accent : Colors.accent.amber) : 'transparent'} />}
                 onPress={() => navigation.navigate('Events', { initialTab: 'Favorilerim' })}
               />
               <MenuItem 
@@ -149,12 +149,12 @@ const ProfileScreen = () => {
 
           {/* Notification Toggle */}
           <View style={styles.menuSection}>
-            <View style={[styles.menuCard, isDark && { backgroundColor: '#1e293b' }]}>
+            <View style={[styles.menuCard, isDark && { backgroundColor: Colors.dark.card }]}>
               <View style={styles.switchRow}>
                 <View style={styles.switchIconContainer}>
                   <Bell color={isDark ? '#fff' : '#000'} size={22} />
                 </View>
-                <Text style={[styles.switchLabel, isDark && { color: '#f8fafc' }]}>Bildirimler</Text>
+                <Text style={[styles.switchLabel, isDark && { color: Colors.dark.text }]}>Bildirimler</Text>
                 <Switch
                   value={eventNotificationsEnabled}
                   onValueChange={setEventNotificationsEnabled}
@@ -168,12 +168,12 @@ const ProfileScreen = () => {
 
           {/* Dark Mode Toggle */}
           <View style={styles.menuSection}>
-            <View style={[styles.menuCard, isDark && { backgroundColor: '#1e293b' }]}>
+            <View style={[styles.menuCard, isDark && { backgroundColor: Colors.dark.card }]}>
               <View style={styles.switchRow}>
                 <View style={styles.switchIconContainer}>
                   <Moon color={isDark ? '#fff' : '#000'} size={22} />
                 </View>
-                <Text style={[styles.switchLabel, isDark && { color: '#f8fafc' }]}>Karanlık Mod</Text>
+                <Text style={[styles.switchLabel, isDark && { color: Colors.dark.text }]}>Karanlık Mod</Text>
                 <Switch
                   value={isDark}
                   onValueChange={toggleTheme}
@@ -207,12 +207,12 @@ const ProfileScreen = () => {
               behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
               style={styles.modalBackdrop}
             >
-              <View style={[styles.modalView, isDark && { backgroundColor: '#1e293b' }]}>
+              <View style={[styles.modalView, isDark && { backgroundColor: Colors.dark.card }]}>
                 <TouchableOpacity style={styles.closeButton} onPress={() => setModalVisible(false)}>
                   <X color={isDark ? '#94a3b8' : '#9ca3af'} size={24} />
                 </TouchableOpacity>
-                <Text style={[styles.modalTitle, isDark && { color: '#f8fafc' }]}>Numara ile Doğrulama</Text>
-                <Text style={[styles.modalSubtitle, isDark && { color: '#94a3b8' }]}>
+                <Text style={[styles.modalTitle, isDark && { color: Colors.dark.text }]}>Numara ile Doğrulama</Text>
+                <Text style={[styles.modalSubtitle, isDark && { color: Colors.dark.textMuted }]}>
                   Avantajlardan yararlanmak için telefon numaranızı doğrulamanız gerekmektedir.
                 </Text>
                 <TextInput
@@ -238,12 +238,12 @@ const ProfileScreen = () => {
             onRequestClose={() => setPrivacyModalVisible(!privacyModalVisible)}
           >
             <View style={styles.modalBackdrop}>
-              <View style={[styles.modalView, isDark && { backgroundColor: '#1e293b' }]}>
+              <View style={[styles.modalView, isDark && { backgroundColor: Colors.dark.card }]}>
                 <TouchableOpacity style={styles.closeButton} onPress={() => setPrivacyModalVisible(false)}>
                   <X color={isDark ? '#94a3b8' : '#9ca3af'} size={24} />
                 </TouchableOpacity>
-                <Text style={[styles.modalTitle, isDark && { color: '#f8fafc' }]}>Gizlilik ve Güvenlik</Text>
-                <Text style={[styles.modalSubtitle, isDark && { color: '#94a3b8' }]}>
+                <Text style={[styles.modalTitle, isDark && { color: Colors.dark.text }]}>Gizlilik ve Güvenlik</Text>
+                <Text style={[styles.modalSubtitle, isDark && { color: Colors.dark.textMuted }]}>
                   Uygulamamız, kişisel verilerinizi güvenli bir şekilde saklar ve işler. Konum, kullanım ve tercih bilgilerinizi yalnızca hizmetleri iyileştirmek ve size daha uygun içerikler sunmak için kullanırız.{'\n\n'}
                   Verileriniz şifrelenmiş olarak saklanır ve üçüncü taraflarla paylaşılmaz. Kişisel bilgilerinize her zaman buradan erişebilir ve güncelleyebilirsiniz.
                 </Text>
@@ -262,14 +262,14 @@ const ProfileScreen = () => {
             onRequestClose={() => setAccountSettingsVisible(!accountSettingsVisible)}
           >
             <View style={styles.modalBackdrop}>
-              <View style={[styles.modalView, isDark && { backgroundColor: '#1e293b' }]}>
+              <View style={[styles.modalView, isDark && { backgroundColor: Colors.dark.card }]}>
                 <TouchableOpacity style={styles.closeButton} onPress={() => setAccountSettingsVisible(false)}>
                   <X color={isDark ? '#94a3b8' : '#9ca3af'} size={24} />
                 </TouchableOpacity>
-                <Text style={[styles.modalTitle, isDark && { color: '#f8fafc' }]}>Hesap Ayarları</Text>
+                <Text style={[styles.modalTitle, isDark && { color: Colors.dark.text }]}>Hesap Ayarları</Text>
                 
                 <ScrollView showsVerticalScrollIndicator={false} style={styles.modalScrollView}>
-                  <Text style={[styles.inputLabel, isDark && { color: '#94a3b8' }]}>Kullanıcı Adı</Text>
+                  <Text style={[styles.inputLabel, isDark && { color: Colors.dark.textMuted }]}>Kullanıcı Adı</Text>
                   <TextInput
                     placeholder="Kullanıcı Adı"
                     placeholderTextColor={isDark ? '#64748b' : '#9ca3af'}
@@ -279,7 +279,7 @@ const ProfileScreen = () => {
                     autoCapitalize="words"
                   />
 
-                  <Text style={[styles.inputLabel, isDark && { color: '#94a3b8' }]}>E-posta</Text>
+                  <Text style={[styles.inputLabel, isDark && { color: Colors.dark.textMuted }]}>E-posta</Text>
                   <TextInput
                     placeholder="ornek@email.com"
                     placeholderTextColor={isDark ? '#64748b' : '#9ca3af'}
@@ -316,12 +316,12 @@ const ProfileScreen = () => {
               behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
               style={styles.modalBackdrop}
             >
-              <View style={[styles.modalView, isDark && { backgroundColor: '#1e293b' }]}>
+              <View style={[styles.modalView, isDark && { backgroundColor: Colors.dark.card }]}>
                 <TouchableOpacity style={styles.closeButton} onPress={() => setFeedbackModalVisible(false)}>
                   <X color={isDark ? '#94a3b8' : '#9ca3af'} size={24} />
                 </TouchableOpacity>
-                <Text style={[styles.modalTitle, isDark && { color: '#f8fafc' }]}>Geri Bildirim</Text>
-                <Text style={[styles.modalSubtitle, isDark && { color: '#94a3b8' }]}>
+                <Text style={[styles.modalTitle, isDark && { color: Colors.dark.text }]}>Geri Bildirim</Text>
+                <Text style={[styles.modalSubtitle, isDark && { color: Colors.dark.textMuted }]}>
                   Görüşleriniz bizim için çok değerli. Lütfen geri bildiriminizi paylaşın.
                 </Text>
 
@@ -386,7 +386,7 @@ const ProfileScreen = () => {
                 </View>
 
                 <ScrollView showsVerticalScrollIndicator={false} style={styles.modalScrollView}>
-                  <Text style={[styles.inputLabel, isDark && { color: '#94a3b8' }]}>Başlık</Text>
+                  <Text style={[styles.inputLabel, isDark && { color: Colors.dark.textMuted }]}>Başlık</Text>
                   <TextInput
                     placeholder={feedbackType === 'complaint' ? 'Şikayet/Öneri başlığı' : feedbackType === 'bug' ? 'Hata başlığı' : 'Özellik isteği başlığı'}
                     placeholderTextColor={isDark ? '#64748b' : '#9ca3af'}
@@ -396,7 +396,7 @@ const ProfileScreen = () => {
                     autoCapitalize="sentences"
                   />
 
-                  <Text style={[styles.inputLabel, isDark && { color: '#94a3b8' }]}>Açıklama</Text>
+                  <Text style={[styles.inputLabel, isDark && { color: Colors.dark.textMuted }]}>Açıklama</Text>
                   <TextInput
                     placeholder={feedbackType === 'complaint' ? 'Lütfen şikayet veya önerinizi detaylı bir şekilde yazın...' : feedbackType === 'bug' ? 'Hatanın nasıl oluştuğunu ve ne yaptığınızı açıklayın...' : 'İstediğiniz özelliği detaylı bir şekilde açıklayın...'}
                     placeholderTextColor={isDark ? '#64748b' : '#9ca3af'}
@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatarText: {
-    color: '#8b5cf6',
+    color: Colors.primary.indigo,
     fontSize: 36,
     fontWeight: 'bold',
   },

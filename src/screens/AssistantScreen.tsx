@@ -20,8 +20,8 @@ import { MOCK_MESSAGES } from '@/api/mockData';
 import { ChatMessage } from '@/types';
 import { useThemeMode } from '@/context/ThemeContext';
 
-// 🔑 SENİN API ANAHTARIN
-const API_KEY = 'AIzaSyC7vGvSl-eDZl76wCP8ACLSgtLvXr1J4nA';
+// 🔑 Ortam değişkeninden al (.env dosyasında EXPO_PUBLIC_GOOGLE_AI_KEY)
+const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_AI_KEY ?? '';
 
 // 🤖 [ÖNEMLİ] YAPAY ZEKANIN KURALLARI BURAYA YAZILIR
 // Burayı dilediğin gibi değiştirebilirsin.
@@ -144,7 +144,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ item }) => {
         )}
         {item.sender === 'user' ? (
           <LinearGradient
-            colors={['#134e4a', '#0f766e']}
+            colors={[Colors.primary.violet, Colors.primary.indigo]}
             style={[styles.bubble, styles.userBubble]}
           >
             <Text style={styles.userBubbleText}>
@@ -156,9 +156,9 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ item }) => {
             styles.bubble, 
             styles.botBubble,
             isDark && { 
-              backgroundColor: '#334155',
+              backgroundColor: Colors.dark.card,
               borderWidth: 1,
-              borderColor: '#475569',
+              borderColor: Colors.dark.border,
               shadowColor: '#000',
               shadowOffset: { width: 0, height: 2 },
               shadowOpacity: 0.2,
@@ -320,13 +320,13 @@ const AssistantScreen = () => {
 
   return (
     <SafeAreaView
-      style={[styles.container, isDark && { backgroundColor: '#020617' }]}
+      style={[styles.container, isDark && { backgroundColor: Colors.dark.background }]}
       edges={['top']}
     >
       <View
         style={[
           styles.bubblePage,
-          isDark && { backgroundColor: '#1e293b', shadowOpacity: 0.25 },
+          isDark && { backgroundColor: Colors.dark.card, shadowOpacity: 0.25 },
         ]}
       >
         <KeyboardAvoidingView
@@ -355,7 +355,7 @@ const AssistantScreen = () => {
               {QUICK_ACTIONS.map((action) => (
                 <TouchableOpacity
                   key={action.id}
-                  style={[styles.quickStartChip, isDark && { backgroundColor: '#334155' }]}
+                  style={[styles.quickStartChip, isDark && { backgroundColor: Colors.dark.card }]}
                   onPress={() => sendUserMessage(action.text)}
                   activeOpacity={0.9}
                 >
@@ -395,17 +395,17 @@ const AssistantScreen = () => {
               <View style={[styles.botAvatar, isDark && styles.botAvatarDark]}>
                 <Bot color={isDark ? '#5eead4' : Colors.primary.indigo} size={20} />
               </View>
-              <View style={[styles.bubble, styles.botBubble, styles.typingBubble, isDark && { backgroundColor: '#334155' }]}>
+              <View style={[styles.bubble, styles.botBubble, styles.typingBubble, isDark && { backgroundColor: Colors.dark.card }]}>
                 <Text style={[styles.typingText, isDark && { color: '#f8fafc' }]}>{typingDots}</Text>
               </View>
             </View>
           )}
 
           {/* Input */}
-          <View style={[styles.inputContainer, isDark && { borderTopColor: '#334155' }]}>
+          <View style={[styles.inputContainer, isDark && { borderTopColor: Colors.dark.border }]}>
             <TextInput
               placeholder="Mesajını buraya yaz..."
-              style={[styles.input, isDark && { backgroundColor: '#334155', color: '#f8fafc' }]}
+              style={[styles.input, isDark && { backgroundColor: Colors.dark.card, color: Colors.dark.text }]}
               placeholderTextColor={isDark ? '#94a3b8' : '#9ca3af'}
               value={inputText}
               onChangeText={setInputText}
@@ -417,7 +417,7 @@ const AssistantScreen = () => {
               onPress={() => sendUserMessage(inputText)}
               activeOpacity={0.9}
             >
-               <LinearGradient colors={['#134e4a', '#0f766e']} style={styles.sendButtonGradient}>
+               <LinearGradient colors={[Colors.primary.violet, Colors.primary.indigo]} style={styles.sendButtonGradient}>
                   <SendHorizonal color={Colors.white} size={24} />
                </LinearGradient>
             </TouchableOpacity>
@@ -515,7 +515,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   botAvatarDark: {
-    backgroundColor: '#134e4a',
+    backgroundColor: Colors.primary.violet,
   },
   bubble: {
     padding: 15,

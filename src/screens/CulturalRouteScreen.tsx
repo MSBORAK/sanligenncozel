@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView } from '
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Calendar, Clock, Sparkles, CheckCircle2 } from 'lucide-react-native';
-import { Colors } from '@/constants/Colors';
+import { Colors, Gradients } from '@/constants/Colors';
 import { MOCK_WEEKEND_PLANS, WeekendPlan } from '@/api/mockData';
 import { useThemeMode } from '@/context/ThemeContext';
 import { BlurView } from 'expo-blur';
@@ -29,7 +29,7 @@ const CulturalRouteScreen = () => {
     const categoryTheme = getCategoryColor(item.category);
     return (
       <TouchableOpacity
-        style={[styles.planCard, isDark && { backgroundColor: '#1e293b', borderWidth: 1, borderColor: '#334155' }]}
+        style={[styles.planCard, isDark && { backgroundColor: Colors.dark.card, borderWidth: 1, borderColor: Colors.dark.border }]}
         activeOpacity={0.9}
       >
         <View style={styles.cardHeader}>
@@ -81,11 +81,11 @@ const CulturalRouteScreen = () => {
 
   return (
     <SafeAreaView
-      style={[styles.container, isDark && { backgroundColor: '#020617' }]}
+      style={[styles.container, isDark && { backgroundColor: Colors.dark.background }]}
       edges={['top']}
     >
       <LinearGradient
-        colors={isDark ? ['#020617', '#1f2937'] : [Colors.primary.violet, Colors.primary.indigo]}
+        colors={isDark ? Gradients.dark : Gradients.hero}
         style={styles.header}
       >
         <Text style={styles.headerTitle}>Gezi Rotaları</Text>

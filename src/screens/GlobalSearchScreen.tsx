@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Search, X, Calendar, MapPin, BookOpen, Bus } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors } from '@/constants/Colors';
+import { Colors, Gradients } from '@/constants/Colors';
 import { MOCK_PARTNERS, MOCK_EVENTS } from '@/api/mockData';
 import { MOCK_STOPS } from '@/data/transport';
 import { MOCK_MAGAZINES } from '@/api/mockData';
@@ -147,9 +147,9 @@ const GlobalSearchScreen = () => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, isDark && { backgroundColor: '#020617' }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, isDark && { backgroundColor: Colors.dark.background }]} edges={['top']}>
       <LinearGradient
-        colors={isDark ? ['#020617', '#1f2937'] : ['#134e4a', '#0f766e']}
+        colors={isDark ? Gradients.dark : Gradients.hero}
         style={styles.header}
       >
         <View style={styles.searchRow}>
@@ -192,14 +192,14 @@ const GlobalSearchScreen = () => {
           list.map((r) => (
             <TouchableOpacity
               key={`${r.type}-${r.id}`}
-              style={[styles.resultItem, isDark && { backgroundColor: '#1e293b', borderColor: '#334155' }]}
+              style={[styles.resultItem, isDark && { backgroundColor: Colors.dark.card, borderColor: Colors.dark.border }]}
               onPress={() => handleSelect(r)}
               activeOpacity={0.8}
             >
               {r.image ? (
                 <Image source={{ uri: r.image }} style={styles.resultImage} />
               ) : (
-                <View style={[styles.resultIcon, isDark && { backgroundColor: '#334155' }]}>{getIcon(r.type)}</View>
+                <View style={[styles.resultIcon, isDark && { backgroundColor: Colors.dark.border }]}>{getIcon(r.type)}</View>
               )}
               <View style={styles.resultText}>
                 <Text style={[styles.resultTitle, isDark && { color: '#f8fafc' }]} numberOfLines={1}>{r.title}</Text>

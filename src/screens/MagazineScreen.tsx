@@ -73,7 +73,7 @@ const MagazineScreen = () => {
 
   return (
     <SafeAreaView
-      style={[styles.container, isDark && { backgroundColor: '#020617' }]}
+      style={[styles.container, isDark && { backgroundColor: Colors.dark.background }]}
       edges={['top']}
     >
       <ScrollView>
@@ -91,7 +91,7 @@ const MagazineScreen = () => {
           <TouchableOpacity
             style={[
                 styles.categoryChip, 
-                isDark && { backgroundColor: '#334155', borderColor: '#475569' },
+                isDark && { backgroundColor: Colors.dark.border, borderColor: Colors.dark.detail },
                 selectedCategory === 'all' && styles.categoryChipActive
             ]}
             onPress={() => setSelectedCategory('all')}
@@ -110,7 +110,7 @@ const MagazineScreen = () => {
           <TouchableOpacity
             style={[
                 styles.categoryChip, 
-                isDark && { backgroundColor: '#334155', borderColor: '#475569' },
+                isDark && { backgroundColor: Colors.dark.border, borderColor: Colors.dark.detail },
                 selectedCategory === 'historic' && styles.categoryChipActive
             ]}
             onPress={() => setSelectedCategory('historic')}
@@ -129,7 +129,7 @@ const MagazineScreen = () => {
           <TouchableOpacity
             style={[
                 styles.categoryChip, 
-                isDark && { backgroundColor: '#334155', borderColor: '#475569' },
+                isDark && { backgroundColor: Colors.dark.border, borderColor: Colors.dark.detail },
                 selectedCategory === 'museum' && styles.categoryChipActive
             ]}
             onPress={() => setSelectedCategory('museum')}
@@ -148,7 +148,7 @@ const MagazineScreen = () => {
           <TouchableOpacity
             style={[
                 styles.categoryChip, 
-                isDark && { backgroundColor: '#334155', borderColor: '#475569' },
+                isDark && { backgroundColor: Colors.dark.border, borderColor: Colors.dark.detail },
                 selectedCategory === 'nature' && styles.categoryChipActive
             ]}
             onPress={() => setSelectedCategory('nature')}
@@ -169,14 +169,14 @@ const MagazineScreen = () => {
         {loading ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalList}>
             {[1, 2, 3].map((i) => (
-              <View key={i} style={[styles.heritageCard, isDark && { backgroundColor: '#1e293b' }]}>
+              <View key={i} style={[styles.heritageCard, isDark && { backgroundColor: Colors.dark.card }]}>
                 <Skeleton width="100%" height="100%" borderRadius={20} isDark={isDark} />
               </View>
             ))}
           </ScrollView>
         ) : filteredMagazines.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={[styles.emptyText, isDark && { color: '#94a3b8' }]}>
+            <Text style={[styles.emptyText, isDark && { color: Colors.dark.textMuted }]}>
               {selectedCategory === 'all' ? 'Henüz içerik bulunmuyor.' : 'Bu kategoride içerik bulunmuyor.'}
             </Text>
           </View>
@@ -193,7 +193,7 @@ const MagazineScreen = () => {
               return (
                 <AnimatedListItem index={index} delay={70}>
                 <TouchableOpacity
-                  style={[styles.heritageCard, isDark && { backgroundColor: '#1e293b' }]}
+                  style={[styles.heritageCard, isDark && { backgroundColor: Colors.dark.card }]}
                   activeOpacity={0.9}
                   onPress={() => navigation.navigate('HeritageDetail', { id: item.id })}
                 >

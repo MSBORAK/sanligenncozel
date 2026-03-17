@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pill, MapPin, Phone, Navigation } from 'lucide-react-native';
-import { Colors } from '@/constants/Colors';
+import { Colors, Gradients } from '@/constants/Colors';
 import { MOCK_PHARMACIES, Pharmacy } from '@/api/mockData';
 import { useThemeMode } from '@/context/ThemeContext';
 
@@ -29,10 +29,10 @@ const PharmacyListScreen = () => {
 
   const renderPharmacyItem = useCallback(({ item }: { item: Pharmacy }) => (
       <TouchableOpacity
-        style={[styles.pharmacyCard, isDark && { backgroundColor: '#1e293b', borderWidth: 1, borderColor: '#334155' }]}
+        style={[styles.pharmacyCard, isDark && { backgroundColor: Colors.dark.card, borderWidth: 1, borderColor: Colors.dark.border }]}
         activeOpacity={0.9}
       >
-        <View style={[styles.iconContainer, { backgroundColor: '#fef2f2' }, isDark && { backgroundColor: '#334155' }]}>
+        <View style={[styles.iconContainer, { backgroundColor: '#fef2f2' }, isDark && { backgroundColor: Colors.dark.border }]}>
           <Pill color={isDark ? '#fca5a5' : '#ef4444'} size={24} />
         </View>
         <View style={styles.infoContainer}>
@@ -61,7 +61,7 @@ const PharmacyListScreen = () => {
           </View>
         </View>
         <TouchableOpacity
-          style={[styles.directionsButton, isDark && { backgroundColor: '#334155' }]}
+          style={[styles.directionsButton, isDark && { backgroundColor: Colors.dark.border }]}
           onPress={() => handleDirections(item)}
           activeOpacity={0.9}
         >
@@ -74,11 +74,11 @@ const PharmacyListScreen = () => {
 
   return (
     <SafeAreaView
-      style={[styles.container, isDark && { backgroundColor: '#020617' }]}
+      style={[styles.container, isDark && { backgroundColor: Colors.dark.background }]}
       edges={['top']}
     >
       <LinearGradient
-        colors={isDark ? ['#020617', '#1f2937'] : [Colors.primary.violet, Colors.primary.indigo]}
+        colors={isDark ? Gradients.dark : Gradients.hero}
         style={styles.header}
       >
         <Text style={styles.headerTitle}>Nöbetçi Eczaneler</Text>

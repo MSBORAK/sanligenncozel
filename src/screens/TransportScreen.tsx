@@ -252,7 +252,7 @@ const TransportScreen = () => {
 
   return (
     <SafeAreaView
-      style={[styles.root, isDark && { backgroundColor: '#020617' }]}
+      style={[styles.root, isDark && { backgroundColor: 'Colors.dark.background' }]}
       edges={['top']}
     >
       {/* Full Screen Map - Rendered at SafeAreaView level when expanded */}
@@ -283,7 +283,7 @@ const TransportScreen = () => {
           
           <View style={styles.mapOverlayRow}>
             {location && (
-              <View style={[styles.mapLocationPill, isDark && { backgroundColor: '#1e293b' }]}>
+              <View style={[styles.mapLocationPill, isDark && { backgroundColor: 'Colors.dark.card' }]}>
                 <MapPin color={isDark ? '#a5b4fc' : Colors.primary.indigo} size={16} />
                 <Text style={[styles.mapLocationText, isDark && { color: '#f8fafc' }]}>Konumunuz Alındı</Text>
               </View>
@@ -299,7 +299,7 @@ const TransportScreen = () => {
           {/* Harita Tam Ekranken Görünecek Arama Çubuğu */}
           <View style={styles.expandedSearchWrapper}>
             <View style={styles.expandedSearchRow}>
-              <View style={[styles.expandedSearchContainer, isDark && { backgroundColor: '#1e293b', borderColor: '#334155', borderWidth: 1 }]}>
+              <View style={[styles.expandedSearchContainer, isDark && { backgroundColor: 'Colors.dark.card', borderColor: 'Colors.dark.border', borderWidth: 1 }]}>
                 <Search color={isDark ? '#94a3b8' : '#9ca3af'} size={20} />
                 <TextInput
                   placeholder="Haritada durak ara..."
@@ -319,7 +319,7 @@ const TransportScreen = () => {
               </View>
               
               <TouchableOpacity 
-                style={[styles.expandedMinimizeButton, isDark && { backgroundColor: '#1e293b', borderColor: '#334155', borderWidth: 1 }]}
+                style={[styles.expandedMinimizeButton, isDark && { backgroundColor: 'Colors.dark.card', borderColor: 'Colors.dark.border', borderWidth: 1 }]}
                 onPress={() => {
                   setIsMapExpanded(false);
                   setSearchQuery('');
@@ -330,13 +330,13 @@ const TransportScreen = () => {
             </View>
 
             {searchQuery.length > 0 && (
-              <View style={[styles.expandedSearchResultsList, isDark && { backgroundColor: '#1e293b', borderColor: '#334155' }]}>
+              <View style={[styles.expandedSearchResultsList, isDark && { backgroundColor: 'Colors.dark.card', borderColor: 'Colors.dark.border' }]}>
                 <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={true}>
                   {filteredStops.length > 0 ? (
                     filteredStops.map((stop) => (
                       <TouchableOpacity
                         key={stop.id}
-                        style={[styles.searchResultItem, isDark && { borderBottomColor: '#334155' }]}
+                        style={[styles.searchResultItem, isDark && { borderBottomColor: 'Colors.dark.border' }]}
                         onPress={() => {
                           setNearestStop(stop);
                           setSearchQuery('');
@@ -349,7 +349,7 @@ const TransportScreen = () => {
                           });
                         }}
                       >
-                        <View style={[styles.searchResultIcon, isDark && { backgroundColor: '#334155' }]}>
+                        <View style={[styles.searchResultIcon, isDark && { backgroundColor: 'Colors.dark.border' }]}>
                           <MapPin size={16} color={isDark ? '#a5b4fc' : Colors.primary.indigo} />
                         </View>
                         <View style={{ flex: 1 }}>
@@ -395,7 +395,7 @@ const TransportScreen = () => {
             {/* Nereden - Nereye Seçimi */}
             <View style={styles.routeSelector}>
               <TouchableOpacity
-                style={[styles.routeButton, isDark && { backgroundColor: '#1e293b', borderColor: '#334155' }]}
+                style={[styles.routeButton, isDark && { backgroundColor: 'Colors.dark.card', borderColor: 'Colors.dark.border' }]}
                 onPress={() => setShowStopPicker('from')}
               >
                 <View style={styles.routeButtonContent}>
@@ -412,7 +412,7 @@ const TransportScreen = () => {
               <ArrowRight color={isDark ? '#64748b' : '#9ca3af'} size={24} style={{ marginHorizontal: 12 }} />
 
               <TouchableOpacity
-                style={[styles.routeButton, isDark && { backgroundColor: '#1e293b', borderColor: '#334155' }]}
+                style={[styles.routeButton, isDark && { backgroundColor: 'Colors.dark.card', borderColor: 'Colors.dark.border' }]}
                 onPress={() => setShowStopPicker('to')}
               >
                 <View style={styles.routeButtonContent}>
@@ -478,7 +478,7 @@ const TransportScreen = () => {
 
           {/* Search */}
           <View style={{ zIndex: 10 }}>
-            <View style={[styles.searchContainer, isDark && { backgroundColor: '#1e293b' }]}>
+            <View style={[styles.searchContainer, isDark && { backgroundColor: 'Colors.dark.card' }]}>
               <Search color={isDark ? '#94a3b8' : '#9ca3af'} size={20} />
               <TextInput
                 placeholder="Hat no veya durak adı ara..."
@@ -544,7 +544,7 @@ const TransportScreen = () => {
                 key={area}
                 style={[
                   styles.areaPill,
-                  isDark && !(selectedArea === area || (area === 'Tümü' && selectedArea === null)) && { backgroundColor: '#1e293b' },
+                  isDark && !(selectedArea === area || (area === 'Tümü' && selectedArea === null)) && { backgroundColor: 'Colors.dark.card' },
                   (selectedArea === area || (area === 'Tümü' && selectedArea === null)) && styles.areaPillActive,
                 ]}
                 onPress={() => setSelectedArea(area === 'Tümü' ? null : area)}
@@ -582,7 +582,7 @@ const TransportScreen = () => {
                 return (
                   <TouchableOpacity
                     key={stop.id}
-                    style={[styles.favoriteCard, isDark && { backgroundColor: '#1e293b' }]}
+                    style={[styles.favoriteCard, isDark && { backgroundColor: 'Colors.dark.card' }]}
                     onPress={() => {
                       setNearestStop(stop);
                       setMapRegion({
@@ -593,7 +593,7 @@ const TransportScreen = () => {
                       });
                     }}
                   >
-                    <View style={[styles.favoriteIconCircle, isDark && { backgroundColor: '#334155' }]}>
+                    <View style={[styles.favoriteIconCircle, isDark && { backgroundColor: 'Colors.dark.border' }]}>
                       <MapPin color={Colors.primary.indigo} size={18} />
                     </View>
                     <Text style={[styles.favoriteName, isDark && { color: '#f8fafc' }]}>{stop.name}</Text>
@@ -624,7 +624,7 @@ const TransportScreen = () => {
               </View>
               
               {/* Rota Bilgisi - Daha kompakt ve okunabilir */}
-              <View style={[styles.routeInfoCard, isDark && { backgroundColor: '#1e293b', borderColor: '#334155' }]}>
+              <View style={[styles.routeInfoCard, isDark && { backgroundColor: 'Colors.dark.card', borderColor: 'Colors.dark.border' }]}>
                 <View style={styles.routeInfoRow}>
                   <Navigation color={Colors.primary.indigo} size={18} />
                   <Text style={[styles.routeInfoFrom, isDark && { color: '#f8fafc' }]} numberOfLines={1}>
@@ -643,7 +643,7 @@ const TransportScreen = () => {
               </View>
 
               {routes.length === 0 ? (
-                <View style={[styles.noRouteCard, isDark && { backgroundColor: '#1e293b' }]}>
+                <View style={[styles.noRouteCard, isDark && { backgroundColor: 'Colors.dark.card' }]}>
                   <Text style={[styles.noRouteText, isDark && { color: '#94a3b8' }]}>
                     Bu iki durak arasında direkt veya aktarmalı rota bulunamadı.
                   </Text>
@@ -654,7 +654,7 @@ const TransportScreen = () => {
                   {routes.filter(route => route.type === 'direct').map((route, index) => (
                     <View
                       key={`direct-${index}`}
-                      style={[styles.routeCard, isDark && { backgroundColor: '#1e293b', borderColor: '#334155' }]}
+                      style={[styles.routeCard, isDark && { backgroundColor: 'Colors.dark.card', borderColor: 'Colors.dark.border' }]}
                     >
                       <View style={styles.routeCardContent}>
                         <View style={styles.routeDetails}>
@@ -706,7 +706,7 @@ const TransportScreen = () => {
                   {routes.filter(route => route.type === 'transfer').map((route, index) => (
                     <View
                       key={`transfer-${index}`}
-                      style={[styles.routeCard, isDark && { backgroundColor: '#1e293b', borderColor: '#334155' }]}
+                      style={[styles.routeCard, isDark && { backgroundColor: 'Colors.dark.card', borderColor: 'Colors.dark.border' }]}
                     >
                       <View style={styles.routeCardContent}>
                         <View style={styles.routeDetails}>
@@ -814,7 +814,7 @@ const TransportScreen = () => {
         onRequestClose={() => setShowStopPicker(null)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, isDark && { backgroundColor: '#1e293b' }]}>
+          <View style={[styles.modalContent, isDark && { backgroundColor: 'Colors.dark.card' }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, isDark && { color: '#f8fafc' }]}>
                 {showStopPicker === 'from' ? 'Nereden?' : 'Nereye?'}
@@ -844,10 +844,10 @@ const TransportScreen = () => {
                   key={stop.id}
                   style={[
                     styles.modalStopItem,
-                    isDark && { borderBottomColor: '#334155' },
+                    isDark && { borderBottomColor: 'Colors.dark.border' },
                     ((showStopPicker === 'from' && fromStop?.id === stop.id) ||
                      (showStopPicker === 'to' && toStop?.id === stop.id)) &&
-                    (isDark ? { backgroundColor: '#334155' } : styles.modalStopItemSelected)
+                    (isDark ? { backgroundColor: 'Colors.dark.border' } : styles.modalStopItemSelected)
                   ]}
                   onPress={() => {
                     // State'i güncelle
@@ -861,7 +861,7 @@ const TransportScreen = () => {
                     setSearchQuery('');
                   }}
                 >
-                  <View style={[styles.modalStopIcon, isDark && { backgroundColor: '#334155' }]}>
+                  <View style={[styles.modalStopIcon, isDark && { backgroundColor: 'Colors.dark.border' }]}>
                     <MapPin
                       size={18}
                       color={showStopPicker === 'from' ? Colors.primary.indigo : '#10b981'}
@@ -1043,16 +1043,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 14,
-    backgroundColor: 'rgba(15,118,110,0.1)',
+    backgroundColor: 'rgba(47,61,32,0.2)',
   },
   mapStopLabel: {
     fontSize: 10,
-    color: '#0f766e',
+    color: Colors.primary.violet,
   },
   mapStopValue: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0f766e',
+    color: Colors.primary.violet,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -1082,7 +1082,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f3f4f6',
   },
   areaPillActive: {
-    backgroundColor: '#134e4a',
+    backgroundColor: Colors.primary.violet,
   },
   areaPillText: {
     color: '#6b7280',

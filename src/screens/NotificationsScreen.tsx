@@ -22,7 +22,7 @@ const NotificationsScreen = () => {
   const isDark = mode === 'dark';
   return (
     <SafeAreaView
-      style={[styles.container, isDark && { backgroundColor: '#020617' }]}
+      style={[styles.container, isDark && { backgroundColor: Colors.dark.background }]}
       edges={['top']}
     >
       <View style={styles.header}>

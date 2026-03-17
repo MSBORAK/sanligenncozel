@@ -21,7 +21,7 @@ const HeritageDetailScreen: React.FC<Props> = ({ route }) => {
   if (!place) {
     return (
       <SafeAreaView
-        style={[styles.container, isDark && { backgroundColor: '#020617' }]}
+        style={[styles.container, isDark && { backgroundColor: Colors.dark.background }]}
         edges={['top']}
       >
         <View style={styles.header}>
@@ -38,7 +38,7 @@ const HeritageDetailScreen: React.FC<Props> = ({ route }) => {
 
   return (
     <SafeAreaView
-      style={[styles.container, isDark && { backgroundColor: '#020617' }]}
+      style={[styles.container, isDark && { backgroundColor: Colors.dark.background }]}
       edges={['top']}
     >
       <ScrollView showsVerticalScrollIndicator={false}>

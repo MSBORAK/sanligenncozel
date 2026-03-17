@@ -68,17 +68,17 @@ export const BUS_ROUTES: { [key: string]: string } = {
 const COLORS = {
   red: "#ef4444",
   orange: "#f59e0b",
-  green: "#10b981",
-  blue: "#3b82f6",
-  purple: "#8b5cf6",
-  pink: "#ec4899",
-  teal: "#14b8a6",
-  indigo: "#6366f1",
-  rose: "#f43f5e",
-  lime: "#84cc16",
-  amber: "#eab308",
-  slate: "#64748b",
-  dark: "#475569",
+  green: "#758956",
+  blue: "#758956",
+  purple: "#2f3d20",
+  pink: "#6a5745",
+  teal: "#758956",
+  indigo: "#758956",
+  rose: "#6a5745",
+  lime: "#758956",
+  amber: "#758956",
+  slate: "#6a5745",
+  dark: "#3b2c20",
 };
 
 export const MOCK_STOPS = [
