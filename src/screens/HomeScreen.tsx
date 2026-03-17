@@ -118,8 +118,12 @@ const HomeScreen = () => {
   const [loadingStories, setLoadingStories] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Etkinlik Lottie ref - tıklanınca .play() ile tekrar oynat
+  // Lottie refs - tıklanınca .play() ile tekrar oynat
   const etkinlikLottieRef = useRef<LottieView>(null);
+  const kesfetLottieRef = useRef<LottieView>(null);
+  const eczaneLottieRef = useRef<LottieView>(null);
+  const kutuphaneLottieRef = useRef<LottieView>(null);
+  const geziLottieRef = useRef<LottieView>(null);
 
   // Bento giriş animasyonu (stagger - dalga efekti)
   const bentoAnims = useRef(
@@ -622,7 +626,7 @@ const HomeScreen = () => {
                         ref={etkinlikLottieRef}
                         source={require('@/assets/images/El calendario.json')}
                         autoPlay
-                        loop={false}
+                        loop
                         style={styles.etkinlikLottie}
                       />
                     </View>
@@ -633,28 +637,54 @@ const HomeScreen = () => {
               {/* Row 2: Keşfet (2/3) + Eczane (1/3) yan yana */}
               <View style={styles.bentoRow2}>
                 <Animated.View style={[styles.bentoLarge, { opacity: bentoAnims[1], transform: [{ translateY: bentoAnims[1].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
-                  <AnimatedPressable scaleTo={0.96} style={styles.bentoGlassWrapper} onPress={() => handleBentoPress(QUICK_ACCESS_NAV[1])}>
+                  <AnimatedPressable
+                    scaleTo={0.96}
+                    style={styles.bentoGlassWrapper}
+                    onPress={() => {
+                      kesfetLottieRef.current?.play();
+                      handleBentoPress(QUICK_ACCESS_NAV[1]);
+                    }}
+                  >
                     <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
                     <View style={[StyleSheet.absoluteFill, styles.bentoPoliceOverlay]} />
                     <LinearGradient colors={Gradients.innerShadow} style={[StyleSheet.absoluteFill, styles.bentoInnerShadow]} />
                     <LinearGradient colors={Gradients.glassReflection} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.bentoGlassReflection]} pointerEvents="none" />
                     <View style={styles.bentoGlass}>
-                      <View style={[styles.bentoIconGlow, { shadowColor: Colors.primaryHex }]}>
-                        <BookOpen color={Colors.primaryHex} size={34} />
+                      <View style={[styles.bentoIconGlow, styles.etkinlikLottieWrapper]}>
+                        <LottieView
+                          ref={kesfetLottieRef}
+                          source={require('@/assets/images/Map pin location.json')}
+                          autoPlay
+                          loop
+                          style={styles.etkinlikLottie}
+                        />
                       </View>
                       <Text style={styles.bentoTitle}>{QUICK_ACCESS_NAV[1].name}</Text>
                     </View>
                   </AnimatedPressable>
                 </Animated.View>
                 <Animated.View style={[styles.bentoSmall, { opacity: bentoAnims[2], transform: [{ translateY: bentoAnims[2].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
-                  <AnimatedPressable scaleTo={0.96} style={styles.bentoGlassWrapper} onPress={() => handleBentoPress(QUICK_ACCESS_NAV[2])}>
+                  <AnimatedPressable
+                    scaleTo={0.96}
+                    style={styles.bentoGlassWrapper}
+                    onPress={() => {
+                      eczaneLottieRef.current?.play();
+                      handleBentoPress(QUICK_ACCESS_NAV[2]);
+                    }}
+                  >
                     <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
                     <View style={[StyleSheet.absoluteFill, styles.bentoPoliceOverlay]} />
                     <LinearGradient colors={Gradients.innerShadow} style={[StyleSheet.absoluteFill, styles.bentoInnerShadow]} />
                     <LinearGradient colors={Gradients.glassReflection} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.bentoGlassReflection]} pointerEvents="none" />
                     <View style={styles.bentoGlass}>
-                      <View style={[styles.bentoIconGlow, { shadowColor: Colors.primaryHex }]}>
-                        <Pill color={Colors.primaryHex} size={32} />
+                      <View style={[styles.bentoIconGlow, styles.bentoLottieSmallWrapper]}>
+                        <LottieView
+                          ref={eczaneLottieRef}
+                          source={require('@/assets/images/AR Tablet.json')}
+                          autoPlay
+                          loop
+                          style={styles.bentoLottieSmall}
+                        />
                       </View>
                       <Text style={styles.bentoTitleSmall}>{QUICK_ACCESS_NAV[2].name}</Text>
                     </View>
@@ -664,28 +694,54 @@ const HomeScreen = () => {
               {/* Row 3: Kütüphane (1/3) + Gezi (2/3) yan yana */}
               <View style={styles.bentoRow2}>
                 <Animated.View style={[styles.bentoSmall, { opacity: bentoAnims[3], transform: [{ translateY: bentoAnims[3].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
-                  <AnimatedPressable scaleTo={0.96} style={styles.bentoGlassWrapper} onPress={() => handleBentoPress(QUICK_ACCESS_NAV[3])}>
+                  <AnimatedPressable
+                    scaleTo={0.96}
+                    style={styles.bentoGlassWrapper}
+                    onPress={() => {
+                      kutuphaneLottieRef.current?.play();
+                      handleBentoPress(QUICK_ACCESS_NAV[3]);
+                    }}
+                  >
                     <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
                     <View style={[StyleSheet.absoluteFill, styles.bentoPoliceOverlay]} />
                     <LinearGradient colors={Gradients.innerShadow} style={[StyleSheet.absoluteFill, styles.bentoInnerShadow]} />
                     <LinearGradient colors={Gradients.glassReflection} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.bentoGlassReflection]} pointerEvents="none" />
                     <View style={styles.bentoGlass}>
-                      <View style={[styles.bentoIconGlow, { shadowColor: Colors.primaryHex }]}>
-                        <Library color={Colors.primaryHex} size={32} />
+                      <View style={[styles.bentoIconGlow, styles.bentoLottieSmallWrapper]}>
+                        <LottieView
+                          ref={kutuphaneLottieRef}
+                          source={require('@/assets/images/Books.json')}
+                          autoPlay
+                          loop
+                          style={styles.bentoLottieSmall}
+                        />
                       </View>
                       <Text style={styles.bentoTitleSmall}>{QUICK_ACCESS_NAV[3].name}</Text>
                     </View>
                   </AnimatedPressable>
                 </Animated.View>
                 <Animated.View style={[styles.bentoLarge, { opacity: bentoAnims[4], transform: [{ translateY: bentoAnims[4].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
-                  <AnimatedPressable scaleTo={0.96} style={styles.bentoGlassWrapper} onPress={() => handleBentoPress(QUICK_ACCESS_NAV[4])}>
+                  <AnimatedPressable
+                    scaleTo={0.96}
+                    style={styles.bentoGlassWrapper}
+                    onPress={() => {
+                      geziLottieRef.current?.play();
+                      handleBentoPress(QUICK_ACCESS_NAV[4]);
+                    }}
+                  >
                     <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
                     <View style={[StyleSheet.absoluteFill, styles.bentoPoliceOverlay]} />
                     <LinearGradient colors={Gradients.innerShadow} style={[StyleSheet.absoluteFill, styles.bentoInnerShadow]} />
                     <LinearGradient colors={Gradients.glassReflection} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.bentoGlassReflection]} pointerEvents="none" />
                     <View style={styles.bentoGlass}>
-                      <View style={[styles.bentoIconGlow, { shadowColor: Colors.cta }]}>
-                        <Route color={Colors.cta} size={34} />
+                      <View style={[styles.bentoIconGlow, styles.etkinlikLottieWrapper, { shadowColor: Colors.cta }]}>
+                        <LottieView
+                          ref={geziLottieRef}
+                          source={require('@/assets/images/Travel is fun.json')}
+                          autoPlay
+                          loop
+                          style={[styles.etkinlikLottie, { backgroundColor: 'transparent' }]}
+                        />
                       </View>
                       <Text style={styles.bentoTitle}>{QUICK_ACCESS_NAV[4].name}</Text>
                     </View>
@@ -1173,6 +1229,8 @@ const styles = StyleSheet.create({
     },
     etkinlikLottieWrapper: { width: 48, height: 48, justifyContent: 'center', alignItems: 'center' },
     etkinlikLottie: { width: 48, height: 48 },
+    bentoLottieSmallWrapper: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+    bentoLottieSmall: { width: 40, height: 40 },
     bentoTitle: { marginTop: 10, fontSize: 13, fontWeight: '400', letterSpacing: 1.2, color: Colors.primaryHex },
     bentoTitleSmall: { marginTop: 8, fontSize: 10, fontWeight: '400', letterSpacing: 0.8, color: Colors.primaryHex },
     quickAccessGrid: {
