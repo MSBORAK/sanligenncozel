@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Search, X, Calendar, MapPin, BookOpen, Bus } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Gradients } from '@/constants/Colors';
+import { Colors, Gradients, DribbbleColors } from '@/constants/Colors';
 import { MOCK_PARTNERS, MOCK_EVENTS } from '@/api/mockData';
 import { MOCK_STOPS } from '@/data/transport';
 import { MOCK_MAGAZINES } from '@/api/mockData';
@@ -132,7 +132,7 @@ const GlobalSearchScreen = () => {
   };
 
   const getIcon = (type: SearchResult['type']) => {
-    const c = isDark ? '#94a3b8' : Colors.primary.indigo;
+    const c = isDark ? '#94a3b8' : DribbbleColors.progressBlue;
     if (type === 'event') return <Calendar color={c} size={20} />;
     if (type === 'partner') return <MapPin color={c} size={20} />;
     if (type === 'heritage') return <BookOpen color={c} size={20} />;
@@ -147,18 +147,18 @@ const GlobalSearchScreen = () => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, isDark && { backgroundColor: Colors.dark.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, isDark ? { backgroundColor: Colors.dark.background } : { backgroundColor: DribbbleColors.background }]} edges={['top']}>
       <LinearGradient
-        colors={isDark ? Gradients.dark : Gradients.hero}
+        colors={isDark ? Gradients.dark : Gradients.headerLight}
         style={styles.header}
       >
         <View style={styles.searchRow}>
-          <View style={[styles.searchInputWrap, isDark && { backgroundColor: 'rgba(30,41,59,0.8)' }]}>
-            <Search color={isDark ? '#94a3b8' : 'rgba(255,255,255,0.8)'} size={20} />
+          <View style={[styles.searchInputWrap, isDark && { backgroundColor: 'rgba(30,41,59,0.8)' }, !isDark && { backgroundColor: DribbbleColors.cardWhite }]}>
+            <Search color={isDark ? '#94a3b8' : DribbbleColors.textSecondary} size={20} />
             <TextInput
               placeholder="Etkinlik, mekan, durak ara..."
-              placeholderTextColor={isDark ? '#64748b' : 'rgba(255,255,255,0.6)'}
-              style={[styles.searchInput, isDark && { color: '#f8fafc' }]}
+              placeholderTextColor={isDark ? '#64748b' : DribbbleColors.textSecondary}
+              style={[styles.searchInput, isDark && { color: '#f8fafc' }, !isDark && { color: DribbbleColors.textPrimary }]}
               value={query}
               onChangeText={setQuery}
               autoFocus
@@ -166,7 +166,7 @@ const GlobalSearchScreen = () => {
             />
           </View>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn} activeOpacity={0.8}>
-            <X color={Colors.white} size={24} />
+            <X color={isDark ? Colors.white : DribbbleColors.textPrimary} size={24} />
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -192,14 +192,14 @@ const GlobalSearchScreen = () => {
           list.map((r) => (
             <TouchableOpacity
               key={`${r.type}-${r.id}`}
-              style={[styles.resultItem, isDark && { backgroundColor: Colors.dark.card, borderColor: Colors.dark.border }]}
+              style={[styles.resultItem, isDark && { backgroundColor: Colors.dark.card, borderColor: Colors.dark.border }, !isDark && { backgroundColor: DribbbleColors.cardWhite, borderColor: DribbbleColors.borderLight }]}
               onPress={() => handleSelect(r)}
               activeOpacity={0.8}
             >
               {r.image ? (
                 <Image source={{ uri: r.image }} style={styles.resultImage} />
               ) : (
-                <View style={[styles.resultIcon, isDark && { backgroundColor: Colors.dark.border }]}>{getIcon(r.type)}</View>
+                <View style={[styles.resultIcon, isDark && { backgroundColor: Colors.dark.border }, !isDark && { backgroundColor: DribbbleColors.lightBlue }]}>{getIcon(r.type)}</View>
               )}
               <View style={styles.resultText}>
                 <Text style={[styles.resultTitle, isDark && { color: '#f8fafc' }]} numberOfLines={1}>{r.title}</Text>
@@ -217,7 +217,7 @@ const GlobalSearchScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.lightGray },
+  container: { flex: 1, backgroundColor: DribbbleColors.background },
   header: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 20 },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   searchInputWrap: {
@@ -248,18 +248,18 @@ const styles = StyleSheet.create({
   resultItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
+    backgroundColor: DribbbleColors.cardWhite,
     borderRadius: 16,
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: DribbbleColors.borderLight,
   },
   resultIcon: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: DribbbleColors.lightBlue,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,

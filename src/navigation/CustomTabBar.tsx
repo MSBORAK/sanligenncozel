@@ -3,7 +3,8 @@ import { View, StyleSheet, Platform, useWindowDimensions, Animated } from 'react
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Bus, QrCode, MessageSquare, User } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
-import { Colors } from '@/constants/Colors';
+import { Colors, DribbbleColors } from '@/constants/Colors';
+import { useThemeMode } from '@/context/ThemeContext';
 import AnimatedPressable from '@/components/AnimatedPressable';
 
 const ICONS = {
@@ -31,11 +32,24 @@ const INDICATOR_HEIGHT = 4;
 const CustomTabBar = ({ activeIndex, onTabPress, tabNames }: CustomTabBarProps) => {
   const { width: screenWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const { mode } = useThemeMode();
+  const isDark = mode === 'dark';
   const tabBarWidth = screenWidth - HORIZONTAL_MARGIN * 2;
   const tabWidth = tabBarWidth / tabNames.length;
   const bottomOffset = Math.max(BOTTOM_MARGIN, insets.bottom + 8);
 
   const indicatorAnim = useRef(new Animated.Value(activeIndex * tabWidth)).current;
+
+  const TAB_COLORS: Record<TabName, string> = {
+    Home:      '#3b82f6', // mavi
+    Transport: '#f472b6', // pembe
+    GencKart:  '#f59e0b', // sarı
+    Assistant: '#10b981', // yeşil
+    Profile:   '#8b5cf6', // mor
+  };
+
+  const activeColor = isDark ? Colors.primaryHex : TAB_COLORS[tabNames[activeIndex]];
+  const inactiveColor = isDark ? Colors.textHighlight : DribbbleColors.textSecondary;
 
   useEffect(() => {
     Animated.spring(indicatorAnim, {
@@ -47,8 +61,12 @@ const CustomTabBar = ({ activeIndex, onTabPress, tabNames }: CustomTabBarProps) 
   }, [activeIndex, tabWidth]);
 
   return (
-    <View style={[styles.container, { width: tabBarWidth, bottom: bottomOffset }]}>
-      <BlurView intensity={70} tint="dark" style={styles.blurView}>
+    <View style={[
+      styles.container,
+      { width: tabBarWidth, bottom: bottomOffset },
+      !isDark && styles.containerLight,
+    ]}>
+      <BlurView intensity={isDark ? 70 : 80} tint={isDark ? 'dark' : 'light'} style={styles.blurView}>
         <View style={styles.tabsRow}>
           {tabNames.map((tabName, index) => {
             const isFocused = activeIndex === index;
@@ -60,6 +78,10 @@ const CustomTabBar = ({ activeIndex, onTabPress, tabNames }: CustomTabBarProps) 
               }
             };
 
+            const iconColor = isFocused
+              ? (isDark ? Colors.primaryHex : TAB_COLORS[tabName])
+              : inactiveColor;
+
             return (
               <AnimatedPressable
                 key={tabName}
@@ -68,7 +90,7 @@ const CustomTabBar = ({ activeIndex, onTabPress, tabNames }: CustomTabBarProps) 
                 scaleTo={0.9}
               >
                 <Icon
-                  color={isFocused ? Colors.primaryHex : Colors.textHighlight}
+                  color={iconColor}
                   size={26}
                 />
               </AnimatedPressable>
@@ -80,6 +102,7 @@ const CustomTabBar = ({ activeIndex, onTabPress, tabNames }: CustomTabBarProps) 
           <Animated.View
             style={[
               styles.indicator,
+              { backgroundColor: activeColor },
               {
                 width: INDICATOR_WIDTH,
                 left: (tabWidth - INDICATOR_WIDTH) / 2,
@@ -101,6 +124,8 @@ const styles = StyleSheet.create({
     height: TAB_BAR_HEIGHT,
     borderRadius: 36,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -113,9 +138,23 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  containerLight: {
+    borderColor: 'rgba(255,255,255,0.6)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#1e293b',
+        shadowOpacity: 0.08,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
   blurView: {
     flex: 1,
     borderRadius: 36,
+    overflow: 'hidden',
   },
   tabsRow: {
     flex: 1,
@@ -128,6 +167,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingBottom: 4,
   },
   indicatorTrack: {
     position: 'absolute',
@@ -141,7 +181,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     height: INDICATOR_HEIGHT,
     borderRadius: INDICATOR_HEIGHT / 2,
-    backgroundColor: Colors.primaryHex,
   },
 });
 

@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronRight, Bell, ShieldCheck, LogOut, User as UserIcon, X, Settings, HelpCircle, Info, Edit3, ArrowLeft, Moon, MessageSquare, Send, AlertCircle, Lightbulb, Heart } from 'lucide-react-native';
-import { Colors, Gradients } from '@/constants/Colors';
+import { Colors, Gradients, DribbbleColors } from '@/constants/Colors';
 import { MOCK_USER } from '@/api/mockData';
 import { useThemeMode } from '@/context/ThemeContext';
 import { useFavorites } from '@/context/FavoritesContext';
@@ -58,12 +58,12 @@ const ProfileScreen = () => {
           {label}
         </Text>
       </View>
-      <ChevronRight color={isDark ? Colors.dark.textMuted : '#9ca3af'} size={20} />
+      <ChevronRight color={isDark ? Colors.dark.textMuted : DribbbleColors.textSecondary} size={20} />
     </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={[styles.root, isDark && { backgroundColor: Colors.dark.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.root, isDark ? { backgroundColor: Colors.dark.background } : { backgroundColor: DribbbleColors.background }]} edges={['top']}>
       <ScrollView 
         showsVerticalScrollIndicator={false} 
         contentContainerStyle={styles.scrollContent}
@@ -73,7 +73,7 @@ const ProfileScreen = () => {
           {/* Gradient Header */}
           <View style={styles.headerContainer}>
             <LinearGradient
-              colors={Gradients.header}
+              colors={isDark ? Gradients.header : [DribbbleColors.progressBlue, '#60a5fa']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.gradientHeader}
@@ -84,11 +84,11 @@ const ProfileScreen = () => {
             <View style={styles.avatarContainer}>
               <View style={styles.avatarWrapper}>
                 <LinearGradient
-                  colors={Gradients.header}
+                  colors={isDark ? Gradients.header : [DribbbleColors.progressBlue, '#60a5fa']}
                   style={styles.avatarGradientBorder}
                 >
-                  <View style={[styles.avatarInner, isDark && { backgroundColor: Colors.dark.card }]}>
-                    <Text style={[styles.avatarText, isDark && { color: Colors.dark.text }]}>{userInitial}</Text>
+                  <View style={[styles.avatarInner, isDark && { backgroundColor: Colors.dark.card }, !isDark && { backgroundColor: DribbbleColors.lavender }]}>
+                    <Text style={[styles.avatarText, isDark && { color: Colors.dark.text }, !isDark && { color: DribbbleColors.progressBlue }]}>{userInitial}</Text>
                   </View>
                 </LinearGradient>
               </View>
@@ -122,25 +122,25 @@ const ProfileScreen = () => {
 
           {/* Settings Menu Items */}
           <View style={styles.menuSection}>
-            <View style={[styles.menuCard, isDark && { backgroundColor: Colors.dark.card }]}>
+            <View style={[styles.menuCard, isDark && { backgroundColor: Colors.dark.card }, !isDark && { backgroundColor: DribbbleColors.cardWhite }]}>
               <MenuItem 
                 label={favoritesCount > 0 ? `Favorilerim (${favoritesCount})` : 'Favorilerim'} 
-                icon={<Heart color={isDark ? Colors.dark.accent : Colors.accent.amber} size={22} fill={favoritesCount > 0 ? (isDark ? Colors.dark.accent : Colors.accent.amber) : 'transparent'} />}
+                icon={<Heart color={isDark ? Colors.dark.accent : DribbbleColors.progressBlue} size={22} fill={favoritesCount > 0 ? (isDark ? Colors.dark.accent : DribbbleColors.progressBlue) : 'transparent'} />}
                 onPress={() => navigation.navigate('Events', { initialTab: 'Favorilerim' })}
               />
               <MenuItem 
                 label="Hesap Ayarları" 
-                icon={<UserIcon color={isDark ? '#fff' : '#000'} size={22} />}
+                icon={<UserIcon color={isDark ? '#fff' : DribbbleColors.textPrimary} size={22} />}
                 onPress={() => setAccountSettingsVisible(true)}
               />
               <MenuItem
                 label="Gizlilik ve Güvenlik"
-                icon={<ShieldCheck color={isDark ? '#fff' : '#000'} size={22} />}
+                icon={<ShieldCheck color={isDark ? '#fff' : DribbbleColors.textPrimary} size={22} />}
                 onPress={() => setPrivacyModalVisible(true)}
               />
               <MenuItem
                 label="Geri Bildirim"
-                icon={<MessageSquare color={isDark ? '#fff' : '#000'} size={22} />}
+                icon={<MessageSquare color={isDark ? '#fff' : DribbbleColors.textPrimary} size={22} />}
                 onPress={() => setFeedbackModalVisible(true)}
                 isLast
               />
@@ -149,17 +149,17 @@ const ProfileScreen = () => {
 
           {/* Notification Toggle */}
           <View style={styles.menuSection}>
-            <View style={[styles.menuCard, isDark && { backgroundColor: Colors.dark.card }]}>
+            <View style={[styles.menuCard, isDark && { backgroundColor: Colors.dark.card }, !isDark && { backgroundColor: DribbbleColors.cardWhite }]}>
               <View style={styles.switchRow}>
                 <View style={styles.switchIconContainer}>
-                  <Bell color={isDark ? '#fff' : '#000'} size={22} />
+                  <Bell color={isDark ? '#fff' : DribbbleColors.textPrimary} size={22} />
                 </View>
                 <Text style={[styles.switchLabel, isDark && { color: Colors.dark.text }]}>Bildirimler</Text>
                 <Switch
                   value={eventNotificationsEnabled}
                   onValueChange={setEventNotificationsEnabled}
                   thumbColor="#fff"
-                  trackColor={{ false: '#d1d5db', true: '#10b981' }}
+                  trackColor={{ false: '#d1d5db', true: isDark ? '#10b981' : DribbbleColors.progressBlue }}
                   ios_backgroundColor="#d1d5db"
                 />
               </View>
@@ -168,10 +168,10 @@ const ProfileScreen = () => {
 
           {/* Dark Mode Toggle */}
           <View style={styles.menuSection}>
-            <View style={[styles.menuCard, isDark && { backgroundColor: Colors.dark.card }]}>
+            <View style={[styles.menuCard, isDark && { backgroundColor: Colors.dark.card }, !isDark && { backgroundColor: DribbbleColors.cardWhite }]}>
               <View style={styles.switchRow}>
                 <View style={styles.switchIconContainer}>
-                  <Moon color={isDark ? '#fff' : '#000'} size={22} />
+                  <Moon color={isDark ? '#fff' : DribbbleColors.textPrimary} size={22} />
                 </View>
                 <Text style={[styles.switchLabel, isDark && { color: Colors.dark.text }]}>Karanlık Mod</Text>
                 <Switch
@@ -336,7 +336,7 @@ const ProfileScreen = () => {
                     ]}
                     onPress={() => setFeedbackType('complaint')}
                   >
-                    <AlertCircle color={feedbackType === 'complaint' ? (isDark ? '#f8fafc' : Colors.primary.indigo) : (isDark ? '#94a3b8' : '#9ca3af')} size={20} />
+                    <AlertCircle color={feedbackType === 'complaint' ? (isDark ? '#f8fafc' : DribbbleColors.progressBlue) : (isDark ? '#94a3b8' : DribbbleColors.textSecondary)} size={20} />
                     <Text style={[
                       styles.feedbackTypeText,
                       feedbackType === 'complaint' && styles.feedbackTypeTextActive,
@@ -355,7 +355,7 @@ const ProfileScreen = () => {
                     ]}
                     onPress={() => setFeedbackType('bug')}
                   >
-                    <AlertCircle color={feedbackType === 'bug' ? (isDark ? '#f8fafc' : Colors.primary.indigo) : (isDark ? '#94a3b8' : '#9ca3af')} size={20} />
+                    <AlertCircle color={feedbackType === 'bug' ? (isDark ? '#f8fafc' : DribbbleColors.progressBlue) : (isDark ? '#94a3b8' : DribbbleColors.textSecondary)} size={20} />
                     <Text style={[
                       styles.feedbackTypeText,
                       feedbackType === 'bug' && styles.feedbackTypeTextActive,
@@ -374,7 +374,7 @@ const ProfileScreen = () => {
                     ]}
                     onPress={() => setFeedbackType('feature')}
                   >
-                    <Lightbulb color={feedbackType === 'feature' ? (isDark ? '#f8fafc' : Colors.primary.indigo) : (isDark ? '#94a3b8' : '#9ca3af')} size={20} />
+                    <Lightbulb color={feedbackType === 'feature' ? (isDark ? '#f8fafc' : DribbbleColors.progressBlue) : (isDark ? '#94a3b8' : DribbbleColors.textSecondary)} size={20} />
                     <Text style={[
                       styles.feedbackTypeText,
                       feedbackType === 'feature' && styles.feedbackTypeTextActive,
@@ -470,7 +470,7 @@ const ProfileScreen = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.lightGray,
+    backgroundColor: DribbbleColors.background,
   },
   scrollView: {
     flex: 1,
@@ -573,7 +573,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   menuCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: DribbbleColors.cardWhite,
     borderRadius: 12,
     overflow: 'hidden',
     ...Platform.select({
@@ -679,7 +679,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
   },
   modalView: {
-    backgroundColor: Colors.white,
+    backgroundColor: DribbbleColors.cardWhite,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -731,7 +731,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.primary.indigo,
+    backgroundColor: DribbbleColors.progressBlue,
   },
   modalButtonText: {
     color: Colors.white,
@@ -765,8 +765,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9fafb',
   },
   feedbackTypeButtonActive: {
-    backgroundColor: '#e0e7ff',
-    borderColor: Colors.primary.indigo,
+    backgroundColor: DribbbleColors.lavender,
+    borderColor: DribbbleColors.progressBlue,
   },
   feedbackTypeText: {
     fontSize: 12,
@@ -774,7 +774,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   feedbackTypeTextActive: {
-    color: Colors.primary.indigo,
+    color: DribbbleColors.progressBlue,
     fontWeight: '600',
   },
   modalTextArea: {

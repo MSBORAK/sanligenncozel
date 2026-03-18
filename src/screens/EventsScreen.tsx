@@ -6,7 +6,7 @@ import { Heart } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
-import { Colors } from '@/constants/Colors';
+import { Colors, DribbbleColors } from '@/constants/Colors';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import Skeleton from '@/components/Skeleton';
 import { MOCK_EVENTS } from '@/api/mockData';
@@ -95,7 +95,7 @@ const EventsScreen = () => {
           <Text style={styles.categoryBadge}>{item.category}</Text>
         </View>
         <TouchableOpacity style={styles.likeButton} onPress={() => onToggleFavorite(item.id)}>
-          <Heart color={Colors.white} size={24} fill={isFavoriteEvent(item.id) ? Colors.primary.violet : "transparent"} />
+          <Heart color={Colors.white} size={24} fill={isFavoriteEvent(item.id) ? (isDark ? Colors.primary.violet : DribbbleColors.progressBlue) : "transparent"} />
         </TouchableOpacity>
         <View style={styles.eventInfo}>
           <Text style={styles.eventTitle}>{item.title}</Text>
@@ -104,17 +104,17 @@ const EventsScreen = () => {
       </ImageBackground>
     </TouchableOpacity>
     </AnimatedListItem>
-  ), [isFavoriteEvent, navigation, onToggleFavorite]);
+  ), [isFavoriteEvent, navigation, onToggleFavorite, isDark]);
 
   return (
     <SafeAreaView
-      style={[styles.container, isDark && { backgroundColor: Colors.dark.background }]}
+      style={[styles.container, isDark ? { backgroundColor: Colors.dark.background } : { backgroundColor: DribbbleColors.background }]}
       edges={['top']}
     >
       <View style={styles.header}>
-        <Text style={[styles.headerTitle, isDark && { color: '#f8fafc' }]}>Etkinlikler</Text>
+        <Text style={[styles.headerTitle, isDark && { color: '#f8fafc' }, !isDark && { color: DribbbleColors.textPrimary }]}>Etkinlikler</Text>
         <TouchableOpacity onPress={() => setActiveTab('Favorilerim')} style={styles.favoritesButton}>
-          <Heart color={isDark ? Colors.white : Colors.darkGray} size={28} fill={activeTab === 'Favorilerim' ? (isDark ? Colors.primary.violet : Colors.primary.indigo) : 'transparent'} />
+          <Heart color={isDark ? Colors.white : DribbbleColors.textPrimary} size={28} fill={activeTab === 'Favorilerim' ? (isDark ? Colors.primary.violet : DribbbleColors.progressBlue) : 'transparent'} />
         </TouchableOpacity>
       </View>
       
@@ -127,14 +127,16 @@ const EventsScreen = () => {
                 style={[
                     styles.tab, 
                     isDark && { backgroundColor: '#1e293b', borderColor: '#334155' },
-                    activeTab === item && (isDark ? { backgroundColor: Colors.primary.indigo, borderColor: Colors.primary.indigo } : styles.activeTab)
+                    !isDark && !(activeTab === item) && { backgroundColor: DribbbleColors.lavender, borderColor: DribbbleColors.borderLight },
+                    activeTab === item && (isDark ? { backgroundColor: Colors.primary.indigo, borderColor: Colors.primary.indigo } : { backgroundColor: DribbbleColors.progressBlue, borderWidth: 0 })
                 ]}
                 onPress={() => setActiveTab(item)}
             >
                 <Text style={[
                     styles.tabText, 
-                    isDark && { color: '#94a3b8' },
-                    activeTab === item && (isDark ? { color: Colors.white } : styles.activeTabText)
+                    isDark && !(activeTab === item) && { color: '#94a3b8' },
+                    !isDark && !(activeTab === item) && { color: DribbbleColors.textSecondary },
+                    activeTab === item && { color: Colors.white }
                 ]}>{item}</Text>
             </TouchableOpacity>
             )}
@@ -185,7 +187,7 @@ const EventsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.lightGray,
+    backgroundColor: DribbbleColors.background,
   },
   header: {
     paddingHorizontal: 20,
@@ -198,7 +200,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: Colors.darkGray,
+    color: DribbbleColors.textPrimary,
   },
   favoritesButton: {
     padding: 5,
@@ -212,12 +214,12 @@ const styles = StyleSheet.create({
       paddingVertical: 10,
       borderRadius: 20,
       marginRight: 10,
-      backgroundColor: Colors.white,
+      backgroundColor: DribbbleColors.lavender,
       borderWidth: 1,
-      borderColor: '#e5e7eb'
+      borderColor: DribbbleColors.borderLight
   },
   activeTab: {
-      backgroundColor: Colors.primary.indigo,
+      backgroundColor: DribbbleColors.progressBlue,
       borderWidth: 0,
   },
   tabText: {

@@ -26,7 +26,7 @@ import {
   Pill, Library, Route
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Colors, Gradients } from '@/constants/Colors';
+import { Colors, Gradients, DribbbleColors } from '@/constants/Colors';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import Skeleton from '@/components/Skeleton';
@@ -488,13 +488,21 @@ const HomeScreen = () => {
 
   return (
     <View style={styles.root}>
-      {/* Base gradient */}
-      <LinearGradient colors={Gradients.background} style={StyleSheet.absoluteFill} />
-      {/* Mesh: köşelerden sızan atmosferik geçişler */}
-      <LinearGradient colors={Gradients.meshMarigold} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.meshLayer]} pointerEvents="none" />
-      <LinearGradient colors={Gradients.meshNavy} start={{ x: 1, y: 1 }} end={{ x: 0, y: 0 }} style={[StyleSheet.absoluteFill, styles.meshLayer]} pointerEvents="none" />
-      <LinearGradient colors={Gradients.meshPearl} start={{ x: 1, y: 0 }} end={{ x: 0, y: 0.5 }} style={[StyleSheet.absoluteFill, styles.meshLayer]} pointerEvents="none" />
-      <SafeAreaView style={styles.statusBarArea} edges={['top']} />
+      <LinearGradient colors={isDark ? Gradients.background : Gradients.backgroundLight} style={StyleSheet.absoluteFill} />
+      {isDark ? (
+        <>
+          <LinearGradient colors={Gradients.meshMarigold} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.meshLayer]} pointerEvents="none" />
+          <LinearGradient colors={Gradients.meshNavy} start={{ x: 1, y: 1 }} end={{ x: 0, y: 0 }} style={[StyleSheet.absoluteFill, styles.meshLayer]} pointerEvents="none" />
+          <LinearGradient colors={Gradients.meshPearl} start={{ x: 1, y: 0 }} end={{ x: 0, y: 0.5 }} style={[StyleSheet.absoluteFill, styles.meshLayer]} pointerEvents="none" />
+          <LinearGradient colors={Gradients.meshBuff} start={{ x: 0.5, y: 1 }} end={{ x: 0.5, y: 0.3 }} style={[StyleSheet.absoluteFill, styles.meshLayer]} pointerEvents="none" />
+        </>
+      ) : (
+        <>
+          <LinearGradient colors={['rgba(240,230,255,0.25)', 'transparent', 'transparent']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0.8 }} style={[StyleSheet.absoluteFill, { opacity: 0.9 }]} pointerEvents="none" />
+          <LinearGradient colors={['transparent', 'rgba(225,240,255,0.2)', 'rgba(254,249,195,0.15)']} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={[StyleSheet.absoluteFill, { opacity: 0.9 }]} pointerEvents="none" />
+        </>
+      )}
+      <SafeAreaView style={[styles.statusBarArea, !isDark && { backgroundColor: '#ffffff' }]} edges={['top']} />
       <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
         <ScrollView 
           showsVerticalScrollIndicator={false} 
@@ -510,23 +518,23 @@ const HomeScreen = () => {
         >
         {/* Header */}
         <LinearGradient
-          colors={isDark ? Gradients.dark : Gradients.hero}
+          colors={isDark ? Gradients.dark : Gradients.headerLight}
           style={styles.header}
         >
           <View style={styles.headerTop}>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>◎ ŞANLIURFA</Text>
+            <View style={[styles.badge, !isDark && { backgroundColor: DribbbleColors.cardWhite, borderWidth: 1, borderColor: DribbbleColors.borderLight }]}>
+              <Text style={[styles.badgeText, !isDark && { color: DribbbleColors.textPrimary }]}>◎ ŞANLIURFA</Text>
             </View>
             <TouchableOpacity
               onPress={() => navigation.navigate('GlobalSearch')}
               style={styles.headerSearchBtn}
               activeOpacity={0.8}
             >
-              <Search color={Colors.white} size={22} />
+              <Search color={isDark ? Colors.white : DribbbleColors.textPrimary} size={22} />
             </TouchableOpacity>
           </View>
-          <Text style={styles.greeting}>Selam, Mert! 👋</Text>
-          <Text style={styles.greetingSub}>Bugün nasıl gidiyor?</Text>
+          <Text style={[styles.greeting, !isDark && { color: DribbbleColors.textPrimary }]}>Selam, Mert! 👋</Text>
+          <Text style={[styles.greetingSub, !isDark && { color: DribbbleColors.textSecondary }]}>Bugün nasıl gidiyor?</Text>
 
           <View style={styles.headerNavContainer}>
               {headerNav.map((item, index) => (
@@ -536,13 +544,10 @@ const HomeScreen = () => {
                     activeOpacity={0.9}
                     onPress={() => setActiveStoryIndex(index)}
                   >
-                      <LinearGradient
-                        colors={Gradients.heroWarm}
-                        style={styles.storyBorder}
-                      >
+                      <View style={[styles.storyBorder, !isDark && { borderColor: DribbbleColors.storyBorder }]}>
                         <Image source={typeof item.image === 'string' ? { uri: item.image } : item.image} style={styles.headerNavImage} />
-                      </LinearGradient>
-                      <Text style={styles.headerNavText}>{item.name}</Text>
+                      </View>
+                      <Text style={[styles.headerNavText, !isDark && { color: DribbbleColors.textPrimary }]}>{item.name}</Text>
                   </TouchableOpacity>
               ))}
           </View>
@@ -551,38 +556,36 @@ const HomeScreen = () => {
         {/* Dashboard */}
         <View style={styles.dashboardInner}>
           <LinearGradient
-            colors={isDark ? [Colors.dark.card, Colors.dark.border] : Gradients.hero}
+            colors={isDark ? [Colors.dark.card, Colors.dark.border] : Gradients.statsCardLight}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={styles.statsCard}
+            style={[styles.statsCard, !isDark && { borderColor: DribbbleColors.borderLight, shadowColor: '#334155', shadowOpacity: 0.06 }]}
           >
-              {/* Hava Durumu */}
               <TouchableOpacity
                 style={styles.statsSection}
                 activeOpacity={0.9}
                 onPress={handleWeatherDetail}
               >
-                  <Text style={styles.statsTitleWhite}>HAVA DURUMU</Text>
+                  <Text style={[styles.statsTitleWhite, !isDark && { color: DribbbleColors.textSecondary }]}>HAVA DURUMU</Text>
                   <View style={styles.weatherStatsRow}>
-                    {getWeatherIcon(22, Colors.buff)}
-                    <Text style={[styles.statsValueWhite, { marginLeft: 6, color: Colors.buff }]}>
+                    {getWeatherIcon(22, isDark ? Colors.buff : DribbbleColors.progressBlue)}
+                    <Text style={[styles.statsValueWhite, { marginLeft: 6 }, !isDark && { color: DribbbleColors.textPrimary }]}>
                       {weatherData ? `${Math.round(weatherData.main.temp)}°` : '--'}
                     </Text>
                   </View>
               </TouchableOpacity>
               
-              <View style={styles.statsDividerWhite} />
+              <View style={[styles.statsDividerWhite, !isDark && { backgroundColor: 'rgba(0,0,0,0.08)' }]} />
               
-              {/* Takvim */}
               <TouchableOpacity
                 style={styles.statsSection}
                 activeOpacity={0.9}
                 onPress={() => setCalendarVisible(true)}
               >
-                  <Text style={styles.statsTitleWhite}>TAKVİM</Text>
+                  <Text style={[styles.statsTitleWhite, !isDark && { color: DribbbleColors.textSecondary }]}>TAKVİM</Text>
                   <View style={styles.calendarStatsRow}>
-                    <Calendar color={Colors.primaryHex} size={22} />
-                    <Text style={[styles.statsValueWhite, { marginLeft: 6 }]}>
+                    <Calendar color={isDark ? Colors.primaryHex : DribbbleColors.progressBlue} size={22} />
+                    <Text style={[styles.statsValueWhite, { marginLeft: 6 }, !isDark && { color: DribbbleColors.textPrimary }]}>
                       {new Date().getDate()} {['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'][new Date().getMonth()]}
                     </Text>
                   </View>
@@ -590,24 +593,23 @@ const HomeScreen = () => {
           </LinearGradient>
 
           <View style={styles.content}>
-            {/* Quote of the day Widget - Citrine Brown → Marigold gradient */}
             <View style={styles.widgetsContainer}>
-                <TouchableOpacity style={[styles.widgetCard, styles.quoteCard, { width: '100%' }]} activeOpacity={0.9}>
-                    <LinearGradient colors={Gradients.quoteCard} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+                <TouchableOpacity style={[styles.widgetCard, styles.quoteCard, { width: '100%' }, !isDark && { borderColor: DribbbleColors.borderLight }]} activeOpacity={0.9}>
+                    <LinearGradient colors={isDark ? Gradients.quoteCard : Gradients.quoteCardLight} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
                     <View style={styles.quoteHeaderRow}>
-                      <Text style={[styles.widgetLabel, styles.widgetLabelQuote, { color: Colors.buff }]}>GÜNÜN SÖZÜ</Text>
-                      <Flame color={Colors.buff} size={22} />
+                      <Text style={[styles.widgetLabel, styles.widgetLabelQuote, { color: isDark ? Colors.buff : DribbbleColors.textPrimary }]}>GÜNÜN SÖZÜ</Text>
+                      <Flame color={isDark ? Colors.buff : DribbbleColors.progressBlue} size={22} />
                     </View>
-                    <Text style={styles.quoteText} numberOfLines={2}>"{quoteOfDay}"</Text>
+                    <Text style={[styles.quoteText, !isDark && { color: DribbbleColors.textPrimary }]} numberOfLines={2}>"{quoteOfDay}"</Text>
                 </TouchableOpacity>
             </View>
 
-            <Text style={[styles.sectionTitle, styles.sectionTitleWithMargin, { color: Colors.buff }]}>HIZLI ERİŞİM</Text>
+            <Text style={[styles.sectionTitle, styles.sectionTitleWithMargin, { color: isDark ? Colors.buff : DribbbleColors.textPremium }, !isDark && { opacity: 0.9 }]}>HIZLI ERİŞİM</Text>
             
             {/* Bento Grid - Glassmorphism (Blur + Police Blue %15 + asimetrik border + inner shadow) */}
             <View style={styles.bentoGrid}>
               {/* Row 1: Etkinlik (tam genişlik) */}
-              <Animated.View style={[styles.bentoFullWidth, { opacity: bentoAnims[0], transform: [{ translateY: bentoAnims[0].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+              <Animated.View style={[styles.bentoFullWidth, !isDark && { borderColor: 'rgba(255,255,255,0.4)', shadowColor: '#1e293b', shadowOpacity: 0.06, shadowRadius: 24 }, { opacity: bentoAnims[0], transform: [{ translateY: bentoAnims[0].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
                 <AnimatedPressable
                   scaleTo={0.96}
                   style={styles.bentoGlassWrapper}
@@ -616,12 +618,18 @@ const HomeScreen = () => {
                     handleBentoPress(QUICK_ACCESS_NAV[0]);
                   }}
                 >
-                  <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
-                  <View style={[StyleSheet.absoluteFill, styles.bentoPoliceOverlay]} />
-                  <LinearGradient colors={Gradients.innerShadow} style={[StyleSheet.absoluteFill, styles.bentoInnerShadow]} />
-                  <LinearGradient colors={Gradients.glassReflection} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.bentoGlassReflection]} pointerEvents="none" />
+                  {isDark ? (
+                    <>
+                      <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
+                      <View style={[StyleSheet.absoluteFill, styles.bentoPoliceOverlay]} />
+                      <LinearGradient colors={Gradients.innerShadow} style={[StyleSheet.absoluteFill, styles.bentoInnerShadow]} />
+                      <LinearGradient colors={Gradients.glassReflection} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.bentoGlassReflection]} pointerEvents="none" />
+                    </>
+                  ) : (
+                    <LinearGradient colors={Gradients.bentoLavender} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+                  )}
                   <View style={styles.bentoGlass}>
-                    <View style={[styles.bentoIconGlow, styles.etkinlikLottieWrapper]}>
+                    <View style={[styles.bentoIconGlow, styles.etkinlikLottieWrapper, !isDark && { shadowColor: DribbbleColors.iconGlowPurple, shadowOpacity: 0.4, shadowRadius: 12 }]}>
                       <LottieView
                         ref={etkinlikLottieRef}
                         source={require('@/assets/images/El calendario.json')}
@@ -630,13 +638,13 @@ const HomeScreen = () => {
                         style={styles.etkinlikLottie}
                       />
                     </View>
-                    <Text style={styles.bentoTitle}>{QUICK_ACCESS_NAV[0].name}</Text>
+                    <Text style={[styles.bentoTitle, !isDark && { color: DribbbleColors.textPremium, opacity: 0.95 }]}>{QUICK_ACCESS_NAV[0].name}</Text>
                   </View>
                 </AnimatedPressable>
               </Animated.View>
               {/* Row 2: Keşfet (2/3) + Eczane (1/3) yan yana */}
               <View style={styles.bentoRow2}>
-                <Animated.View style={[styles.bentoLarge, { opacity: bentoAnims[1], transform: [{ translateY: bentoAnims[1].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+                <Animated.View style={[styles.bentoLarge, !isDark && { borderColor: 'rgba(255,255,255,0.4)', shadowColor: '#1e293b', shadowOpacity: 0.06, shadowRadius: 24 }, { opacity: bentoAnims[1], transform: [{ translateY: bentoAnims[1].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
                   <AnimatedPressable
                     scaleTo={0.96}
                     style={styles.bentoGlassWrapper}
@@ -645,12 +653,18 @@ const HomeScreen = () => {
                       handleBentoPress(QUICK_ACCESS_NAV[1]);
                     }}
                   >
-                    <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
-                    <View style={[StyleSheet.absoluteFill, styles.bentoPoliceOverlay]} />
-                    <LinearGradient colors={Gradients.innerShadow} style={[StyleSheet.absoluteFill, styles.bentoInnerShadow]} />
-                    <LinearGradient colors={Gradients.glassReflection} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.bentoGlassReflection]} pointerEvents="none" />
+                    {isDark ? (
+                      <>
+                        <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
+                        <View style={[StyleSheet.absoluteFill, styles.bentoPoliceOverlay]} />
+                        <LinearGradient colors={Gradients.innerShadow} style={[StyleSheet.absoluteFill, styles.bentoInnerShadow]} />
+                        <LinearGradient colors={Gradients.glassReflection} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.bentoGlassReflection]} pointerEvents="none" />
+                      </>
+                    ) : (
+                      <LinearGradient colors={Gradients.bentoLightBlue} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+                    )}
                     <View style={styles.bentoGlass}>
-                      <View style={[styles.bentoIconGlow, styles.etkinlikLottieWrapper]}>
+                      <View style={[styles.bentoIconGlow, styles.etkinlikLottieWrapper, !isDark && { shadowColor: DribbbleColors.iconGlowBlue, shadowOpacity: 0.4, shadowRadius: 12 }]}>
                         <LottieView
                           ref={kesfetLottieRef}
                           source={require('@/assets/images/Map pin location.json')}
@@ -659,11 +673,11 @@ const HomeScreen = () => {
                           style={styles.etkinlikLottie}
                         />
                       </View>
-                      <Text style={styles.bentoTitle}>{QUICK_ACCESS_NAV[1].name}</Text>
+                      <Text style={[styles.bentoTitle, !isDark && { color: DribbbleColors.textPremium, opacity: 0.95 }]}>{QUICK_ACCESS_NAV[1].name}</Text>
                     </View>
                   </AnimatedPressable>
                 </Animated.View>
-                <Animated.View style={[styles.bentoSmall, { opacity: bentoAnims[2], transform: [{ translateY: bentoAnims[2].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+                <Animated.View style={[styles.bentoSmall, !isDark && { borderColor: 'rgba(255,255,255,0.4)', shadowColor: '#1e293b', shadowOpacity: 0.06, shadowRadius: 24 }, { opacity: bentoAnims[2], transform: [{ translateY: bentoAnims[2].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
                   <AnimatedPressable
                     scaleTo={0.96}
                     style={styles.bentoGlassWrapper}
@@ -672,12 +686,18 @@ const HomeScreen = () => {
                       handleBentoPress(QUICK_ACCESS_NAV[2]);
                     }}
                   >
-                    <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
-                    <View style={[StyleSheet.absoluteFill, styles.bentoPoliceOverlay]} />
-                    <LinearGradient colors={Gradients.innerShadow} style={[StyleSheet.absoluteFill, styles.bentoInnerShadow]} />
-                    <LinearGradient colors={Gradients.glassReflection} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.bentoGlassReflection]} pointerEvents="none" />
+                    {isDark ? (
+                      <>
+                        <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
+                        <View style={[StyleSheet.absoluteFill, styles.bentoPoliceOverlay]} />
+                        <LinearGradient colors={Gradients.innerShadow} style={[StyleSheet.absoluteFill, styles.bentoInnerShadow]} />
+                        <LinearGradient colors={Gradients.glassReflection} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.bentoGlassReflection]} pointerEvents="none" />
+                      </>
+                    ) : (
+                      <LinearGradient colors={Gradients.bentoPink} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+                    )}
                     <View style={styles.bentoGlass}>
-                      <View style={[styles.bentoIconGlow, styles.bentoLottieSmallWrapper]}>
+                      <View style={[styles.bentoIconGlow, styles.bentoLottieSmallWrapper, !isDark && { shadowColor: DribbbleColors.iconGlowPink, shadowOpacity: 0.4, shadowRadius: 12 }]}>
                         <LottieView
                           ref={eczaneLottieRef}
                           source={require('@/assets/images/AR Tablet.json')}
@@ -686,14 +706,14 @@ const HomeScreen = () => {
                           style={styles.bentoLottieSmall}
                         />
                       </View>
-                      <Text style={styles.bentoTitleSmall}>{QUICK_ACCESS_NAV[2].name}</Text>
+                      <Text style={[styles.bentoTitleSmall, !isDark && { color: DribbbleColors.textPremium, opacity: 0.85 }]}>{QUICK_ACCESS_NAV[2].name}</Text>
                     </View>
                   </AnimatedPressable>
                 </Animated.View>
               </View>
               {/* Row 3: Kütüphane (1/3) + Gezi (2/3) yan yana */}
               <View style={styles.bentoRow2}>
-                <Animated.View style={[styles.bentoSmall, { opacity: bentoAnims[3], transform: [{ translateY: bentoAnims[3].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+                <Animated.View style={[styles.bentoSmall, !isDark && { borderColor: 'rgba(255,255,255,0.4)', shadowColor: '#1e293b', shadowOpacity: 0.06, shadowRadius: 24 }, { opacity: bentoAnims[3], transform: [{ translateY: bentoAnims[3].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
                   <AnimatedPressable
                     scaleTo={0.96}
                     style={styles.bentoGlassWrapper}
@@ -702,12 +722,18 @@ const HomeScreen = () => {
                       handleBentoPress(QUICK_ACCESS_NAV[3]);
                     }}
                   >
-                    <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
-                    <View style={[StyleSheet.absoluteFill, styles.bentoPoliceOverlay]} />
-                    <LinearGradient colors={Gradients.innerShadow} style={[StyleSheet.absoluteFill, styles.bentoInnerShadow]} />
-                    <LinearGradient colors={Gradients.glassReflection} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.bentoGlassReflection]} pointerEvents="none" />
+                    {isDark ? (
+                      <>
+                        <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
+                        <View style={[StyleSheet.absoluteFill, styles.bentoPoliceOverlay]} />
+                        <LinearGradient colors={Gradients.innerShadow} style={[StyleSheet.absoluteFill, styles.bentoInnerShadow]} />
+                        <LinearGradient colors={Gradients.glassReflection} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.bentoGlassReflection]} pointerEvents="none" />
+                      </>
+                    ) : (
+                      <LinearGradient colors={Gradients.bentoMint} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+                    )}
                     <View style={styles.bentoGlass}>
-                      <View style={[styles.bentoIconGlow, styles.bentoLottieSmallWrapper]}>
+                      <View style={[styles.bentoIconGlow, styles.bentoLottieSmallWrapper, !isDark && { shadowColor: DribbbleColors.iconGlowMint, shadowOpacity: 0.4, shadowRadius: 12 }]}>
                         <LottieView
                           ref={kutuphaneLottieRef}
                           source={require('@/assets/images/Books.json')}
@@ -716,11 +742,11 @@ const HomeScreen = () => {
                           style={styles.bentoLottieSmall}
                         />
                       </View>
-                      <Text style={styles.bentoTitleSmall}>{QUICK_ACCESS_NAV[3].name}</Text>
+                      <Text style={[styles.bentoTitleSmall, !isDark && { color: DribbbleColors.textPremium, opacity: 0.85 }]}>{QUICK_ACCESS_NAV[3].name}</Text>
                     </View>
                   </AnimatedPressable>
                 </Animated.View>
-                <Animated.View style={[styles.bentoLarge, { opacity: bentoAnims[4], transform: [{ translateY: bentoAnims[4].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+                <Animated.View style={[styles.bentoLarge, !isDark && { borderColor: 'rgba(255,255,255,0.4)', shadowColor: '#1e293b', shadowOpacity: 0.06, shadowRadius: 24 }, { opacity: bentoAnims[4], transform: [{ translateY: bentoAnims[4].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
                   <AnimatedPressable
                     scaleTo={0.96}
                     style={styles.bentoGlassWrapper}
@@ -729,12 +755,18 @@ const HomeScreen = () => {
                       handleBentoPress(QUICK_ACCESS_NAV[4]);
                     }}
                   >
-                    <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
-                    <View style={[StyleSheet.absoluteFill, styles.bentoPoliceOverlay]} />
-                    <LinearGradient colors={Gradients.innerShadow} style={[StyleSheet.absoluteFill, styles.bentoInnerShadow]} />
-                    <LinearGradient colors={Gradients.glassReflection} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.bentoGlassReflection]} pointerEvents="none" />
+                    {isDark ? (
+                      <>
+                        <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
+                        <View style={[StyleSheet.absoluteFill, styles.bentoPoliceOverlay]} />
+                        <LinearGradient colors={Gradients.innerShadow} style={[StyleSheet.absoluteFill, styles.bentoInnerShadow]} />
+                        <LinearGradient colors={Gradients.glassReflection} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.bentoGlassReflection]} pointerEvents="none" />
+                      </>
+                    ) : (
+                      <LinearGradient colors={Gradients.bentoYellow} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+                    )}
                     <View style={styles.bentoGlass}>
-                      <View style={[styles.bentoIconGlow, styles.etkinlikLottieWrapper, { shadowColor: Colors.cta }]}>
+                      <View style={[styles.bentoIconGlow, styles.etkinlikLottieWrapper, !isDark ? { shadowColor: DribbbleColors.iconGlowYellow, shadowOpacity: 0.4, shadowRadius: 12 } : { shadowColor: Colors.cta }]}>
                         <LottieView
                           ref={geziLottieRef}
                           source={require('@/assets/images/Travel is fun.json')}
@@ -743,7 +775,7 @@ const HomeScreen = () => {
                           style={[styles.etkinlikLottie, { backgroundColor: 'transparent' }]}
                         />
                       </View>
-                      <Text style={styles.bentoTitle}>{QUICK_ACCESS_NAV[4].name}</Text>
+                      <Text style={[styles.bentoTitle, !isDark && { color: DribbbleColors.textPremium, opacity: 0.95 }]}>{QUICK_ACCESS_NAV[4].name}</Text>
                     </View>
                   </AnimatedPressable>
                 </Animated.View>
@@ -751,14 +783,14 @@ const HomeScreen = () => {
             </View>
 
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitleInHeader, { color: Colors.buff }]}>Genç Kart Fırsatları</Text>
+              <Text style={[styles.sectionTitleInHeader, { color: isDark ? Colors.buff : DribbbleColors.textPremium }, !isDark && { opacity: 0.9 }]}>Genç Kart Fırsatları</Text>
               <TouchableOpacity 
                 onPress={() => navigation.navigate('Main', { screen: 'GencKart' as keyof MainTabParamList })}
                 style={styles.seeAllButton}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.seeAllText, { color: Colors.primaryHex }]}>Tümünü Gör</Text>
-                <ChevronRight color={Colors.primaryHex} size={16} />
+                <Text style={[styles.seeAllText, { color: isDark ? Colors.primaryHex : DribbbleColors.progressBlue }]}>Tümünü Gör</Text>
+                <ChevronRight color={isDark ? Colors.primaryHex : DribbbleColors.progressBlue} size={16} />
               </TouchableOpacity>
             </View>
             
@@ -766,7 +798,7 @@ const HomeScreen = () => {
               {loadingFirsatlar ? (
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.partnersScrollContent}>
                     {[1, 2, 3].map((i) => (
-                      <View key={i} style={[styles.partnerCard, isDark && { backgroundColor: '#1e293b' }]}>
+                      <View key={i} style={[styles.partnerCard, isDark ? { backgroundColor: '#1e293b' } : { backgroundColor: DribbbleColors.cardWhite, borderColor: DribbbleColors.borderLight, shadowColor: '#334155', shadowOpacity: 0.05 }]}>
                         <Skeleton width={32} height={32} borderRadius={16} isDark={isDark} />
                         <Skeleton width="80%" height={14} borderRadius={6} isDark={isDark} />
                         <Skeleton width="60%" height={12} borderRadius={6} isDark={isDark} />
@@ -774,7 +806,7 @@ const HomeScreen = () => {
                     ))}
                   </ScrollView>
               ) : firsatlar.length === 0 ? (
-                  <View style={[styles.emptyFirsatContainer, isDark && styles.emptyFirsatContainerDark]}>
+                  <View style={[styles.emptyFirsatContainer, isDark ? styles.emptyFirsatContainerDark : { backgroundColor: DribbbleColors.cardWhite, borderColor: DribbbleColors.borderLight }]}>
                     <View style={[styles.emptyFirsatIconWrap, isDark && { backgroundColor: '#334155' }]}>
                       <Gift color={isDark ? '#94a3b8' : Colors.primary.indigo} size={32} />
                     </View>
@@ -838,7 +870,7 @@ const HomeScreen = () => {
                                 styles.paginationDot,
                                 isActive && styles.paginationDotActive,
                                 isDark && !isActive && { backgroundColor: '#475569' },
-                                isDark && isActive && { backgroundColor: '#818cf8' }
+                                isActive && { backgroundColor: isDark ? '#818cf8' : DribbbleColors.progressBlue }
                                 ]} 
                             />
                             );
@@ -1132,7 +1164,7 @@ const HomeScreen = () => {
 
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: 'transparent' },
-    meshLayer: { opacity: 0.95 },
+    meshLayer: { opacity: 1 },
     ambientOrbsContainer: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
     ambientOrb: {
       position: 'absolute',
@@ -1146,19 +1178,19 @@ const styles = StyleSheet.create({
     statusBarArea: { backgroundColor: 'transparent' },
     container: { flex: 1, backgroundColor: 'transparent' },
     dashboardInner: { paddingBottom: 24 },
-    header: { borderBottomLeftRadius: 40, borderBottomRightRadius: 40, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 60 },
+    header: { borderBottomLeftRadius: 30, borderBottomRightRadius: 30, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 60 },
     headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     headerSearchBtn: { padding: 8 },
-    badge: { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+    badge: { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 24 },
     badgeText: { fontFamily: 'PlusJakartaSans_700Bold', color: Colors.white },
     greeting: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 32, color: Colors.white, marginTop: 10 },
     greetingSub: { fontFamily: 'PlusJakartaSans_500Medium', fontSize: 16, color: 'rgba(255,255,255,0.9)', marginTop: 4 },
     headerNavContainer: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 20 },
     headerNavItem: { alignItems: 'center' },
-    storyBorder: { width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center' },
-    headerNavImage: { width: 54, height: 54, borderRadius: 27, borderWidth: 2, borderColor: '#43389F' },
+    storyBorder: { width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#f4a823' },
+    headerNavImage: { width: 54, height: 54, borderRadius: 27, borderWidth: 0 },
     headerNavText: { color: Colors.white, marginTop: 8, fontWeight: '600' },
-    statsCard: { flexDirection: 'row', borderRadius: 20, marginHorizontal: 20, marginTop: -50, height: 100, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 15, alignItems: 'center', overflow: 'hidden' },
+    statsCard: { flexDirection: 'row', borderRadius: 30, marginHorizontal: 20, marginTop: -50, height: 100, shadowColor: '#0f1a2e', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 24, elevation: 12, alignItems: 'center', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
     statsSection: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     statsLeft: { flex: 1, alignItems: 'center' },
     statsRight: { flex: 1, alignItems: 'center' },
@@ -1200,32 +1232,32 @@ const styles = StyleSheet.create({
     bentoGrid: { paddingHorizontal: 20, marginTop: 12, gap: 12 },
     bentoRow1: { flexDirection: 'row', gap: 12, marginBottom: 12 },
     bentoRow2: { flexDirection: 'row', gap: 12, marginBottom: 12 },
-    bentoGlassReflection: { borderRadius: 24, pointerEvents: 'none' },
+    bentoGlassReflection: { borderRadius: 30, pointerEvents: 'none' },
     bentoFullWidth: {
-      width: '100%', minHeight: 100, borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin, marginBottom: 12,
-      shadowColor: '#1a2740', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.38, shadowRadius: 24, elevation: 12,
+      width: '100%', minHeight: 100, borderRadius: 30, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin, marginBottom: 12,
+      shadowColor: '#0f1a2e', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.18, shadowRadius: 24, elevation: 10,
     },
     bentoLarge: {
-      flex: 2, minHeight: 100, borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin,
-      shadowColor: '#1a2740', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.38, shadowRadius: 24, elevation: 12,
+      flex: 2, minHeight: 100, borderRadius: 30, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin,
+      shadowColor: '#0f1a2e', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.18, shadowRadius: 24, elevation: 10,
     },
     bentoSmall: {
-      flex: 1, minHeight: 100, borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin,
-      shadowColor: '#1a2740', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.38, shadowRadius: 24, elevation: 12,
+      flex: 1, minHeight: 100, borderRadius: 30, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin,
+      shadowColor: '#0f1a2e', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.18, shadowRadius: 24, elevation: 10,
     },
-    bentoMedium: { flex: 1, minHeight: 100, borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin, shadowColor: Colors.pearl, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 4 },
-    bentoSquare: { flex: 1, aspectRatio: 1, minHeight: 90, borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin, shadowColor: Colors.pearl, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 4 },
-    bentoWide: { minHeight: 80, borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin, shadowColor: Colors.pearl, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 4 },
-    bentoGlassWrapper: { position: 'relative' },
-    bentoPoliceOverlay: { backgroundColor: Colors.glassOverlay, borderRadius: 24 },
-    bentoInnerShadow: { borderRadius: 24, pointerEvents: 'none' },
-    bentoOverlay: { borderRadius: 24 },
+    bentoMedium: { flex: 1, minHeight: 100, borderRadius: 30, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin, shadowColor: '#0f1a2e', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 8 },
+    bentoSquare: { flex: 1, aspectRatio: 1, minHeight: 90, borderRadius: 30, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin, shadowColor: '#0f1a2e', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 8 },
+    bentoWide: { minHeight: 80, borderRadius: 30, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin, shadowColor: '#0f1a2e', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 8 },
+    bentoGlassWrapper: { position: 'relative', flex: 1 },
+    bentoPoliceOverlay: { backgroundColor: Colors.glassOverlay, borderRadius: 30 },
+    bentoInnerShadow: { borderRadius: 30, pointerEvents: 'none' },
+    bentoOverlay: { borderRadius: 30 },
     bentoGlass: { flex: 1, padding: 16, justifyContent: 'center', alignItems: 'center' },
     bentoIconGlow: {
       shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.45,
-      shadowRadius: 10,
-      elevation: 6,
+      shadowOpacity: 0.35,
+      shadowRadius: 12,
+      elevation: 4,
     },
     etkinlikLottieWrapper: { width: 48, height: 48, justifyContent: 'center', alignItems: 'center' },
     etkinlikLottie: { width: 48, height: 48 },
@@ -1267,31 +1299,31 @@ const styles = StyleSheet.create({
         lineHeight: 14,
     },
     partnersScrollContent: { paddingHorizontal: 20, paddingVertical: 4 },
-    emptyFirsatContainer: { minHeight: 140, justifyContent: 'center', alignItems: 'center', paddingVertical: 24, paddingHorizontal: 20, backgroundColor: 'rgba(13,148,136,0.08)', borderRadius: 20, marginHorizontal: 20 },
-    emptyFirsatContainerDark: { backgroundColor: 'rgba(51,65,85,0.5)' },
+    emptyFirsatContainer: { minHeight: 140, justifyContent: 'center', alignItems: 'center', paddingVertical: 24, paddingHorizontal: 20, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 24, marginHorizontal: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
+    emptyFirsatContainerDark: { backgroundColor: 'rgba(51,65,85,0.5)', borderColor: 'rgba(255,255,255,0.1)' },
     emptyFirsatIconWrap: { width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(13,148,136,0.15)', justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
     emptyFirsatTitle: { fontSize: 16, fontWeight: '600', color: Colors.darkGray, marginBottom: 4 },
     emptyFirsatSub: { fontSize: 14, color: '#64748b', marginBottom: 16 },
     emptyFirsatCta: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: 'rgba(13,148,136,0.12)', borderRadius: 12 },
     emptyFirsatCtaText: { fontSize: 14, fontWeight: '600', color: Colors.primary.indigo },
-    partnerCard: { width: 170, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 14, marginRight: 12, justifyContent: 'space-between', backgroundColor: '#fff7ed' },
+    partnerCard: { width: 170, borderRadius: 24, paddingHorizontal: 14, paddingVertical: 14, marginRight: 12, justifyContent: 'space-between', backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', shadowColor: '#0f1a2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 6 },
     partnerIconWrapper: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
     partnerName: { fontSize: 14, fontWeight: '600', color: Colors.darkGray, marginBottom: 4 },
     partnerOffer: { fontSize: 13, fontWeight: '500', color: '#4b5563' },
     widgetsContainer: { flexDirection: 'row', paddingHorizontal: 20, marginTop: 12, marginBottom: 8, justifyContent: 'space-between' },
     // widgetCard styles (General shape)
-    widgetCard: { borderRadius: 18, paddingHorizontal: 10, paddingVertical: 8, width: '48%', height: 70 },
+    widgetCard: { borderRadius: 24, paddingHorizontal: 10, paddingVertical: 8, width: '48%', height: 70, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
     widgetLabel: { color: 'rgba(255,255,255,0.9)', fontWeight: '600', marginBottom: 4, fontSize: 10 },
     // Weather card internals (Layout)
     weatherCard: { justifyContent: 'space-between', flexDirection: 'row', alignItems: 'center' },
     weatherTemp: { color: Colors.white, fontSize: 24, fontWeight: 'bold' },
     weatherIconWrapper: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
-    quoteCard: { position: 'relative', borderRadius: 18, paddingHorizontal: 16, paddingVertical: 14, justifyContent: 'flex-start', overflow: 'hidden' },
+    quoteCard: { position: 'relative', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 14, justifyContent: 'flex-start', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
     quoteHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     widgetLabelQuote: { color: '#ffffff' },
     quoteText: { marginTop: 4, fontSize: 11, lineHeight: 15, fontWeight: '600', color: '#ffffff' },
     storyModalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
-    storyModalCard: { width: '100%', maxWidth: 420, aspectRatio: 9 / 16, borderRadius: 26, overflow: 'hidden', backgroundColor: Colors.black },
+    storyModalCard: { width: '100%', maxWidth: 420, aspectRatio: 9 / 16, borderRadius: 28, overflow: 'hidden', backgroundColor: Colors.black, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
     storyProgressBarBackground: { position: 'absolute', top: 10, left: 12, right: 12, height: 3, borderRadius: 999, backgroundColor: 'rgba(148,163,184,0.6)', overflow: 'hidden', zIndex: 2 },
     storyProgressBarFill: { height: '100%', backgroundColor: Colors.white, borderRadius: 999 },
     storyImage: { width: '100%', height: '100%', position: 'absolute' },
@@ -1304,12 +1336,12 @@ const styles = StyleSheet.create({
     storyCtaText: { fontSize: 12, fontWeight: '600', color: Colors.white },
     // Calendar Modal Styles
     calendarModalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-    calendarModalCard: { backgroundColor: Colors.white, borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 20, height: '80%' },
+    calendarModalCard: { backgroundColor: Colors.white, borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 20, height: '80%' },
     calendarHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
     calendarTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.darkGray },
     calendarCloseBtn: { padding: 8 },
-    calendarToggle: { flexDirection: 'row', backgroundColor: '#f3f4f6', borderRadius: 12, padding: 4, marginBottom: 20 },
-    calendarToggleBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
+    calendarToggle: { flexDirection: 'row', backgroundColor: '#f3f4f6', borderRadius: 16, padding: 4, marginBottom: 20 },
+    calendarToggleBtn: { flex: 1, paddingVertical: 10, borderRadius: 14, alignItems: 'center' },
     calendarToggleBtnActive: { backgroundColor: Colors.primary.indigo },
     calendarToggleText: { fontWeight: '600', color: '#6b7280' },
     calendarToggleTextActive: { color: Colors.white },
@@ -1327,11 +1359,11 @@ const styles = StyleSheet.create({
     calendarDayText: { fontSize: 14, fontWeight: '500', color: Colors.darkGray },
     calendarDayTextToday: { color: Colors.white, fontWeight: 'bold' },
     calendarMonthsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-    calendarMonthCell: { width: '30%', paddingVertical: 20, borderRadius: 16, backgroundColor: '#f3f4f6', alignItems: 'center', marginBottom: 12 },
+    calendarMonthCell: { width: '30%', paddingVertical: 20, borderRadius: 20, backgroundColor: '#f3f4f6', alignItems: 'center', marginBottom: 12 },
     calendarMonthCellActive: { backgroundColor: Colors.primary.indigo },
     calendarMonthName: { fontSize: 16, fontWeight: '600', color: Colors.darkGray },
     calendarMonthNameActive: { color: Colors.white },
-    calendarEventsBtn: { backgroundColor: Colors.primary.indigo, paddingVertical: 16, borderRadius: 16, alignItems: 'center', marginTop: 10, marginBottom: 20 },
+    calendarEventsBtn: { backgroundColor: Colors.primary.indigo, paddingVertical: 16, borderRadius: 20, alignItems: 'center', marginTop: 10, marginBottom: 20 },
     calendarEventsBtnText: { color: Colors.white, fontSize: 16, fontWeight: 'bold' },
     // Özel Günler Stilleri
     specialDayEmoji: { fontSize: 10, marginTop: 2 },
@@ -1374,7 +1406,7 @@ const styles = StyleSheet.create({
     specialDayEmojiMini: { fontSize: 8 },
     eventDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: Colors.primary.indigo, marginLeft: 2 },
     selectedDayDetailContainer: { marginTop: 16, gap: 8 },
-    eventDetailCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f3f4f6', padding: 12, borderRadius: 16, gap: 12 },
+    eventDetailCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f3f4f6', padding: 12, borderRadius: 20, gap: 12 },
     eventDetailIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.white, justifyContent: 'center', alignItems: 'center' },
     eventDetailTitle: { fontSize: 15, fontWeight: 'bold', color: Colors.darkGray },
     eventDetailLocation: { fontSize: 12, color: '#6b7280', marginTop: 2 },

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Library, MapPin, Clock, Navigation } from 'lucide-react-native';
-import { Colors, Gradients } from '@/constants/Colors';
+import { Colors, Gradients, DribbbleColors } from '@/constants/Colors';
 import { MOCK_LIBRARIES, Library as LibraryType } from '@/api/mockData';
 import { useThemeMode } from '@/context/ThemeContext';
 
@@ -19,10 +19,11 @@ const LibraryListScreen = () => {
 
   const renderLibraryItem = useCallback(({ item }: { item: LibraryType }) => (
       <TouchableOpacity
-        style={[styles.libraryCard, isDark && { backgroundColor: Colors.dark.card, borderWidth: 1, borderColor: Colors.dark.border }]}
+        style={[styles.libraryCard, isDark ? { backgroundColor: Colors.dark.card, borderWidth: 1, borderColor: Colors.dark.border } : { backgroundColor: '#E6F4EA' }]}
         activeOpacity={0.9}
       >
-        <View style={[styles.iconContainer, { backgroundColor: '#f0fdf4' }, isDark && { backgroundColor: Colors.dark.border }]}>
+        {!isDark && <LinearGradient colors={['#D9F0E0', '#E6F4EA']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />}
+        <View style={[styles.iconContainer, !isDark && { backgroundColor: 'rgba(255,255,255,0.6)' }, isDark && { backgroundColor: Colors.dark.border }]}>
           <Library color={isDark ? '#86efac' : '#22c55e'} size={24} />
         </View>
         <View style={styles.infoContainer}>
@@ -51,11 +52,11 @@ const LibraryListScreen = () => {
 
   return (
     <SafeAreaView
-      style={[styles.container, isDark && { backgroundColor: Colors.dark.background }]}
+      style={[styles.container, isDark ? { backgroundColor: Colors.dark.background } : { backgroundColor: DribbbleColors.background }]}
       edges={['top']}
     >
       <LinearGradient
-        colors={isDark ? Gradients.dark : Gradients.hero}
+        colors={isDark ? Gradients.dark : [DribbbleColors.progressBlue, '#60a5fa']}
         style={styles.header}
       >
         <Text style={styles.headerTitle}>Kütüphaneler</Text>
@@ -80,7 +81,7 @@ const LibraryListScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.lightGray,
+    backgroundColor: DribbbleColors.background,
   },
   header: {
     paddingHorizontal: 20,
@@ -105,14 +106,15 @@ const styles = StyleSheet.create({
   libraryCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
     borderRadius: 20,
+    overflow: 'hidden',
     padding: 15,
     marginBottom: 15,
-    shadowColor: '#171717',
-    shadowOffset: { width: -2, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
+    shadowColor: '#34d399',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    elevation: 4,
   },
   iconContainer: {
     width: 50,
@@ -166,7 +168,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#e0e7ff',
+    backgroundColor: 'rgba(255,255,255,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 10,

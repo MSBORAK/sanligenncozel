@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SendHorizonal, Bot, MapPin, TicketPercent, Sparkles, Activity, Calendar, BookOpen, Navigation, HelpCircle, Coffee, Film } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors } from '@/constants/Colors';
+import { Colors, DribbbleColors } from '@/constants/Colors';
 import { MOCK_MESSAGES } from '@/api/mockData';
 import { ChatMessage } from '@/types';
 import { useThemeMode } from '@/context/ThemeContext';
@@ -138,13 +138,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ item }) => {
         ]}
       >
         {item.sender === 'bot' && (
-          <View style={[styles.botAvatar, isDark && styles.botAvatarDark]}>
-            <Bot color={isDark ? '#5eead4' : Colors.primary.indigo} size={20} />
+          <View style={[styles.botAvatar, isDark && styles.botAvatarDark, !isDark && { backgroundColor: '#d1fae5' }]}>
+            <Bot color={isDark ? '#5eead4' : '#10b981'} size={20} />
           </View>
         )}
         {item.sender === 'user' ? (
           <LinearGradient
-            colors={[Colors.primary.violet, Colors.primary.indigo]}
+            colors={isDark ? [Colors.primary.violet, Colors.primary.indigo] : ['#10b981', '#34d399']}
             style={[styles.bubble, styles.userBubble]}
           >
             <Text style={styles.userBubbleText}>
@@ -320,15 +320,16 @@ const AssistantScreen = () => {
 
   return (
     <SafeAreaView
-      style={[styles.container, isDark && { backgroundColor: Colors.dark.background }]}
+      style={[styles.container, isDark ? { backgroundColor: Colors.dark.background } : { backgroundColor: DribbbleColors.background }]}
       edges={['top']}
     >
-      <View
-        style={[
-          styles.bubblePage,
-          isDark && { backgroundColor: Colors.dark.card, shadowOpacity: 0.25 },
-        ]}
-      >
+          <View
+            style={[
+              styles.bubblePage,
+              isDark && { backgroundColor: Colors.dark.card, shadowOpacity: 0.25 },
+              !isDark && { backgroundColor: DribbbleColors.cardWhite },
+            ]}
+          >
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardAvoidingView}
@@ -355,12 +356,12 @@ const AssistantScreen = () => {
               {QUICK_ACTIONS.map((action) => (
                 <TouchableOpacity
                   key={action.id}
-                  style={[styles.quickStartChip, isDark && { backgroundColor: Colors.dark.card }]}
+                  style={[styles.quickStartChip, isDark && { backgroundColor: Colors.dark.card }, !isDark && { backgroundColor: '#d1fae5' }]}
                   onPress={() => sendUserMessage(action.text)}
                   activeOpacity={0.9}
                 >
                   <View style={styles.quickStartChipInner}>
-                    <action.icon size={18} color={isDark ? '#e2e8f0' : Colors.primary.indigo} />
+                    <action.icon size={18} color={isDark ? '#e2e8f0' : '#10b981'} />
                     <Text style={[styles.quickStartText, isDark && { color: '#f8fafc' }]}>{action.label}</Text>
                   </View>
                 </TouchableOpacity>
@@ -392,8 +393,8 @@ const AssistantScreen = () => {
                 { paddingHorizontal: 15 },
               ]}
             >
-              <View style={[styles.botAvatar, isDark && styles.botAvatarDark]}>
-                <Bot color={isDark ? '#5eead4' : Colors.primary.indigo} size={20} />
+              <View style={[styles.botAvatar, isDark && styles.botAvatarDark, !isDark && { backgroundColor: '#d1fae5' }]}>
+                <Bot color={isDark ? '#5eead4' : '#10b981'} size={20} />
               </View>
               <View style={[styles.bubble, styles.botBubble, styles.typingBubble, isDark && { backgroundColor: Colors.dark.card }]}>
                 <Text style={[styles.typingText, isDark && { color: '#f8fafc' }]}>{typingDots}</Text>
@@ -417,7 +418,7 @@ const AssistantScreen = () => {
               onPress={() => sendUserMessage(inputText)}
               activeOpacity={0.9}
             >
-               <LinearGradient colors={[Colors.primary.violet, Colors.primary.indigo]} style={styles.sendButtonGradient}>
+               <LinearGradient colors={isDark ? [Colors.primary.violet, Colors.primary.indigo] : ['#10b981', '#34d399']} style={styles.sendButtonGradient}>
                   <SendHorizonal color={Colors.white} size={24} />
                </LinearGradient>
             </TouchableOpacity>
@@ -431,11 +432,11 @@ const AssistantScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.lightGray,
+    backgroundColor: DribbbleColors.background,
   },
   bubblePage: {
     flex: 1,
-    backgroundColor: Colors.lightGray,
+    backgroundColor: DribbbleColors.background,
     marginHorizontal: 10,
     marginBottom: 95, 
     borderRadius: 30,
@@ -474,7 +475,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   quickStartChip: {
-    backgroundColor: Colors.lightGray,
+    backgroundColor: '#d1fae5',
     paddingHorizontal: 15,
     paddingVertical: 10,
     borderRadius: 20,
@@ -525,10 +526,10 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 5,
   },
   botBubble: {
-    backgroundColor: '#ffffff',
+    backgroundColor: DribbbleColors.cardWhite,
     borderBottomLeftRadius: 5,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: DribbbleColors.borderLight,
   },
   userBubbleText: {
     color: Colors.white,
@@ -561,7 +562,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     height: 50,
-    backgroundColor: Colors.lightGray,
+    backgroundColor: DribbbleColors.background,
     borderRadius: 25,
     paddingHorizontal: 20,
     fontSize: 16,
