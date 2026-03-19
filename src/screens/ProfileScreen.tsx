@@ -15,7 +15,7 @@ import type { RootStackParamList } from '@/types/navigation';
 type Nav = StackNavigationProp<RootStackParamList>;
 
 const ProfileScreen = () => {
-  const { mode, toggleTheme } = useThemeMode();
+  const { mode, modeLabel, toggleTheme } = useThemeMode();
   const [modalVisible, setModalVisible] = useState(false);
   const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
   const [accountSettingsVisible, setAccountSettingsVisible] = useState(false);
@@ -54,7 +54,7 @@ const ProfileScreen = () => {
         <View style={styles.menuIconContainer}>
           {icon}
         </View>
-        <Text style={[styles.menuItemText, isDark && { color: Colors.dark.text }, isDestructive && { color: Colors.accent.rose }]}>
+        <Text style={[styles.menuItemText, isDark && { color: Colors.dark.text }, isDestructive && { color: Colors.accent }]}>
           {label}
         </Text>
       </View>
@@ -173,7 +173,9 @@ const ProfileScreen = () => {
                 <View style={styles.switchIconContainer}>
                   <Moon color={isDark ? '#fff' : DribbbleColors.textPrimary} size={22} />
                 </View>
-                <Text style={[styles.switchLabel, isDark && { color: Colors.dark.text }]}>Karanlık Mod</Text>
+                <Text style={[styles.switchLabel, isDark && { color: Colors.dark.text }]}>
+                  {modeLabel}
+                </Text>
                 <Switch
                   value={isDark}
                   onValueChange={toggleTheme}

@@ -23,7 +23,7 @@ import {
   Flame, QrCode, X, ChevronLeft, ChevronRight, Sparkles,
   CloudRain, Sun, Cloud, CloudSnow, CloudLightning, CloudDrizzle,
   Tag, Coffee, Shirt, Smartphone, Ticket, GraduationCap, Gift,
-  Pill, Library, Route
+  Pill, Library, Route, Radio
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Colors, Gradients, DribbbleColors } from '@/constants/Colors';
@@ -98,7 +98,6 @@ const STORY_DETAILS: Record<string, { description: string }> = {
 const HomeScreen = () => {
   const navigation = useNavigation<HomeScreenProps['navigation']>();
   const nextBus = MOCK_BUSES[0];
-  const quoteOfDay = QUOTES_OF_DAY[new Date().getDate() % QUOTES_OF_DAY.length];
   const [activeStoryIndex, setActiveStoryIndex] = useState<number | null>(null);
   const [storyProgress, setStoryProgress] = useState(0); 
   const rainAnim = useRef(new Animated.Value(0)).current;
@@ -108,6 +107,15 @@ const HomeScreen = () => {
   const [calendarView, setCalendarView] = useState<'month' | 'year'>('month');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [activeCardIndex, setActiveCardIndex] = useState(0);
+  const radarPulse = useRef(new Animated.Value(0)).current;
+  const radarGlowOpacity = radarPulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.10, 0.24],
+  });
+  const radarGlowScale = radarPulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.03],
+  });
   
   // Supabase Fırsatlar State
   const [firsatlar, setFirsatlar] = useState<FirsatData[]>([]);
@@ -124,7 +132,6 @@ const HomeScreen = () => {
   const eczaneLottieRef = useRef<LottieView>(null);
   const kutuphaneLottieRef = useRef<LottieView>(null);
   const geziLottieRef = useRef<LottieView>(null);
-
   // Bento giriş animasyonu (stagger - dalga efekti)
   const bentoAnims = useRef(
     [0, 1, 2, 3, 4].map(() => new Animated.Value(0))
@@ -134,6 +141,17 @@ const HomeScreen = () => {
       Animated.timing(anim, { toValue: 1, duration: 420, useNativeDriver: true })
     )).start();
   }, []);
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(radarPulse, { toValue: 1, duration: 1300, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.timing(radarPulse, { toValue: 0, duration: 1300, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [radarPulse]);
   
   // Story detayları - Supabase'den gelen veriler varsa onları kullan
   const getStoryDetails = (storyName: string): { description: string } => {
@@ -594,13 +612,51 @@ const HomeScreen = () => {
 
           <View style={styles.content}>
             <View style={styles.widgetsContainer}>
-                <TouchableOpacity style={[styles.widgetCard, styles.quoteCard, { width: '100%' }, !isDark && { borderColor: DribbbleColors.borderLight }]} activeOpacity={0.9}>
-                    <LinearGradient colors={isDark ? Gradients.quoteCard : Gradients.quoteCardLight} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-                    <View style={styles.quoteHeaderRow}>
-                      <Text style={[styles.widgetLabel, styles.widgetLabelQuote, { color: isDark ? Colors.buff : DribbbleColors.textPrimary }]}>GÜNÜN SÖZÜ</Text>
-                      <Flame color={isDark ? Colors.buff : DribbbleColors.progressBlue} size={22} />
+                <TouchableOpacity
+                  style={[
+                    styles.widgetCard,
+                    styles.quoteCard,
+                    { width: '100%', height: 152 },
+                    !isDark && { borderColor: 'rgba(96,165,250,0.22)', shadowColor: '#60a5fa', shadowOpacity: 0.14, shadowRadius: 22 },
+                  ]}
+                  activeOpacity={0.9}
+                  onPress={() => navigation.navigate('Sosyal')}
+                >
+                    <Animated.View
+                      pointerEvents="none"
+                      style={[
+                        StyleSheet.absoluteFill,
+                        styles.radarHeroPulse,
+                        {
+                          opacity: radarGlowOpacity,
+                          transform: [{ scale: radarGlowScale }],
+                        },
+                        !isDark && { borderColor: 'rgba(96,165,250,0.28)' },
+                      ]}
+                    />
+                    <LinearGradient
+                      colors={isDark ? ['#060c1a', '#0f172a', '#1a0a00'] : ['#cbd5e1', '#bfdbfe', '#eef2ff']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={StyleSheet.absoluteFill}
+                    />
+                    <View style={styles.radarHeroHeader}>
+                      <View style={[styles.radarHeroIcon, !isDark && { backgroundColor: 'rgba(59,130,246,0.14)', borderColor: 'rgba(59,130,246,0.22)' }]}>
+                        <Radio color={isDark ? '#f59e0b' : '#60a5fa'} size={18} strokeWidth={2} />
+                      </View>
+                      <View style={[styles.radarHeroBadge, !isDark && { backgroundColor: 'rgba(96,165,250,0.10)', borderColor: 'rgba(96,165,250,0.18)' }]}>
+                        <View style={styles.radarHeroLiveDot} />
+                        <Text style={[styles.radarHeroLiveText, !isDark && { color: '#2563eb' }]}>CANLI</Text>
+                      </View>
                     </View>
-                    <Text style={[styles.quoteText, !isDark && { color: DribbbleColors.textPrimary }]} numberOfLines={2}>"{quoteOfDay}"</Text>
+                    <Text style={[styles.radarHeroTitle, !isDark && { color: '#0f172a', fontSize: 17 }]}>Şehir Radarı</Text>
+                    <Text style={[styles.radarHeroSub, !isDark && { color: 'rgba(37,99,235,0.68)' }]}>ŞanlıSosyal · son 4 saatteki anonim hareketlilik</Text>
+                    <View style={styles.radarHeroMiniMap}>
+                      <View style={[styles.radarHeroDot, { top: 16, left: 20, width: 14, height: 14, opacity: 0.24, backgroundColor: isDark ? '#f59e0b' : '#60a5fa' }]} />
+                      <View style={[styles.radarHeroDot, { top: 30, left: 95, width: 18, height: 18, opacity: 0.32, backgroundColor: isDark ? '#f59e0b' : '#3b82f6' }]} />
+                      <View style={[styles.radarHeroDot, { top: 10, left: 160, width: 10, height: 10, opacity: 0.20, backgroundColor: isDark ? '#f59e0b' : '#93c5fd' }]} />
+                      <View style={[styles.radarHeroDot, { top: 46, left: 140, width: 24, height: 24, opacity: 0.26, backgroundColor: isDark ? '#f59e0b' : '#818cf8' }]} />
+                    </View>
                 </TouchableOpacity>
             </View>
 
@@ -608,11 +664,12 @@ const HomeScreen = () => {
             
             {/* Bento Grid - Glassmorphism (Blur + Police Blue %15 + asimetrik border + inner shadow) */}
             <View style={styles.bentoGrid}>
-              {/* Row 1: Etkinlik (tam genişlik) */}
+              {/* Row 1: Etkinlik (eski haline döndü) */}
               <Animated.View style={[styles.bentoFullWidth, !isDark && { borderColor: 'rgba(255,255,255,0.4)', shadowColor: '#1e293b', shadowOpacity: 0.06, shadowRadius: 24 }, { opacity: bentoAnims[0], transform: [{ translateY: bentoAnims[0].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
                 <AnimatedPressable
                   scaleTo={0.96}
                   style={styles.bentoGlassWrapper}
+                  fill
                   onPress={() => {
                     etkinlikLottieRef.current?.play();
                     handleBentoPress(QUICK_ACCESS_NAV[0]);
@@ -648,6 +705,7 @@ const HomeScreen = () => {
                   <AnimatedPressable
                     scaleTo={0.96}
                     style={styles.bentoGlassWrapper}
+                    fill
                     onPress={() => {
                       kesfetLottieRef.current?.play();
                       handleBentoPress(QUICK_ACCESS_NAV[1]);
@@ -681,6 +739,7 @@ const HomeScreen = () => {
                   <AnimatedPressable
                     scaleTo={0.96}
                     style={styles.bentoGlassWrapper}
+                    fill
                     onPress={() => {
                       eczaneLottieRef.current?.play();
                       handleBentoPress(QUICK_ACCESS_NAV[2]);
@@ -717,6 +776,7 @@ const HomeScreen = () => {
                   <AnimatedPressable
                     scaleTo={0.96}
                     style={styles.bentoGlassWrapper}
+                    fill
                     onPress={() => {
                       kutuphaneLottieRef.current?.play();
                       handleBentoPress(QUICK_ACCESS_NAV[3]);
@@ -750,6 +810,7 @@ const HomeScreen = () => {
                   <AnimatedPressable
                     scaleTo={0.96}
                     style={styles.bentoGlassWrapper}
+                    fill
                     onPress={() => {
                       geziLottieRef.current?.play();
                       handleBentoPress(QUICK_ACCESS_NAV[4]);
@@ -1265,6 +1326,73 @@ const styles = StyleSheet.create({
     bentoLottieSmall: { width: 40, height: 40 },
     bentoTitle: { marginTop: 10, fontSize: 13, fontWeight: '400', letterSpacing: 1.2, color: Colors.primaryHex },
     bentoTitleSmall: { marginTop: 8, fontSize: 10, fontWeight: '400', letterSpacing: 0.8, color: Colors.primaryHex },
+
+    // ŞanlıSosyal — Şehir Radarı bento kartı
+    radarAmberOrb: {
+      position: 'absolute',
+      width: 200,
+      height: 200,
+      borderRadius: 100,
+      backgroundColor: 'rgba(245,158,11,0.12)',
+      top: -60,
+      right: -40,
+    },
+    radarDot: {
+      position: 'absolute',
+      borderRadius: 50,
+      backgroundColor: '#f59e0b',
+    },
+    radarIconRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 8,
+    },
+    radarIconCircle: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      backgroundColor: 'rgba(245,158,11,0.15)',
+      borderWidth: 1,
+      borderColor: 'rgba(245,158,11,0.35)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    radarLiveBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: 'rgba(34,197,94,0.15)',
+      paddingHorizontal: 9,
+      paddingVertical: 4,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: 'rgba(34,197,94,0.3)',
+    },
+    radarLiveDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: '#22c55e',
+    },
+    radarLiveLabel: {
+      fontSize: 10,
+      fontWeight: '700',
+      color: '#22c55e',
+      letterSpacing: 1,
+    },
+    radarBentoTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: '#fcd34d',
+      letterSpacing: -0.3,
+    },
+    radarBentoSub: {
+      fontSize: 12,
+      color: 'rgba(252,211,77,0.6)',
+      marginTop: 3,
+      fontWeight: '500',
+    },
     quickAccessGrid: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -1318,10 +1446,85 @@ const styles = StyleSheet.create({
     weatherCard: { justifyContent: 'space-between', flexDirection: 'row', alignItems: 'center' },
     weatherTemp: { color: Colors.white, fontSize: 24, fontWeight: 'bold' },
     weatherIconWrapper: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
-    quoteCard: { position: 'relative', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 14, justifyContent: 'flex-start', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+    quoteCard: { position: 'relative', borderRadius: 24, height: 112, paddingHorizontal: 14, paddingVertical: 12, justifyContent: 'flex-start', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
     quoteHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     widgetLabelQuote: { color: '#ffffff' },
     quoteText: { marginTop: 4, fontSize: 11, lineHeight: 15, fontWeight: '600', color: '#ffffff' },
+    radarHeroHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 6,
+    },
+    radarHeroIcon: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(245,158,11,0.14)',
+      borderWidth: 1,
+      borderColor: 'rgba(245,158,11,0.3)',
+    },
+    radarHeroBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 999,
+      backgroundColor: 'rgba(34,197,94,0.12)',
+      borderWidth: 1,
+      borderColor: 'rgba(34,197,94,0.24)',
+    },
+    radarHeroLiveDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: '#22c55e',
+    },
+    radarHeroLiveText: {
+      fontSize: 10,
+      fontWeight: '700',
+      color: '#22c55e',
+      letterSpacing: 1,
+    },
+    radarHeroTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: '#fcd34d',
+      letterSpacing: -0.2,
+    },
+    radarHeroSub: {
+      marginTop: 2,
+      fontSize: 10,
+      lineHeight: 13,
+      fontWeight: '500',
+      color: 'rgba(252,211,77,0.72)',
+      maxWidth: '92%',
+    },
+    radarHeroMiniMap: {
+      height: 30,
+      marginTop: 6,
+      position: 'relative',
+      overflow: 'hidden',
+      borderRadius: 18,
+      backgroundColor: 'rgba(255,255,255,0.03)',
+    },
+    radarHeroDot: {
+      position: 'absolute',
+      borderRadius: 999,
+      backgroundColor: '#f59e0b',
+    },
+    radarHeroPulse: {
+      borderRadius: 26,
+      borderWidth: 1,
+      borderColor: 'rgba(96,165,250,0.18)',
+      shadowColor: '#60a5fa',
+      shadowOpacity: 0.18,
+      shadowRadius: 18,
+      shadowOffset: { width: 0, height: 8 },
+    },
     storyModalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
     storyModalCard: { width: '100%', maxWidth: 420, aspectRatio: 9 / 16, borderRadius: 28, overflow: 'hidden', backgroundColor: Colors.black, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
     storyProgressBarBackground: { position: 'absolute', top: 10, left: 12, right: 12, height: 3, borderRadius: 999, backgroundColor: 'rgba(148,163,184,0.6)', overflow: 'hidden', zIndex: 2 },

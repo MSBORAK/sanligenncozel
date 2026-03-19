@@ -7,6 +7,7 @@ interface AnimatedPressableProps {
   style?: StyleProp<ViewStyle>;
   activeOpacity?: number;
   scaleTo?: number;
+  fill?: boolean;
 }
 
 /**
@@ -18,6 +19,7 @@ const AnimatedPressable: React.FC<AnimatedPressableProps> = ({
   style,
   activeOpacity = 0.9,
   scaleTo = 0.97,
+  fill = false,
 }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -47,7 +49,7 @@ const AnimatedPressable: React.FC<AnimatedPressableProps> = ({
       activeOpacity={1}
       style={style}
     >
-      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <Animated.View style={[fill && { flex: 1 }, { transform: [{ scale: scaleAnim }] }]}>
         {children}
       </Animated.View>
     </TouchableOpacity>

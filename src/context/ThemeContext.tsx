@@ -1,20 +1,25 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
+import { Appearance } from 'react-native';
 
 type ThemeMode = 'light' | 'dark';
 
 type ThemeContextValue = {
   mode: ThemeMode;
+  modeLabel: string;
   toggleTheme: () => void;
 };
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
-  const [mode, setMode] = useState<ThemeMode>('light');
+  const [mode, setMode] = useState<ThemeMode>(
+    Appearance.getColorScheme() === 'dark' ? 'dark' : 'light'
+  );
 
   const value = useMemo(
     () => ({
       mode,
+      modeLabel: mode === 'dark' ? 'Amber Gece' : 'Gündüz',
       toggleTheme: () => {
         setMode(prev => (prev === 'light' ? 'dark' : 'light'));
       },

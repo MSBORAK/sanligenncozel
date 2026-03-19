@@ -28,6 +28,7 @@ export type RootStackParamList = {
    LibraryList: undefined;
    CulturalRoute: undefined;
   GlobalSearch: undefined;
+  Sosyal: undefined;
 };
 
 // HomeScreen için özel tip oluşturma. Bu, hem Stack hem de Tab tiplerini birleştirir.

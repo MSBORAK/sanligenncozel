@@ -26,6 +26,7 @@ import PharmacyListScreen from '@/screens/PharmacyListScreen';
 import LibraryListScreen from '@/screens/LibraryListScreen';
 import CulturalRouteScreen from '@/screens/CulturalRouteScreen';
 import GlobalSearchScreen from '@/screens/GlobalSearchScreen';
+import SosyalScreen from '@/screens/SosyalScreen';
 
 // Custom Tab Bar
 import CustomTabBar from './CustomTabBar';
@@ -140,6 +141,7 @@ const AppNavigator = () => {
         <Stack.Screen name="LibraryList" component={LibraryListScreen} />
         <Stack.Screen name="CulturalRoute" component={CulturalRouteScreen} />
         <Stack.Screen name="GlobalSearch" component={GlobalSearchScreen} />
+        <Stack.Screen name="Sosyal" component={SosyalScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
