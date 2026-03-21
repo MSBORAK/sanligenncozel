@@ -20,6 +20,8 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
 import { Colors, Gradients } from '@/constants/Colors';
 import BackgroundImage from '@/assets/images/background.jpg';
+import { supabase } from '@/lib/supabase';
+import { Alert, ActivityIndicator } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -38,10 +40,87 @@ const LoginScreen = () => {
   const [registerVerificationCode, setRegisterVerificationCode] = useState('');
   const [showRegisterCodeInput, setShowRegisterCodeInput] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
-    // Şimdilik direkt ana sayfaya yönlendiriyoruz
-    navigation.replace('Main', { screen: 'Home' });
+  const handleLogin = async () => {
+    if (!email.trim()) {
+      Alert.alert('Hata', 'E-posta adresinizi girin.');
+      return;
+    }
+    setLoading(true);
+    try {
+      if (!showLoginCodeInput) {
+        // OTP gönder
+        const { error } = await supabase.auth.signInWithOtp({ email: email.trim() });
+        if (error) throw error;
+        setShowLoginCodeInput(true);
+        Alert.alert('Kod Gönderildi', `${email} adresine doğrulama kodu gönderildi.`);
+      } else {
+        // OTP doğrula
+        const { error } = await supabase.auth.verifyOtp({
+          email: email.trim(),
+          token: loginVerificationCode.trim(),
+          type: 'magiclink',
+        });
+        if (error) throw error;
+        navigation.replace('Main', { screen: 'Home' });
+      }
+    } catch (e: any) {
+      Alert.alert('Hata', e.message || 'Bir hata oluştu.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegister = async () => {
+    if (!registerEmail.trim() || !registerUsername.trim()) {
+      Alert.alert('Hata', 'Tüm alanları doldurun.');
+      return;
+    }
+    setLoading(true);
+    try {
+      if (!showRegisterCodeInput) {
+        // Kullanıcı adı benzersizlik kontrolü
+        const cleanUsername = registerUsername.trim().toLowerCase().replace(/\s/g, '_');
+        const { data: existing } = await supabase
+          .from('user_profiles')
+          .select('username')
+          .eq('username', cleanUsername)
+          .single();
+
+        if (existing) {
+          Alert.alert('Kullanıcı Adı Alınmış', `"${cleanUsername}" kullanıcı adı başkası tarafından kullanılıyor. Farklı bir isim dene.`);
+          setLoading(false);
+          return;
+        }
+
+        const { error } = await supabase.auth.signInWithOtp({ email: registerEmail.trim() });
+        if (error) throw error;
+        setShowRegisterCodeInput(true);
+        Alert.alert('Kod Gönderildi', `${registerEmail} adresine doğrulama kodu gönderildi.`);
+      } else {
+        const { data, error } = await supabase.auth.verifyOtp({
+          email: registerEmail.trim(),
+          token: registerVerificationCode.trim(),
+          type: 'magiclink',
+        });
+        if (error) throw error;
+        // Profil oluştur
+        if (data.user) {
+          const cleanUsername = registerUsername.trim().toLowerCase().replace(/\s/g, '_');
+          await supabase.from('user_profiles').upsert({
+            user_id: data.user.id,
+            name: registerUsername.trim(),
+            username: cleanUsername,
+          });
+        }
+        navigation.replace('Main', { screen: 'Home' });
+      }
+    } catch (e: any) {
+      Alert.alert('Hata', e.message || 'Bir hata oluştu.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -134,12 +213,14 @@ const LoginScreen = () => {
                       <>
                         <View style={styles.inputWrapper}>
                           <TextInput
-                            placeholder="Kullanıcı Adı"
+                            placeholder="Kullanıcı Adı (örn: mervesude)"
                             placeholderTextColor="rgba(255,255,255,0.5)"
                             style={styles.input}
                             value={registerUsername}
-                            onChangeText={setRegisterUsername}
+                            onChangeText={(t) => setRegisterUsername(t.toLowerCase().replace(/\s/g, '_'))}
                             autoCapitalize="none"
+                            autoCorrect={false}
+                            keyboardType="default"
                           />
                         </View>
 
@@ -195,35 +276,12 @@ const LoginScreen = () => {
                     activeOpacity={0.8} 
                     onPress={() => {
                       if (activeTab === 'login') {
-                        // Giriş yapma akışı
-                        if (showLoginCodeInput && loginVerificationCode) {
-                          // Kod doğrulandıktan sonra ana sayfaya yönlendir
-                          navigation.replace('Main', { screen: 'Home' });
-                        } else if (showLoginCodeInput) {
-                          // Kod doğrulama butonu basıldı
-                          // Şimdilik direkt yönlendir, sonra doğrulama işlemi yapılacak
-                          navigation.replace('Main', { screen: 'Home' });
-                        } else {
-                          // E-posta gönder butonu basıldı
-                          // Şimdilik sadece UI, sonra Supabase ile kod göndereceğiz
-                          setShowLoginCodeInput(true);
-                        }
+                        handleLogin();
                       } else {
-                        // Kayıt olma akışı
-                        if (showRegisterCodeInput && registerVerificationCode) {
-                          // Kod doğrulandıktan sonra ana sayfaya yönlendir
-                          navigation.replace('Main', { screen: 'Home' });
-                        } else if (showRegisterCodeInput) {
-                          // Kod doğrulama butonu basıldı
-                          // Şimdilik direkt yönlendir, sonra doğrulama işlemi yapılacak
-                          navigation.replace('Main', { screen: 'Home' });
-                        } else {
-                          // E-posta gönder butonu basıldı
-                          // Şimdilik sadece UI, sonra Supabase ile kod göndereceğiz
-                          setShowRegisterCodeInput(true);
-                        }
+                        handleRegister();
                       }
                     }}
+                    disabled={loading}
                     style={styles.loginBtnWrapper}
                   >
                     <LinearGradient
@@ -232,15 +290,19 @@ const LoginScreen = () => {
                       end={{ x: 1, y: 0 }}
                       style={styles.loginBtn}
                     >
-                      <Text style={styles.loginBtnText}>
-                        {activeTab === 'login'
-                          ? showLoginCodeInput && email
-                            ? 'Giriş Yap'
-                            : 'Kod Gönder'
-                          : showRegisterCodeInput
-                            ? 'Kodu Doğrula'
-                            : 'Doğrulama Kodu Gönder'}
-                      </Text>
+                      {loading ? (
+                        <ActivityIndicator color="#fff" />
+                      ) : (
+                        <Text style={styles.loginBtnText}>
+                          {activeTab === 'login'
+                            ? showLoginCodeInput
+                              ? 'Giriş Yap'
+                              : 'Kod Gönder'
+                            : showRegisterCodeInput
+                              ? 'Kodu Doğrula'
+                              : 'Doğrulama Kodu Gönder'}
+                        </Text>
+                      )}
                     </LinearGradient>
                   </TouchableOpacity>
 

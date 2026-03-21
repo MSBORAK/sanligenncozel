@@ -9,6 +9,7 @@ import { MOCK_USER } from '@/api/mockData';
 import { useThemeMode } from '@/context/ThemeContext';
 import { useFavorites } from '@/context/FavoritesContext';
 import { supabase } from '@/lib/supabase';
+import { useUser } from '@/context/UserContext';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/types/navigation';
 
@@ -16,11 +17,12 @@ type Nav = StackNavigationProp<RootStackParamList>;
 
 const ProfileScreen = () => {
   const { mode, modeLabel, toggleTheme } = useThemeMode();
+  const { profile, refreshProfile } = useUser();
   const [modalVisible, setModalVisible] = useState(false);
   const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
   const [accountSettingsVisible, setAccountSettingsVisible] = useState(false);
-  const [userName, setUserName] = useState(MOCK_USER.name || '');
-  const [userEmail, setUserEmail] = useState('');
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
   const [eventNotificationsEnabled, setEventNotificationsEnabled] = useState(true);
   const [discountNotificationsEnabled, setDiscountNotificationsEnabled] = useState(true);
   const [locationNotificationsEnabled, setLocationNotificationsEnabled] = useState(false);
@@ -32,12 +34,16 @@ const ProfileScreen = () => {
   const [feedbackDescription, setFeedbackDescription] = useState('');
   const navigation = useNavigation<Nav>();
 
-  const userInitial = (userName?.charAt(0) ?? '').toUpperCase();
+  const userName = profile?.name || MOCK_USER.name;
+  const userUsername = profile?.username || '';
+  const userEmail = profile?.email || '';
+  const userInitial = userName.charAt(0).toUpperCase();
   const isDark = mode === 'dark';
   const { events: favEvents, partners: favPartners, heritage: favHeritage, stops: favStops } = useFavorites();
   const favoritesCount = favEvents.length + favPartners.length + favHeritage.length + favStops.length;
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     navigation.reset({
       index: 0,
       routes: [{ name: 'Login' }],
@@ -93,7 +99,11 @@ const ProfileScreen = () => {
                 </LinearGradient>
               </View>
               <Text style={[styles.userName, isDark && { color: Colors.dark.text }]}>{userName}</Text>
-              <Text style={[styles.userStatus, isDark && { color: Colors.dark.textMuted }]}>{MOCK_USER.status}</Text>
+              {userUsername ? (
+                <Text style={[styles.userStatus, isDark && { color: Colors.dark.textMuted }]}>@{userUsername}</Text>
+              ) : (
+                <Text style={[styles.userStatus, isDark && { color: Colors.dark.textMuted }]}>{MOCK_USER.status}</Text>
+              )}
             </View>
           </View>
 
@@ -131,7 +141,11 @@ const ProfileScreen = () => {
               <MenuItem 
                 label="Hesap Ayarları" 
                 icon={<UserIcon color={isDark ? '#fff' : DribbbleColors.textPrimary} size={22} />}
-                onPress={() => setAccountSettingsVisible(true)}
+                onPress={() => {
+                  setEditName(userName);
+                  setEditEmail(userEmail);
+                  setAccountSettingsVisible(true);
+                }}
               />
               <MenuItem
                 label="Gizlilik ve Güvenlik"
@@ -276,8 +290,8 @@ const ProfileScreen = () => {
                     placeholder="Kullanıcı Adı"
                     placeholderTextColor={isDark ? '#64748b' : '#9ca3af'}
                     style={[styles.modalInput, isDark && { backgroundColor: '#334155', color: '#f8fafc' }]}
-                    value={userName}
-                    onChangeText={setUserName}
+                    value={editName}
+                    onChangeText={setEditName}
                     autoCapitalize="words"
                   />
 
@@ -286,8 +300,8 @@ const ProfileScreen = () => {
                     placeholder="ornek@email.com"
                     placeholderTextColor={isDark ? '#64748b' : '#9ca3af'}
                     style={[styles.modalInput, isDark && { backgroundColor: '#334155', color: '#f8fafc' }]}
-                    value={userEmail}
-                    onChangeText={setUserEmail}
+                    value={editEmail}
+                    onChangeText={setEditEmail}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -296,9 +310,15 @@ const ProfileScreen = () => {
 
                 <TouchableOpacity 
                   style={styles.modalButton} 
-                  onPress={() => {
+                  onPress={async () => {
+                    if (profile?.userId) {
+                      await supabase
+                        .from('user_profiles')
+                        .update({ name: editName.trim() })
+                        .eq('user_id', profile.userId);
+                      await refreshProfile();
+                    }
                     setAccountSettingsVisible(false);
-                    // Burada Supabase'e kaydedilebilir
                   }}
                 >
                   <Text style={styles.modalButtonText}>Kaydet</Text>

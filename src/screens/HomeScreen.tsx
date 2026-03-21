@@ -33,6 +33,7 @@ import Skeleton from '@/components/Skeleton';
 import { MOCK_BUSES, MOCK_PARTNERS, MOCK_EVENTS } from '@/api/mockData';
 import { HomeScreenProps, MainTabParamList } from '@/types/navigation';
 import { useThemeMode } from '@/context/ThemeContext';
+import { useUser } from '@/context/UserContext';
 import { supabase, processImageUrl } from '@/lib/supabase';
 import * as Haptics from 'expo-haptics';
 import LottieView from 'lottie-react-native';
@@ -97,6 +98,7 @@ const STORY_DETAILS: Record<string, { description: string }> = {
 
 const HomeScreen = () => {
   const navigation = useNavigation<HomeScreenProps['navigation']>();
+  const { profile } = useUser();
   const nextBus = MOCK_BUSES[0];
   const [activeStoryIndex, setActiveStoryIndex] = useState<number | null>(null);
   const [storyProgress, setStoryProgress] = useState(0); 
@@ -551,7 +553,7 @@ const HomeScreen = () => {
               <Search color={isDark ? Colors.white : DribbbleColors.textPrimary} size={22} />
             </TouchableOpacity>
           </View>
-          <Text style={[styles.greeting, !isDark && { color: DribbbleColors.textPrimary }]}>Selam, Mert! 👋</Text>
+          <Text style={[styles.greeting, !isDark && { color: DribbbleColors.textPrimary }]}>Selam, {profile?.name || 'Şanlı Genç'}! 👋</Text>
           <Text style={[styles.greetingSub, !isDark && { color: DribbbleColors.textSecondary }]}>Bugün nasıl gidiyor?</Text>
 
           <View style={styles.headerNavContainer}>

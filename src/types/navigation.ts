@@ -29,6 +29,13 @@ export type RootStackParamList = {
    CulturalRoute: undefined;
   GlobalSearch: undefined;
   Sosyal: undefined;
+  Chat: { userId?: string; userName?: string } | undefined;
+  SendSnap: { recipientId?: string; imageUri?: string } | undefined;
+  SnapView: { snapId?: string; imageUrl?: string; messageId?: string; canView?: boolean } | undefined;
+  SocialFeed: undefined;
+  StoryView: { storyId?: string; userId?: string } | undefined;
+  CompleteProfile: undefined;
+  CreatePost: undefined;
 };
 
 // HomeScreen için özel tip oluşturma. Bu, hem Stack hem de Tab tiplerini birleştirir.

@@ -6,6 +6,7 @@ import { useFonts, PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJa
 import AppNavigator from '@/navigation/AppNavigator';
 import { ThemeProvider, useThemeMode } from '@/context/ThemeContext';
 import { FavoritesProvider } from '@/context/FavoritesContext';
+import { UserProvider } from '@/context/UserContext';
 import { Colors } from '@/constants/Colors';
 
 const AppInner = () => {
@@ -37,9 +38,11 @@ export default function App() {
 
   return (
     <ThemeProvider>
-      <FavoritesProvider>
-        <AppInner />
-      </FavoritesProvider>
+      <UserProvider>
+        <FavoritesProvider>
+          <AppInner />
+        </FavoritesProvider>
+      </UserProvider>
     </ThemeProvider>
   );
 }

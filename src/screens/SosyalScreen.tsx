@@ -22,6 +22,10 @@ import {
   Modal,
   TextInput,
   KeyboardAvoidingView,
+  ScrollView,
+  RefreshControl,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -37,12 +41,19 @@ import {
   UserPlus,
   Bell,
   Plus,
+  MessageCircle,
+  Search,
+  Check,
+  X as XIcon,
 } from 'lucide-react-native';
 import MapView, { PROVIDER_DEFAULT, PROVIDER_GOOGLE, Heatmap } from 'react-native-maps';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
 import { useThemeMode } from '@/context/ThemeContext';
+import { useUser } from '@/context/UserContext';
+import { supabase } from '@/lib/supabase';
+import { processImageUrl } from '@/lib/supabase';
 
 // ─────────────────────────────────────────────
 // TYPES
@@ -71,6 +82,35 @@ export interface HeatPoint {
   latitude: number;
   longitude: number;
   weight: number; // 0-1 arası yoğunluk
+}
+
+// Mesajlaşma tipleri
+interface UserProfile {
+  user_id: string;
+  name: string;
+  username: string;
+  avatar_url?: string;
+}
+
+interface Conversation {
+  conversation_id: string;
+  other_user: UserProfile;
+  last_message: {
+    content: string;
+    created_at: string;
+    sender_id: string;
+    is_snap?: boolean;
+  } | null;
+  unread_count: number;
+}
+
+interface FriendRequest {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  created_at: string;
+  sender_profile?: UserProfile;
 }
 
 // ─────────────────────────────────────────────
@@ -399,6 +439,185 @@ function FeedEmpty({ isDark, onAddFriendPress }: { isDark: boolean; onAddFriendP
 // SUB-COMPONENT: RadarView
 // Şehir Radarı — anonim heatmap katmanı
 // ─────────────────────────────────────────────
+// SUB-COMPONENT: MessagesView
+// Senin amber/glass tasarımında mesajlaşma listesi
+// ─────────────────────────────────────────────
+
+interface MessagesViewProps {
+  isDark: boolean;
+  theme: typeof DARK | typeof LIGHT;
+  conversations: Conversation[];
+  searchQuery: string;
+  setSearchQuery: (q: string) => void;
+  isSearching: boolean;
+  searchResults: UserProfile[];
+  loading: boolean;
+  currentUserId: string | null;
+  formatMsgTime: (t: string) => string;
+  onNavigateChat: (userId: string, userName: string, userAvatar: string, username: string) => void;
+  incomingRequests: FriendRequest[];
+  onShowRequests: () => void;
+}
+
+function MessagesView({
+  isDark, theme, conversations, searchQuery, setSearchQuery,
+  isSearching, searchResults, loading, currentUserId, formatMsgTime, onNavigateChat,
+  incomingRequests, onShowRequests,
+}: MessagesViewProps) {
+  const accentColor = isDark ? AMBER.warm : LIGHT.accent;
+
+  const renderUserItem = (user: UserProfile) => (
+    <TouchableOpacity
+      key={user.user_id}
+      style={[styles.msgItem, { borderBottomColor: theme.border }]}
+      activeOpacity={0.75}
+      onPress={() => onNavigateChat(
+        user.user_id, user.name,
+        processImageUrl(user.avatar_url) ?? 'https://i.pravatar.cc/150',
+        user.username,
+      )}
+    >
+      <View style={[styles.msgAvatar, { backgroundColor: isDark ? AMBER.glow : 'rgba(96,165,250,0.15)' }]}>
+        {user.avatar_url ? (
+          <Image source={{ uri: processImageUrl(user.avatar_url) ?? undefined }} style={styles.msgAvatarImg} />
+        ) : (
+          <Text style={[styles.msgAvatarText, { color: accentColor }]}>
+            {user.name.charAt(0).toUpperCase()}
+          </Text>
+        )}
+      </View>
+      <View style={styles.msgInfo}>
+        <Text style={[styles.msgName, { color: theme.text }]}>{user.name}</Text>
+        <Text style={[styles.msgSub, { color: theme.textSub }]}>@{user.username}</Text>
+      </View>
+      <MessageCircle color={accentColor} size={18} strokeWidth={2} />
+    </TouchableOpacity>
+  );
+
+  const renderConvItem = (conv: Conversation) => (
+    <TouchableOpacity
+      key={conv.conversation_id}
+      style={[styles.msgItem, { borderBottomColor: theme.border }]}
+      activeOpacity={0.75}
+      onPress={() => onNavigateChat(
+        conv.other_user.user_id, conv.other_user.name,
+        processImageUrl(conv.other_user.avatar_url) ?? 'https://i.pravatar.cc/150',
+        conv.other_user.username,
+      )}
+    >
+      <View style={[styles.msgAvatar, { backgroundColor: isDark ? AMBER.glow : 'rgba(96,165,250,0.15)' }]}>
+        {conv.other_user.avatar_url ? (
+          <Image source={{ uri: processImageUrl(conv.other_user.avatar_url) ?? undefined }} style={styles.msgAvatarImg} />
+        ) : (
+          <Text style={[styles.msgAvatarText, { color: accentColor }]}>
+            {conv.other_user.name.charAt(0).toUpperCase()}
+          </Text>
+        )}
+      </View>
+      <View style={styles.msgInfo}>
+        <Text style={[styles.msgName, { color: theme.text }]}>{conv.other_user.name}</Text>
+        <Text style={[styles.msgSub, { color: theme.textSub }]} numberOfLines={1}>
+          {conv.last_message?.sender_id === currentUserId ? 'Sen: ' : ''}
+          {conv.last_message?.content || 'Henüz mesaj yok'}
+        </Text>
+      </View>
+      <View style={styles.msgMeta}>
+        {conv.last_message && (
+          <Text style={[styles.msgTime, { color: theme.textSub }]}>
+            {formatMsgTime(conv.last_message.created_at)}
+          </Text>
+        )}
+        {conv.unread_count > 0 && (
+          <View style={[styles.msgUnread, { backgroundColor: accentColor }]}>
+            <Text style={styles.msgUnreadText}>{conv.unread_count}</Text>
+          </View>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+
+  return (
+    <View style={styles.msgsRoot}>
+      {/* Gelen istekler banner */}
+      {incomingRequests.length > 0 && (
+        <TouchableOpacity
+          onPress={onShowRequests}
+          activeOpacity={0.85}
+          style={[styles.requestsBanner, { backgroundColor: isDark ? 'rgba(251,191,36,0.15)' : 'rgba(96,165,250,0.12)', borderColor: isDark ? AMBER.warm : LIGHT.accent }]}
+        >
+          <View style={[styles.requestsBadge, { backgroundColor: isDark ? AMBER.vivid : LIGHT.accent }]}>
+            <Text style={styles.requestsBadgeText}>{incomingRequests.length}</Text>
+          </View>
+          <Text style={[styles.requestsBannerText, { color: isDark ? AMBER.warm : LIGHT.accent }]}>
+            Arkadaşlık İsteği
+          </Text>
+          <Text style={[styles.requestsBannerSub, { color: theme.textSub }]}>
+            {incomingRequests[0]?.sender_profile?.name} {incomingRequests.length > 1 ? `ve ${incomingRequests.length - 1} kişi daha` : ''} seni eklemek istiyor
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Arama çubuğu */}
+      <BlurView
+        intensity={18}
+        tint={isDark ? 'dark' : 'light'}
+        style={[styles.msgsSearchBar, { backgroundColor: theme.surface, borderColor: theme.border }]}
+      >
+        <Search color={theme.textSub} size={16} strokeWidth={2} />
+        <TextInput
+          style={[styles.msgsSearchInput, { color: theme.text }]}
+          placeholder="Kullanıcı ara..."
+          placeholderTextColor={theme.textSub}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <Text style={{ color: theme.textSub, fontSize: 14, paddingHorizontal: 4 }}>✕</Text>
+          </TouchableOpacity>
+        )}
+      </BlurView>
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+        {loading ? (
+          <ActivityIndicator color={accentColor} style={{ marginTop: 40 }} />
+        ) : isSearching ? (
+          <>
+            <Text style={[styles.msgsSectionTitle, { color: theme.textSub }]}>
+              {searchResults.length} kullanıcı
+            </Text>
+            {searchResults.length > 0
+              ? searchResults.map(renderUserItem)
+              : (
+                <View style={styles.msgsEmpty}>
+                  <Search color={theme.textSub} size={36} strokeWidth={1.5} />
+                  <Text style={[styles.msgsEmptyText, { color: theme.textSub }]}>Kullanıcı bulunamadı</Text>
+                </View>
+              )
+            }
+          </>
+        ) : conversations.length > 0 ? (
+          <>
+            <Text style={[styles.msgsSectionTitle, { color: theme.textSub }]}>MESAJLAR</Text>
+            {conversations.map(renderConvItem)}
+          </>
+        ) : (
+          <View style={styles.msgsEmpty}>
+            <MessageCircle color={theme.textSub} size={44} strokeWidth={1.5} />
+            <Text style={[styles.msgsEmptyText, { color: theme.textSub }]}>Henüz mesaj yok</Text>
+            <Text style={[styles.msgsEmptyHint, { color: theme.textSub }]}>
+              Arkadaşlarını aramak için yukarıdaki arama çubuğunu kullan
+            </Text>
+          </View>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────
 
 function RadarView() {
   const { mode } = useThemeMode();
@@ -487,11 +706,12 @@ function RadarView() {
 // MAIN: SosyalScreen
 // ─────────────────────────────────────────────
 
-type Tab = 'feed' | 'radar';
+type Tab = 'feed' | 'radar' | 'messages';
 
 export default function SosyalScreen() {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const { mode } = useThemeMode();
+  const { profile } = useUser();
   const isDark = mode === 'dark';
   const theme = isDark ? DARK : LIGHT;
   const [snaps, setSnaps] = useState<SnapPost[]>(MOCK_SNAPS);
@@ -508,15 +728,210 @@ export default function SosyalScreen() {
   const tabAnim = useRef(new Animated.Value(0)).current;
   const cameraScale = useRef(new Animated.Value(1)).current;
 
+  // Mesajlaşma state'leri
+  const currentUserId = profile?.userId ?? null;
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+
+  // Arkadaşlık istekleri state'leri
+  const [incomingRequests, setIncomingRequests] = useState<FriendRequest[]>([]);
+  const [requestsModalVisible, setRequestsModalVisible] = useState(false);
+
   useEffect(() => {
     const timer = setInterval(() => setClockTick(t => t + 1), 60000);
     return () => clearInterval(timer);
   }, []);
 
+  // Kullanıcı hazır olunca mesajlaşma verilerini yükle
+  useEffect(() => {
+    if (currentUserId) {
+      fetchConversations(currentUserId);
+      fetchAllUsers(currentUserId);
+      fetchIncomingRequests(currentUserId);
+    }
+  }, [currentUserId]);
+
+  // Mesajlar sekmesi açıldığında yenile
+  useEffect(() => {
+    if (activeTab === 'messages' && currentUserId) {
+      fetchConversations(currentUserId);
+      fetchIncomingRequests(currentUserId);
+    }
+  }, [activeTab, currentUserId]);
+
+  // Kullanıcı arama
+  useEffect(() => {
+    if (searchQuery.trim().length > 0) {
+      setIsSearching(true);
+      const filtered = allUsers.filter(u =>
+        u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.username.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setSearchResults(filtered);
+    } else {
+      setIsSearching(false);
+      setSearchResults([]);
+    }
+  }, [searchQuery, allUsers]);
+
+  const fetchAllUsers = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('user_id, name, username, avatar_url')
+        .neq('user_id', userId)
+        .limit(50);
+      if (!error && data) setAllUsers(data);
+    } catch (e) {
+      console.error('fetchAllUsers error:', e);
+    }
+  };
+
+  const fetchIncomingRequests = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('friendships')
+        .select('id, sender_id, receiver_id, status, created_at')
+        .eq('receiver_id', userId)
+        .eq('status', 'pending');
+      if (error || !data) return;
+
+      const withProfiles = await Promise.all(data.map(async (req: any) => {
+        const { data: senderProfile } = await supabase
+          .from('user_profiles')
+          .select('user_id, name, username, avatar_url')
+          .eq('user_id', req.sender_id)
+          .single();
+        return { ...req, sender_profile: senderProfile };
+      }));
+      setIncomingRequests(withProfiles);
+    } catch (e) {
+      console.error('fetchIncomingRequests error:', e);
+    }
+  };
+
+  const handleAcceptRequest = async (requestId: string, senderId: string) => {
+    if (!currentUserId) return;
+    try {
+      await supabase
+        .from('friendships')
+        .update({ status: 'accepted', updated_at: new Date().toISOString() })
+        .eq('id', requestId);
+
+      // Kabul edince sohbet oluştur
+      await supabase.rpc('get_or_create_conversation', {
+        user1_id: currentUserId,
+        user2_id: senderId,
+      });
+
+      await fetchIncomingRequests(currentUserId);
+      await fetchConversations(currentUserId);
+      Alert.alert('Arkadaş Eklendi!', 'Artık mesajlaşabilirsiniz.');
+    } catch (e: any) {
+      Alert.alert('Hata', e.message);
+    }
+  };
+
+  const handleRejectRequest = async (requestId: string) => {
+    if (!currentUserId) return;
+    try {
+      await supabase
+        .from('friendships')
+        .update({ status: 'rejected', updated_at: new Date().toISOString() })
+        .eq('id', requestId);
+      await fetchIncomingRequests(currentUserId);
+    } catch (e: any) {
+      Alert.alert('Hata', e.message);
+    }
+  };
+
+  const fetchConversations = async (userId: string) => {
+    setMessagesLoading(true);
+    try {
+      const { data: participantData, error } = await supabase
+        .from('conversation_participants')
+        .select('conversation_id')
+        .eq('user_id', userId);
+      if (error || !participantData) { setMessagesLoading(false); return; }
+
+      const convIds = participantData.map((p: any) => p.conversation_id);
+      if (convIds.length === 0) { setConversations([]); setMessagesLoading(false); return; }
+
+      const convPromises = convIds.map(async (convId: string) => {
+        try {
+          const { data: otherParticipant } = await supabase
+            .from('conversation_participants')
+            .select('user_id')
+            .eq('conversation_id', convId)
+            .neq('user_id', userId)
+            .single();
+
+          if (!otherParticipant) return null;
+
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('user_id, name, username, avatar_url')
+            .eq('user_id', otherParticipant.user_id)
+            .single();
+
+          const { data: lastMsgData } = await supabase
+            .from('messages')
+            .select('content, created_at, sender_id, is_snap')
+            .eq('conversation_id', convId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+          const { count: unreadCount } = await supabase
+            .from('messages')
+            .select('id', { count: 'exact', head: true })
+            .eq('conversation_id', convId)
+            .neq('sender_id', userId)
+            .eq('is_read', false);
+
+          return {
+            conversation_id: convId,
+            other_user: profile || { user_id: otherParticipant.user_id, name: 'Kullanıcı', username: '' },
+            last_message: lastMsgData || null,
+            unread_count: unreadCount || 0,
+          } as Conversation;
+        } catch { return null; }
+      });
+
+      const results = (await Promise.all(convPromises)).filter(Boolean) as Conversation[];
+      results.sort((a, b) => {
+        const aTime = a.last_message?.created_at || '';
+        const bTime = b.last_message?.created_at || '';
+        return bTime.localeCompare(aTime);
+      });
+      setConversations(results);
+    } catch (e) {
+      console.error('fetchConversations error:', e);
+    } finally {
+      setMessagesLoading(false);
+    }
+  };
+
+  const formatMsgTime = (timestamp: string) => {
+    const now = new Date();
+    const d = new Date(timestamp);
+    const diffMins = Math.floor((now.getTime() - d.getTime()) / 60000);
+    if (diffMins < 1) return 'Şimdi';
+    if (diffMins < 60) return `${diffMins}d`;
+    const diffH = Math.floor(diffMins / 60);
+    if (diffH < 24) return `${diffH}s`;
+    return `${Math.floor(diffH / 24)}g`;
+  };
+
   const switchTab = useCallback((tab: Tab) => {
     setActiveTab(tab);
+    const toValue = tab === 'feed' ? 0 : tab === 'radar' ? 1 : 2;
     Animated.spring(tabAnim, {
-      toValue: tab === 'feed' ? 0 : 1,
+      toValue,
       useNativeDriver: true,
       damping: 18,
       stiffness: 200,
@@ -552,8 +967,9 @@ export default function SosyalScreen() {
     try {
       setCameraBusy(true);
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.8,
-        skipProcessing: true,
+        quality: 1,
+        skipProcessing: false,
+        exif: false,
       });
       if (photo?.uri) {
         setCapturedPhotoUri(photo.uri);
@@ -585,23 +1001,72 @@ export default function SosyalScreen() {
     setFriendModalVisible(true);
   }, []);
 
-  const handleSubmitFriend = useCallback(() => {
-    if (friendPhone.trim().length === 0) {
-      return;
+  const handleSubmitFriend = useCallback(async () => {
+    if (friendPhone.trim().length === 0) return;
+    try {
+      const cleanInput = friendPhone.trim().toLowerCase().replace('@', '');
+
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('user_id, name, username')
+        .ilike('username', `%${cleanInput}%`)
+        .limit(1)
+        .single();
+
+      if (error || !data) {
+        Alert.alert('Bulunamadı', `"${cleanInput}" kullanıcı adıyla kayıtlı kimse bulunamadı.`);
+        return;
+      }
+
+      if (!currentUserId) return;
+
+      if (data.user_id === currentUserId) {
+        Alert.alert('Hata', 'Kendine istek gönderemezsin.');
+        return;
+      }
+
+      // Zaten arkadaş veya istek var mı kontrol et
+      const { data: existing } = await supabase
+        .from('friendships')
+        .select('id, status')
+        .or(`and(sender_id.eq.${currentUserId},receiver_id.eq.${data.user_id}),and(sender_id.eq.${data.user_id},receiver_id.eq.${currentUserId})`)
+        .single();
+
+      if (existing) {
+        if (existing.status === 'accepted') {
+          Alert.alert('Zaten Arkadaşsınız', `@${data.username} ile zaten arkadaşsınız.`);
+        } else if (existing.status === 'pending') {
+          Alert.alert('İstek Gönderildi', `@${data.username} kullanıcısına zaten istek gönderilmiş, onay bekleniyor.`);
+        }
+        setFriendPhone('');
+        setFriendModalVisible(false);
+        return;
+      }
+
+      // Arkadaşlık isteği gönder
+      const { error: insertError } = await supabase
+        .from('friendships')
+        .insert({ sender_id: currentUserId, receiver_id: data.user_id, status: 'pending' });
+
+      if (insertError) throw insertError;
+
+      setFriendPhone('');
+      setFriendModalVisible(false);
+      Alert.alert('İstek Gönderildi! 🎉', `@${data.username} kullanıcısına arkadaşlık isteği gönderildi. Kabul edince mesajlaşabilirsiniz.`);
+    } catch (e: any) {
+      Alert.alert('Hata', e.message || 'Bir hata oluştu.');
     }
-    console.log('Arkadaş ekleme isteği:', friendPhone.trim());
-    setFriendPhone('');
-    setFriendModalVisible(false);
-  }, [friendPhone]);
+  }, [friendPhone, currentUserId]);
 
   const handleCloseSnapViewer = useCallback(() => {
     setSelectedSnap(null);
   }, []);
 
-  // Tab gösterge pill'inin konumu
+  // Tab gösterge pill'inin konumu (3 tab)
+  const tabWidth = (SCREEN_W - 48) / 3;
   const pillTranslateX = tabAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, (SCREEN_W - 48) / 2 - 4],
+    inputRange: [0, 1, 2],
+    outputRange: [0, tabWidth, tabWidth * 2],
   });
 
   return (
@@ -680,6 +1145,21 @@ export default function SosyalScreen() {
                 Şehir Radarı
               </Text>
             </TouchableOpacity>
+            {/* Mesajlar */}
+            <TouchableOpacity
+              style={styles.tabItem}
+              activeOpacity={0.8}
+              onPress={() => switchTab('messages')}
+            >
+              <MessageCircle
+                color={activeTab === 'messages' ? (isDark ? AMBER.warm : LIGHT.accent) : theme.textSub}
+                size={15}
+                strokeWidth={2}
+              />
+              <Text style={[styles.tabLabel, { color: theme.textSub }, activeTab === 'messages' && { color: isDark ? AMBER.warm : LIGHT.accent }]}>
+                Mesajlar
+              </Text>
+            </TouchableOpacity>
           </BlurView>
         </View>
       </SafeAreaView>
@@ -694,13 +1174,31 @@ export default function SosyalScreen() {
             onSnapPress={handleSnapPress}
             onAddFriendPress={handleAddFriendPress}
           />
+        ) : activeTab === 'messages' ? (
+          <MessagesView
+            isDark={isDark}
+            theme={theme}
+            conversations={conversations}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            isSearching={isSearching}
+            searchResults={searchResults}
+            loading={messagesLoading}
+            currentUserId={currentUserId}
+            formatMsgTime={formatMsgTime}
+            incomingRequests={incomingRequests}
+            onShowRequests={() => setRequestsModalVisible(true)}
+            onNavigateChat={(userId, userName, userAvatar, username) =>
+              navigation.navigate('Chat', { userId, userName })
+            }
+          />
         ) : (
           <RadarView />
         )}
       </View>
 
       {/* ── Kamera FAB ── */}
-      {activeTab === 'feed' && (
+      {(activeTab === 'feed') && (
         <SafeAreaView edges={['bottom']} style={styles.cameraFabSafe}>
           <Animated.View style={[styles.cameraFabWrapper, { transform: [{ scale: cameraScale }] }]}>
             <TouchableOpacity
@@ -724,72 +1222,110 @@ export default function SosyalScreen() {
         </SafeAreaView>
       )}
 
-      {/* Kamera Modalı */}
-      <Modal visible={cameraVisible} animationType="slide" onRequestClose={() => setCameraVisible(false)}>
-        <View style={styles.cameraModalRoot}>
-          <SafeAreaView edges={['top']} style={styles.cameraModalTopBar}>
-            <TouchableOpacity onPress={() => setCameraVisible(false)} style={styles.modalCloseBtn} activeOpacity={0.8}>
-              <Text style={styles.modalCloseText}>Kapat</Text>
-            </TouchableOpacity>
-            <Text style={styles.cameraModalTitle}>Anlık Kamera</Text>
-            <View style={styles.modalCloseBtn} />
-          </SafeAreaView>
+      {/* Kamera Modalı — Tam Ekran Snapchat Tarzı */}
+      <Modal visible={cameraVisible} animationType="fade" onRequestClose={() => { setCameraVisible(false); setCapturedPhotoUri(null); }} statusBarTranslucent>
+        <View style={styles.snapCameraRoot}>
           {!cameraPermission?.granted ? (
-            <View style={styles.permissionState}>
-              <Camera color={isDark ? AMBER.warm : LIGHT.accent} size={44} strokeWidth={1.8} />
-              <Text style={[styles.permissionTitle, { color: theme.text }]}>Kamera izni gerekiyor</Text>
-              <Text style={[styles.permissionSub, { color: theme.textSub }]}>
+            /* İzin ekranı */
+            <View style={[styles.permissionState, { backgroundColor: '#000' }]}>
+              <Camera color="#f59e0b" size={52} strokeWidth={1.5} />
+              <Text style={[styles.permissionTitle, { color: '#fff' }]}>Kamera izni gerekiyor</Text>
+              <Text style={[styles.permissionSub, { color: 'rgba(255,255,255,0.5)' }]}>
                 ŞanlıSosyal yalnızca anlık fotoğraf çeker, galeriye erişmez.
               </Text>
-              <TouchableOpacity
-                activeOpacity={0.85}
-                style={styles.permissionButton}
-                onPress={async () => {
-                  const res = await requestCameraPermission();
-                  if (!res.granted) return;
-                  setCapturedPhotoUri(null);
-                }}
-              >
+              <TouchableOpacity activeOpacity={0.85} style={styles.permissionButton} onPress={requestCameraPermission}>
                 <Text style={styles.permissionButtonText}>İzin Ver</Text>
               </TouchableOpacity>
             </View>
-          ) : (
-            <View style={styles.cameraPreviewWrap}>
-              {capturedPhotoUri ? (
-                <Image source={{ uri: capturedPhotoUri }} style={styles.cameraPreview} resizeMode="cover" />
-              ) : (
-                <CameraView ref={cameraRef} style={styles.cameraPreview} facing="back" />
-              )}
-              <View style={styles.cameraOverlay}>
-                <Text style={styles.cameraHint}>
-                  {capturedPhotoUri ? 'Önizleme hazır. Onayla ya da tekrar çek.' : 'Çek ve 4 saat sonra silinsin.'}
-                </Text>
-                <View style={styles.cameraActionRow}>
-                  {capturedPhotoUri ? (
-                    <>
-                      <TouchableOpacity activeOpacity={0.9} onPress={handleRetakePhoto} style={styles.cameraAltButton}>
-                        <Text style={styles.cameraAltButtonText}>Tekrar</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity activeOpacity={0.9} onPress={handleConfirmPhoto} style={styles.captureButtonOuter}>
-                        <LinearGradient colors={isDark ? [AMBER.vivid, '#d97706'] : ['#60a5fa', '#a78bfa']} style={styles.captureButtonInner}>
-                          <Camera color="#fff" size={28} strokeWidth={2} />
-                        </LinearGradient>
-                      </TouchableOpacity>
-                    </>
-                  ) : (
-                    <TouchableOpacity
-                      activeOpacity={0.9}
-                      onPress={handleTakePhoto}
-                      disabled={cameraBusy}
-                      style={styles.captureButtonOuter}
-                    >
-                      <LinearGradient colors={isDark ? [AMBER.vivid, '#d97706'] : ['#60a5fa', '#a78bfa']} style={styles.captureButtonInner}>
-                        <Camera color="#fff" size={28} strokeWidth={2} />
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  )}
+          ) : capturedPhotoUri ? (
+            /* Önizleme ekranı */
+            <View style={styles.snapCameraRoot}>
+              <Image source={{ uri: capturedPhotoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+              <LinearGradient colors={['rgba(0,0,0,0.5)', 'transparent', 'transparent', 'rgba(0,0,0,0.7)']} style={StyleSheet.absoluteFill} />
+
+              {/* Üst bar */}
+              <SafeAreaView style={styles.snapCameraTopBar}>
+                <TouchableOpacity onPress={() => setCapturedPhotoUri(null)} style={styles.snapCameraTopBtn} activeOpacity={0.8}>
+                  <XIcon color="#fff" size={28} strokeWidth={2} />
+                </TouchableOpacity>
+                <Text style={styles.snapCameraTopTitle}>Önizleme</Text>
+                <View style={{ width: 44 }} />
+              </SafeAreaView>
+
+              {/* Alt bar — Gönder */}
+              <SafeAreaView edges={['bottom']} style={styles.snapCameraBottomBar}>
+                <Text style={styles.snapCameraHint}>Paylaş ya da tekrar çek</Text>
+                <View style={styles.snapCameraBottomRow}>
+                  <TouchableOpacity onPress={() => setCapturedPhotoUri(null)} style={styles.snapCameraRetakeBtn} activeOpacity={0.85}>
+                    <Text style={styles.snapCameraRetakeText}>Tekrar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleConfirmPhoto} style={styles.snapCameraConfirmBtn} activeOpacity={0.9}>
+                    <LinearGradient colors={['#f59e0b', '#d97706']} style={styles.snapCameraConfirmGrad}>
+                      <Text style={styles.snapCameraConfirmText}>Paylaş ✦</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
                 </View>
+              </SafeAreaView>
+            </View>
+          ) : (
+            /* Canlı kamera */
+            <View style={styles.snapCameraRoot}>
+              <CameraView
+                ref={cameraRef}
+                style={StyleSheet.absoluteFill}
+                facing="back"
+                ratio="16:9"
+              />
+              <LinearGradient colors={['rgba(0,0,0,0.45)', 'transparent', 'transparent', 'rgba(0,0,0,0.6)']} style={StyleSheet.absoluteFill} pointerEvents="none" />
+
+              {/* Üst bar */}
+              <SafeAreaView style={styles.snapCameraTopBar}>
+                <TouchableOpacity onPress={() => setCameraVisible(false)} style={styles.snapCameraTopBtn} activeOpacity={0.8}>
+                  <XIcon color="#fff" size={28} strokeWidth={2} />
+                </TouchableOpacity>
+                <Text style={styles.snapCameraTopTitle}>ŞanlıSosyal</Text>
+                <View style={{ width: 44 }} />
+              </SafeAreaView>
+
+              {/* Orta — ipucu */}
+              <View style={styles.snapCameraMidHint} pointerEvents="none">
+                <Text style={styles.snapCameraTimerBadge}>⏱ 4 saat · Anlık çekim</Text>
               </View>
+
+              {/* Alt bar — Hikayeler / Çekim / Mesajlar */}
+              <SafeAreaView edges={['bottom']} style={styles.snapCameraBottomBar}>
+                <View style={styles.snapCameraBottomRow}>
+                  {/* Sol: Feed (hikayeler) */}
+                  <TouchableOpacity
+                    onPress={() => { setCameraVisible(false); switchTab('feed'); }}
+                    style={styles.snapCameraSideBtn}
+                    activeOpacity={0.8}
+                  >
+                    <Users color="rgba(255,255,255,0.85)" size={26} strokeWidth={1.8} />
+                    <Text style={styles.snapCameraSideLbl}>Hikayeler</Text>
+                  </TouchableOpacity>
+
+                  {/* Orta: Çekim butonu */}
+                  <TouchableOpacity
+                    onPress={handleTakePhoto}
+                    disabled={cameraBusy}
+                    activeOpacity={0.85}
+                    style={styles.snapShutterOuter}
+                  >
+                    <View style={styles.snapShutterInner} />
+                  </TouchableOpacity>
+
+                  {/* Sağ: Mesajlar */}
+                  <TouchableOpacity
+                    onPress={() => { setCameraVisible(false); switchTab('messages'); }}
+                    style={styles.snapCameraSideBtn}
+                    activeOpacity={0.8}
+                  >
+                    <MessageCircle color="rgba(255,255,255,0.85)" size={26} strokeWidth={1.8} />
+                    <Text style={styles.snapCameraSideLbl}>Mesajlar</Text>
+                  </TouchableOpacity>
+                </View>
+              </SafeAreaView>
             </View>
           )}
         </View>
@@ -840,9 +1376,11 @@ export default function SosyalScreen() {
             <TextInput
               value={friendPhone}
               onChangeText={setFriendPhone}
-              placeholder="Telefon numarası"
+              placeholder="Kullanıcı adı gir (örn: mervesude)"
               placeholderTextColor={theme.textSub}
-              keyboardType="phone-pad"
+              keyboardType="default"
+              autoCapitalize="none"
+              autoCorrect={false}
               style={[styles.friendInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface }]}
             />
             <TouchableOpacity activeOpacity={0.9} style={styles.friendActionBtn} onPress={handleSubmitFriend}>
@@ -852,6 +1390,54 @@ export default function SosyalScreen() {
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+      
+      {/* Arkadaşlık İstekleri Modalı */}
+      <Modal visible={requestsModalVisible} animationType="slide" transparent onRequestClose={() => setRequestsModalVisible(false)}>
+        <View style={styles.friendModalBackdrop}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setRequestsModalVisible(false)} />
+          <View style={[styles.friendModalCard, { backgroundColor: theme.surfaceHi, borderColor: theme.border, maxHeight: '70%' }]}>
+            <View style={styles.friendModalHeader}>
+              <Text style={[styles.friendModalTitle, { color: theme.text }]}>Arkadaşlık İstekleri</Text>
+              <TouchableOpacity onPress={() => setRequestsModalVisible(false)} style={styles.modalCloseBtn} activeOpacity={0.8}>
+                <Text style={styles.modalCloseText}>Kapat</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {incomingRequests.length === 0 ? (
+                <View style={{ alignItems: 'center', paddingVertical: 32 }}>
+                  <Text style={[styles.msgsEmptyText, { color: theme.textSub }]}>Bekleyen istek yok</Text>
+                </View>
+              ) : incomingRequests.map((req) => (
+                <View key={req.id} style={[styles.msgItem, { borderBottomColor: theme.border }]}>
+                  <View style={[styles.msgAvatar, { backgroundColor: isDark ? AMBER.glow : 'rgba(96,165,250,0.15)' }]}>
+                    <Text style={[styles.msgAvatarText, { color: isDark ? AMBER.warm : LIGHT.accent }]}>
+                      {(req.sender_profile?.name || '?').charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={[styles.msgInfo, { flex: 1 }]}>
+                    <Text style={[styles.msgName, { color: theme.text }]}>{req.sender_profile?.name || 'Kullanıcı'}</Text>
+                    <Text style={[styles.msgSub, { color: theme.textSub }]}>@{req.sender_profile?.username || ''}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity
+                      onPress={() => handleAcceptRequest(req.id, req.sender_id)}
+                      style={{ backgroundColor: isDark ? AMBER.vivid : '#10b981', borderRadius: 20, padding: 8 }}
+                    >
+                      <Check color="#fff" size={18} strokeWidth={2.5} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleRejectRequest(req.id)}
+                      style={{ backgroundColor: isDark ? '#374151' : '#f3f4f6', borderRadius: 20, padding: 8 }}
+                    >
+                      <XIcon color={theme.textSub} size={18} strokeWidth={2.5} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -1013,7 +1599,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 4,
     left: 4,
-    width: '50%',
+    width: '33.33%',
     bottom: 4,
     borderRadius: 12,
     overflow: 'hidden',
@@ -1598,5 +2184,265 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '700',
+  },
+
+  // ── MessagesView styles ──
+  msgsRoot: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  msgsSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 16,
+    gap: 8,
+    overflow: 'hidden',
+  },
+  msgsSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '400',
+  },
+  msgsSectionTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  msgItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 12,
+  },
+  msgAvatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  msgAvatarImg: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+  },
+  msgAvatarText: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  msgInfo: {
+    flex: 1,
+    gap: 3,
+  },
+  msgName: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  msgSub: {
+    fontSize: 13,
+    fontWeight: '400',
+  },
+  msgMeta: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  msgTime: {
+    fontSize: 12,
+  },
+  msgUnread: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  msgUnreadText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  msgsEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 60,
+    gap: 12,
+  },
+  msgsEmptyText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  msgsEmptyHint: {
+    fontSize: 13,
+    textAlign: 'center',
+    paddingHorizontal: 24,
+    opacity: 0.7,
+  },
+  requestsBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    marginTop: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  requestsBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  requestsBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  requestsBannerText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  requestsBannerSub: {
+    fontSize: 12,
+    flex: 1,
+  },
+
+  // ── Tam Ekran Snap Kamera ──
+  snapCameraRoot: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  snapCameraTopBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  snapCameraTopBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  snapCameraTopTitle: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  snapCameraMidHint: {
+    position: 'absolute',
+    top: '12%',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  snapCameraTimerBadge: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 13,
+    fontWeight: '600',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  snapCameraBottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    paddingBottom: 16,
+  },
+  snapCameraHint: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  snapCameraBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingHorizontal: 24,
+  },
+  snapCameraSideBtn: {
+    alignItems: 'center',
+    gap: 6,
+    width: 64,
+  },
+  snapCameraSideLbl: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  snapShutterOuter: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 4,
+    borderColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  snapShutterInner: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#fff',
+  },
+  snapCameraRetakeBtn: {
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  snapCameraRetakeText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  snapCameraConfirmBtn: {
+    borderRadius: 28,
+    overflow: 'hidden',
+  },
+  snapCameraConfirmGrad: {
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 28,
+  },
+  snapCameraConfirmText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 });

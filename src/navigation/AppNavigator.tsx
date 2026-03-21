@@ -27,6 +27,13 @@ import LibraryListScreen from '@/screens/LibraryListScreen';
 import CulturalRouteScreen from '@/screens/CulturalRouteScreen';
 import GlobalSearchScreen from '@/screens/GlobalSearchScreen';
 import SosyalScreen from '@/screens/SosyalScreen';
+import ChatScreen from '@/screens/ChatScreen';
+import SendSnapScreen from '@/screens/SendSnapScreen';
+import SnapViewScreen from '@/screens/SnapViewScreen';
+import SocialFeedScreen from '@/screens/SocialFeedScreen';
+import StoryViewScreen from '@/screens/StoryViewScreen';
+import CompleteProfileScreen from '@/screens/CompleteProfileScreen';
+import CreatePostScreen from '@/screens/CreatePostScreen';
 
 // Custom Tab Bar
 import CustomTabBar from './CustomTabBar';
@@ -142,6 +149,13 @@ const AppNavigator = () => {
         <Stack.Screen name="CulturalRoute" component={CulturalRouteScreen} />
         <Stack.Screen name="GlobalSearch" component={GlobalSearchScreen} />
         <Stack.Screen name="Sosyal" component={SosyalScreen} />
+        <Stack.Screen name="Chat" component={ChatScreen} />
+        <Stack.Screen name="SendSnap" component={SendSnapScreen} />
+        <Stack.Screen name="SnapView" component={SnapViewScreen} />
+        <Stack.Screen name="SocialFeed" component={SocialFeedScreen} />
+        <Stack.Screen name="StoryView" component={StoryViewScreen} />
+        <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
+        <Stack.Screen name="CreatePost" component={CreatePostScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

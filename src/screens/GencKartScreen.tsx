@@ -13,6 +13,7 @@ import type { RootStackParamList } from '@/types/navigation';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { useThemeMode } from '@/context/ThemeContext';
 import { useFavorites } from '@/context/FavoritesContext';
+import { useUser } from '@/context/UserContext';
 import { BlurView } from 'expo-blur';
 
 
@@ -27,6 +28,7 @@ const GencKartScreen = () => {
   const { mode } = useThemeMode();
   const isDark = mode === 'dark';
   const { isFavoritePartner, toggleFavorite } = useFavorites();
+  const { profile } = useUser();
   const [selectedCategory, setSelectedCategory] = useState<Category>('Tümü');
 
   const filteredPartners = useMemo(() => {
@@ -165,7 +167,7 @@ const GencKartScreen = () => {
                 <View style={styles.cardBottom}>
                     <View>
                         <Text style={styles.cardHolderLabel}>KART SAHİBİ</Text>
-                        <Text style={styles.cardHolderName}>{MOCK_USER.name.toUpperCase()} YILMAZ</Text>
+                        <Text style={styles.cardHolderName}>{(profile?.name || MOCK_USER.name).toUpperCase()}</Text>
                     </View>
                 </View>
             </LinearGradient>
