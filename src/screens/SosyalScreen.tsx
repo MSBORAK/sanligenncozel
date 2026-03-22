@@ -23,11 +23,10 @@ import {
   TextInput,
   KeyboardAvoidingView,
   ScrollView,
-  RefreshControl,
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -47,6 +46,7 @@ import {
   X as XIcon,
 } from 'lucide-react-native';
 import MapView, { PROVIDER_DEFAULT, PROVIDER_GOOGLE, Heatmap } from 'react-native-maps';
+import { PinchGestureHandler, State } from 'react-native-gesture-handler';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
@@ -371,19 +371,88 @@ function SnapCard({ snap, onPress, isDark }: SnapCardProps) {
 // Arkadaş akışı — sadece arkadaşlar görünür
 // ─────────────────────────────────────────────
 
+// ─── Kompakt Radar Kartı (Akış içinde) ──────────────────────────────────────
+
+function RadarCompactCard({ isDark, onPress }: { isDark: boolean; onPress: () => void }) {
+  const theme = isDark ? DARK : LIGHT;
+  const accentColor = isDark ? AMBER.warm : LIGHT.accent;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.18, duration: 1100, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1100, useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [pulseAnim]);
+
+  return (
+    <TouchableOpacity activeOpacity={0.88} onPress={onPress} style={styles.radarCardOuter}>
+      <BlurView
+        intensity={isDark ? 22 : 30}
+        tint={isDark ? 'dark' : 'light'}
+        style={[styles.radarCardBlur, { borderColor: isDark ? AMBER.border : 'rgba(96,165,250,0.22)', backgroundColor: isDark ? DARK.surface : LIGHT.surface }]}
+      >
+        {/* Sol: ikon + pulse */}
+        <View style={styles.radarCardLeft}>
+          <Animated.View style={[styles.radarPulseRing, { transform: [{ scale: pulseAnim }], backgroundColor: isDark ? 'rgba(245,158,11,0.10)' : 'rgba(96,165,250,0.10)' }]} />
+          <View style={[styles.radarIconCircle, { backgroundColor: isDark ? AMBER.glow : 'rgba(96,165,250,0.15)' }]}>
+            <Radio size={18} color={accentColor} strokeWidth={2} />
+          </View>
+        </View>
+
+        {/* Orta: metin */}
+        <View style={styles.radarCardBody}>
+          <View style={styles.radarCardTitleRow}>
+            <Text style={[styles.radarCardTitle, { color: theme.text }]}>Şehir Radarı</Text>
+            <View style={styles.radarLiveDot} />
+            <Text style={[styles.radarLiveText, { color: isDark ? '#ef4444' : '#f97316' }]}>CANLI</Text>
+          </View>
+          <Text style={[styles.radarCardSub, { color: theme.textSub }]}>
+            Son 4 saatte {MOCK_HEAT_POINTS.length} aktif bölge
+          </Text>
+        </View>
+
+        {/* Sağ: mini ısı çubuğu */}
+        <View style={styles.radarCardRight}>
+          <LinearGradient
+            colors={isDark ? ['#22c55e', '#f59e0b', '#ef4444'] : ['#86efac', '#fbbf24', '#fb7185']}
+            style={styles.radarMiniBar}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+          />
+          <Text style={[styles.radarCardArrow, { color: accentColor }]}>›</Text>
+        </View>
+      </BlurView>
+    </TouchableOpacity>
+  );
+}
+
 function FeedView({
   snaps,
   isDark,
   refreshTick,
   onSnapPress,
   onAddFriendPress,
+  friends,
+  onOpenRadar,
+  loading,
 }: {
   snaps: SnapPost[];
   isDark: boolean;
   refreshTick: number;
   onSnapPress: (snap: SnapPost) => void;
   onAddFriendPress: () => void;
+  friends: UserProfile[];
+  onOpenRadar: () => void;
+  loading?: boolean;
 }) {
+  const theme = isDark ? DARK : LIGHT;
+  const accentColor = isDark ? AMBER.warm : LIGHT.accent;
+
   const renderSnap = useCallback(({ item }: { item: SnapPost }) => (
     <SnapCard snap={item} onPress={onSnapPress} isDark={isDark} />
   ), [onSnapPress, isDark]);
@@ -398,20 +467,54 @@ function FeedView({
       columnWrapperStyle={styles.feedRow}
       contentContainerStyle={styles.feedContent}
       showsVerticalScrollIndicator={false}
-      ListHeaderComponent={<FeedHeader isDark={isDark} />}
-      ListEmptyComponent={<FeedEmpty isDark={isDark} onAddFriendPress={onAddFriendPress} />}
+      ListHeaderComponent={
+        <>
+          <FeedHeader isDark={isDark} friends={friends} onAddFriendPress={onAddFriendPress} />
+          <RadarCompactCard isDark={isDark} onPress={onOpenRadar} />
+          {loading && (
+            <View style={{ alignItems: 'center', paddingVertical: 12 }}>
+              <ActivityIndicator size="small" color={accentColor} />
+              <Text style={{ color: theme.textSub, fontSize: 12, marginTop: 6 }}>Snap'ler yükleniyor...</Text>
+            </View>
+          )}
+        </>
+      }
+      ListEmptyComponent={
+        loading ? null : <FeedEmpty isDark={isDark} onAddFriendPress={onAddFriendPress} />
+      }
     />
   );
 }
 
-function FeedHeader({ isDark }: { isDark: boolean }) {
+function FeedHeader({ isDark, friends, onAddFriendPress }: { isDark: boolean; friends: UserProfile[]; onAddFriendPress: () => void }) {
   const theme = isDark ? DARK : LIGHT;
+  const accentColor = isDark ? AMBER.warm : LIGHT.accent;
   return (
     <View style={styles.feedHeaderContainer}>
       <Text style={[styles.feedHeaderTitle, { color: theme.text }]}>Akış</Text>
       <Text style={[styles.feedHeaderSub, { color: theme.textSub }]}>
         Arkadaşlarının son 4 saati
       </Text>
+      {friends.length > 0 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12, marginBottom: 4 }}>
+          <View style={{ flexDirection: 'row', gap: 12, paddingRight: 8 }}>
+            {friends.map((f) => (
+              <View key={f.user_id} style={{ alignItems: 'center', gap: 4 }}>
+                <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: isDark ? 'rgba(245,158,11,0.15)' : 'rgba(96,165,250,0.15)', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: accentColor }}>
+                  {f.avatar_url ? (
+                    <Image source={{ uri: f.avatar_url }} style={{ width: 48, height: 48, borderRadius: 24 }} />
+                  ) : (
+                    <Text style={{ color: accentColor, fontSize: 18, fontWeight: '700' }}>{f.name.charAt(0).toUpperCase()}</Text>
+                  )}
+                </View>
+                <Text style={{ color: theme.textSub, fontSize: 11, fontWeight: '500', maxWidth: 52 }} numberOfLines={1}>
+                  {f.username || f.name}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -471,10 +574,13 @@ function MessagesView({
       key={user.user_id}
       style={[styles.msgItem, { borderBottomColor: theme.border }]}
       activeOpacity={0.75}
-      onPress={() => onNavigateChat(
-        user.user_id, user.name,
-        processImageUrl(user.avatar_url) ?? 'https://i.pravatar.cc/150',
-        user.username,
+      onPress={() => Alert.alert(
+        user.name,
+        `@${user.username} ile mesajlaşmak için önce arkadaşlık isteği göndermelisin.`,
+        [
+          { text: 'İptal', style: 'cancel' },
+          { text: 'İstek Gönder', onPress: () => onNavigateChat(user.user_id, user.name, '', user.username) },
+        ]
       )}
     >
       <View style={[styles.msgAvatar, { backgroundColor: isDark ? AMBER.glow : 'rgba(96,165,250,0.15)' }]}>
@@ -490,7 +596,7 @@ function MessagesView({
         <Text style={[styles.msgName, { color: theme.text }]}>{user.name}</Text>
         <Text style={[styles.msgSub, { color: theme.textSub }]}>@{user.username}</Text>
       </View>
-      <MessageCircle color={accentColor} size={18} strokeWidth={2} />
+      <UserPlus color={accentColor} size={18} strokeWidth={2} />
     </TouchableOpacity>
   );
 
@@ -706,15 +812,17 @@ function RadarView() {
 // MAIN: SosyalScreen
 // ─────────────────────────────────────────────
 
-type Tab = 'feed' | 'radar' | 'messages';
+type Tab = 'feed' | 'messages';
 
 export default function SosyalScreen() {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const { mode } = useThemeMode();
   const { profile } = useUser();
   const isDark = mode === 'dark';
+  const insets = useSafeAreaInsets();
   const theme = isDark ? DARK : LIGHT;
-  const [snaps, setSnaps] = useState<SnapPost[]>(MOCK_SNAPS);
+  const [snaps, setSnaps] = useState<SnapPost[]>([]);
+  const [snapsLoading, setSnapsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('feed');
   const [cameraVisible, setCameraVisible] = useState(false);
   const [friendModalVisible, setFriendModalVisible] = useState(false);
@@ -728,10 +836,29 @@ export default function SosyalScreen() {
   const tabAnim = useRef(new Animated.Value(0)).current;
   const cameraScale = useRef(new Animated.Value(1)).current;
 
+  // Zoom state
+  const [cameraZoom, setCameraZoom] = useState(0);
+  const lastZoomRef = useRef(0);
+
+  const handlePinchGesture = useCallback((event: any) => {
+    if (event.nativeEvent.state === State.ACTIVE) {
+      const velocity = event.nativeEvent.velocity / 20;
+      const scale = event.nativeEvent.scale;
+      let newZoom: number;
+      if (velocity > 0) {
+        newZoom = lastZoomRef.current + scale * velocity * (Platform.OS === 'ios' ? 0.008 : 20);
+      } else {
+        newZoom = lastZoomRef.current - scale * Math.abs(velocity) * (Platform.OS === 'ios' ? 0.012 : 35);
+      }
+      newZoom = Math.min(0.6, Math.max(0, newZoom));
+      lastZoomRef.current = newZoom;
+      setCameraZoom(newZoom);
+    }
+  }, []);
+
   // Mesajlaşma state'leri
   const currentUserId = profile?.userId ?? null;
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -740,6 +867,8 @@ export default function SosyalScreen() {
   // Arkadaşlık istekleri state'leri
   const [incomingRequests, setIncomingRequests] = useState<FriendRequest[]>([]);
   const [requestsModalVisible, setRequestsModalVisible] = useState(false);
+  const [friends, setFriends] = useState<UserProfile[]>([]);
+  const [friendCount, setFriendCount] = useState(0);
 
   useEffect(() => {
     const timer = setInterval(() => setClockTick(t => t + 1), 60000);
@@ -750,8 +879,8 @@ export default function SosyalScreen() {
   useEffect(() => {
     if (currentUserId) {
       fetchConversations(currentUserId);
-      fetchAllUsers(currentUserId);
       fetchIncomingRequests(currentUserId);
+      fetchFriends(currentUserId);
     }
   }, [currentUserId]);
 
@@ -763,33 +892,34 @@ export default function SosyalScreen() {
     }
   }, [activeTab, currentUserId]);
 
-  // Kullanıcı arama
+  // Radar modal state
+  const [radarModalVisible, setRadarModalVisible] = useState(false);
+
+  // Kullanıcı arama — server-side ilike sorgusu
   useEffect(() => {
-    if (searchQuery.trim().length > 0) {
-      setIsSearching(true);
-      const filtered = allUsers.filter(u =>
-        u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.username.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setSearchResults(filtered);
-    } else {
+    if (!currentUserId) return;
+    const query = searchQuery.trim();
+    if (query.length === 0) {
       setIsSearching(false);
       setSearchResults([]);
+      return;
     }
-  }, [searchQuery, allUsers]);
-
-  const fetchAllUsers = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('user_id, name, username, avatar_url')
-        .neq('user_id', userId)
-        .limit(50);
-      if (!error && data) setAllUsers(data);
-    } catch (e) {
-      console.error('fetchAllUsers error:', e);
-    }
-  };
+    setIsSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const { data } = await supabase
+          .from('user_profiles')
+          .select('user_id, name, username, avatar_url')
+          .neq('user_id', currentUserId)
+          .or(`name.ilike.%${query}%,username.ilike.%${query}%`)
+          .limit(20);
+        setSearchResults(data ?? []);
+      } catch {
+        setSearchResults([]);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, currentUserId]);
 
   const fetchIncomingRequests = async (userId: string) => {
     try {
@@ -809,8 +939,88 @@ export default function SosyalScreen() {
         return { ...req, sender_profile: senderProfile };
       }));
       setIncomingRequests(withProfiles);
-    } catch (e) {
-      console.error('fetchIncomingRequests error:', e);
+    } catch {
+      // sessiz hata
+    }
+  };
+
+  const fetchFriends = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('friendships')
+        .select('sender_id, receiver_id')
+        .eq('status', 'accepted')
+        .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
+      if (error || !data) return;
+
+      const friendIds = data.map((f: any) =>
+        f.sender_id === userId ? f.receiver_id : f.sender_id
+      );
+      setFriendCount(friendIds.length);
+
+      if (friendIds.length === 0) { setFriends([]); return; }
+
+      const { data: profiles } = await supabase
+        .from('user_profiles')
+        .select('user_id, name, username, avatar_url')
+        .in('user_id', friendIds);
+      if (profiles) {
+        setFriends(profiles);
+        // Arkadaşların snap'lerini de çek
+        await fetchFriendSnaps([userId, ...friendIds]);
+      }
+    } catch {
+      // sessiz hata
+    }
+  };
+
+  const fetchFriendSnaps = async (userIds: string[]) => {
+    setSnapsLoading(true);
+    try {
+      const expiryThreshold = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from('social_posts')
+        .select(`
+          id,
+          user_id,
+          image_url,
+          created_at,
+          user_profiles!social_posts_user_id_fkey(name, username, avatar_url)
+        `)
+        .in('user_id', userIds)
+        .gte('created_at', expiryThreshold)
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      if (error || !data || data.length === 0) {
+        setSnaps([]);
+        return;
+      }
+
+      const mapped: SnapPost[] = data.map((post: any) => {
+        const createdAt = new Date(post.created_at);
+        const expiresAt = new Date(createdAt.getTime() + 4 * 60 * 60 * 1000);
+        const userProf = post.user_profiles;
+        return {
+          id: post.id,
+          user: {
+            id: post.user_id,
+            name: userProf?.name ?? 'Kullanıcı',
+            username: userProf?.username ?? '',
+            avatarColor: '#f59e0b',
+          },
+          imageUri: post.image_url ?? '',
+          location: { lat: 37.1591, lng: 38.7969, label: 'Şanlıurfa' },
+          created_at: createdAt,
+          expires_at: expiresAt,
+          seen: false,
+        };
+      });
+      setSnaps(mapped);
+    } catch {
+      setSnaps([]);
+    } finally {
+      setSnapsLoading(false);
     }
   };
 
@@ -830,7 +1040,8 @@ export default function SosyalScreen() {
 
       await fetchIncomingRequests(currentUserId);
       await fetchConversations(currentUserId);
-      Alert.alert('Arkadaş Eklendi!', 'Artık mesajlaşabilirsiniz.');
+      await fetchFriends(currentUserId);
+      Alert.alert('Arkadaş Eklendi! 🎉', 'Artık mesajlaşabilir ve snap atabilirsiniz.');
     } catch (e: any) {
       Alert.alert('Hata', e.message);
     }
@@ -909,8 +1120,8 @@ export default function SosyalScreen() {
         return bTime.localeCompare(aTime);
       });
       setConversations(results);
-    } catch (e) {
-      console.error('fetchConversations error:', e);
+    } catch {
+      // sessiz hata
     } finally {
       setMessagesLoading(false);
     }
@@ -929,7 +1140,7 @@ export default function SosyalScreen() {
 
   const switchTab = useCallback((tab: Tab) => {
     setActiveTab(tab);
-    const toValue = tab === 'feed' ? 0 : tab === 'radar' ? 1 : 2;
+    const toValue = tab === 'feed' ? 0 : 1;
     Animated.spring(tabAnim, {
       toValue,
       useNativeDriver: true,
@@ -940,13 +1151,18 @@ export default function SosyalScreen() {
 
   const createLocalSnap = useCallback((uri: string): SnapPost => ({
     id: `local-${Date.now()}`,
-    user: { id: 'me', name: 'Sen', username: 'me', avatarColor: isDark ? '#f59e0b' : '#60a5fa' },
+    user: {
+      id: profile?.userId ?? 'me',
+      name: profile?.name ?? 'Sen',
+      username: profile?.username ?? 'me',
+      avatarColor: isDark ? '#f59e0b' : '#60a5fa',
+    },
     imageUri: uri,
     location: { lat: 37.1591, lng: 38.7969, label: 'Şanlıurfa' },
     created_at: new Date(),
     expires_at: new Date(Date.now() + SNAP_EXPIRES_MS),
     seen: false,
-  }), [isDark]);
+  }), [isDark, profile]);
 
   const handleCameraPress = useCallback(async () => {
     Animated.sequence([
@@ -970,6 +1186,9 @@ export default function SosyalScreen() {
         quality: 1,
         skipProcessing: false,
         exif: false,
+        base64: false,
+        imageType: 'jpg',
+        shutterSound: false,
       });
       if (photo?.uri) {
         setCapturedPhotoUri(photo.uri);
@@ -979,14 +1198,60 @@ export default function SosyalScreen() {
     }
   }, [cameraBusy, createLocalSnap]);
 
-  const handleConfirmPhoto = useCallback(() => {
-    if (!capturedPhotoUri) return;
-    const localSnap = createLocalSnap(capturedPhotoUri);
+  const handleConfirmPhoto = useCallback(async () => {
+    if (!capturedPhotoUri) {
+      Alert.alert('Hata', 'Fotoğraf bulunamadı.');
+      return;
+    }
+    if (!profile?.userId) {
+      Alert.alert(
+        'Giriş Gerekiyor',
+        'Snap paylaşmak için ŞanlıSosyal hesabınla giriş yapman gerekiyor. Misafir olarak paylaşım yapamazsın.',
+        [{ text: 'Tamam', style: 'default' }]
+      );
+      return;
+    }
+
+    // URI'yi local değişkene al — state sıfırlanmadan önce kullanmak için
+    const photoUri = capturedPhotoUri;
+    const userId = profile.userId;
+
+    // Önce local snap ile UI'ı anında güncelle (optimistic)
+    const localSnap = createLocalSnap(photoUri);
     setSnaps(prev => [localSnap, ...prev]);
     setSelectedSnap(localSnap);
     setCapturedPhotoUri(null);
     setCameraVisible(false);
-  }, [capturedPhotoUri, createLocalSnap]);
+
+    // Arka planda Supabase'e yükle
+    try {
+      const fileName = `${userId}/${Date.now()}.jpg`;
+      const response = await fetch(photoUri);
+      const blob = await response.blob();
+
+      const { error: uploadError } = await supabase.storage
+        .from('snaps')
+        .upload(fileName, blob, { contentType: 'image/jpeg', upsert: false });
+
+      if (uploadError) return;
+
+      const { data: urlData } = supabase.storage.from('snaps').getPublicUrl(fileName);
+      const publicUrl = urlData.publicUrl;
+
+      await supabase.from('social_posts').insert({
+        user_id: userId,
+        content: '',
+        image_url: publicUrl,
+      });
+
+      // Local snap'in URI'sini gerçek URL ile güncelle
+      setSnaps(prev =>
+        prev.map(s => s.id === localSnap.id ? { ...s, imageUri: publicUrl } : s)
+      );
+    } catch {
+      // Upload başarısız olsa bile local snap görünmeye devam eder
+    }
+  }, [capturedPhotoUri, createLocalSnap, profile?.userId]);
 
   const handleRetakePhoto = useCallback(() => {
     setCapturedPhotoUri(null);
@@ -1062,11 +1327,11 @@ export default function SosyalScreen() {
     setSelectedSnap(null);
   }, []);
 
-  // Tab gösterge pill'inin konumu (3 tab)
-  const tabWidth = (SCREEN_W - 48) / 3;
+  // Tab gösterge pill'inin konumu (2 tab: feed=0, messages=1)
+  const tabWidth = (SCREEN_W - 48) / 2;
   const pillTranslateX = tabAnim.interpolate({
-    inputRange: [0, 1, 2],
-    outputRange: [0, tabWidth, tabWidth * 2],
+    inputRange: [0, 1],
+    outputRange: [0, tabWidth],
   });
 
   return (
@@ -1083,85 +1348,48 @@ export default function SosyalScreen() {
       {/* ── SafeArea + Header ── */}
       <SafeAreaView edges={['top']} style={styles.safeTop}>
         <View style={styles.header}>
-          <View>
-            <Text style={[styles.headerTitle, { color: theme.text }]}>ŞanlıSosyal</Text>
-            <Text style={[styles.headerSub, { color: isDark ? AMBER.text : LIGHT.accent }]}>Anlık · Doğal · Geçici</Text>
-          </View>
+          {/* Sol: Profil butonu — tıklanınca SosyalProfile açılır */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('SosyalProfile')}
+            style={styles.headerProfileBtn}
+          >
+            <View style={[styles.headerAvatarCircle, { backgroundColor: isDark ? AMBER.glow : 'rgba(96,165,250,0.15)', borderColor: isDark ? AMBER.border : 'rgba(96,165,250,0.3)' }]}>
+              <Text style={[styles.headerAvatarInitial, { color: isDark ? AMBER.warm : LIGHT.accent }]}>
+                {profile?.name?.charAt(0).toUpperCase() ?? 'S'}
+              </Text>
+            </View>
+            <View>
+              <Text style={[styles.headerTitle, { color: theme.text }]}>ŞanlıSosyal</Text>
+              <Text style={[styles.headerSub, { color: isDark ? AMBER.text : LIGHT.accent }]}>
+                {profile?.username ? `@${profile.username}` : 'Anlık · Doğal · Geçici'}
+              </Text>
+            </View>
+          </TouchableOpacity>
+
           <View style={styles.headerActions}>
-            <TouchableOpacity
-              style={[styles.headerBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
-              activeOpacity={0.8}
-              onPress={() => navigation.navigate('Notifications')}
-            >
-              <Bell color={theme.textSub} size={20} strokeWidth={2} />
-            </TouchableOpacity>
+            {/* Arkadaş ekle butonu */}
             <TouchableOpacity
               style={[styles.headerBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
               activeOpacity={0.8}
               onPress={handleAddFriendPress}
             >
-              <UserPlus color={theme.textSub} size={20} strokeWidth={2} />
+              <UserPlus color={isDark ? AMBER.warm : LIGHT.accent} size={18} strokeWidth={2} />
+            </TouchableOpacity>
+            {/* ŞanlıSosyal bildirimleri */}
+            <TouchableOpacity
+              style={[styles.headerBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+              activeOpacity={0.8}
+              onPress={() => setRequestsModalVisible(true)}
+            >
+              {incomingRequests.length > 0 && (
+                <View style={{ position: 'absolute', top: 6, right: 6, width: 8, height: 8, borderRadius: 4, backgroundColor: isDark ? AMBER.vivid : '#ef4444', zIndex: 1 }} />
+              )}
+              <Bell color={theme.textSub} size={20} strokeWidth={2} />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* ── Tab Switcher (Glass Segmented) ── */}
-        <View style={styles.tabBar}>
-          <BlurView intensity={22} tint={isDark ? 'dark' : 'light'} style={[styles.tabBarBlur, { backgroundColor: theme.tabBg, borderColor: theme.border }]}>
-            {/* Sliding pill */}
-            <Animated.View style={[styles.tabPill, { transform: [{ translateX: pillTranslateX }] }]}>
-              <LinearGradient
-                colors={isDark ? [AMBER.glow, AMBER.deep] : [theme.accentSoft, theme.tabActiveBg]}
-                style={StyleSheet.absoluteFill}
-              />
-            </Animated.View>
-            {/* Akış */}
-            <TouchableOpacity
-              style={styles.tabItem}
-              activeOpacity={0.8}
-              onPress={() => switchTab('feed')}
-            >
-              <Users
-                color={activeTab === 'feed' ? (isDark ? AMBER.warm : LIGHT.accent) : theme.textSub}
-                size={15}
-                strokeWidth={2}
-              />
-              <Text style={[styles.tabLabel, { color: theme.textSub }, activeTab === 'feed' && { color: isDark ? AMBER.warm : LIGHT.accent }]}>
-                Akış
-              </Text>
-            </TouchableOpacity>
-            {/* Şehir Radarı */}
-            <TouchableOpacity
-              style={styles.tabItem}
-              activeOpacity={0.8}
-              onPress={() => switchTab('radar')}
-            >
-              <Radio
-                color={activeTab === 'radar' ? (isDark ? AMBER.warm : LIGHT.accent) : theme.textSub}
-                size={15}
-                strokeWidth={2}
-              />
-              <Text style={[styles.tabLabel, { color: theme.textSub }, activeTab === 'radar' && { color: isDark ? AMBER.warm : LIGHT.accent }]}>
-                Şehir Radarı
-              </Text>
-            </TouchableOpacity>
-            {/* Mesajlar */}
-            <TouchableOpacity
-              style={styles.tabItem}
-              activeOpacity={0.8}
-              onPress={() => switchTab('messages')}
-            >
-              <MessageCircle
-                color={activeTab === 'messages' ? (isDark ? AMBER.warm : LIGHT.accent) : theme.textSub}
-                size={15}
-                strokeWidth={2}
-              />
-              <Text style={[styles.tabLabel, { color: theme.textSub }, activeTab === 'messages' && { color: isDark ? AMBER.warm : LIGHT.accent }]}>
-                Mesajlar
-              </Text>
-            </TouchableOpacity>
-          </BlurView>
-        </View>
       </SafeAreaView>
 
       {/* ── İçerik Katmanı ── */}
@@ -1173,8 +1401,11 @@ export default function SosyalScreen() {
             refreshTick={clockTick}
             onSnapPress={handleSnapPress}
             onAddFriendPress={handleAddFriendPress}
+            friends={friends}
+            onOpenRadar={() => setRadarModalVisible(true)}
+            loading={snapsLoading}
           />
-        ) : activeTab === 'messages' ? (
+        ) : (
           <MessagesView
             isDark={isDark}
             theme={theme}
@@ -1192,38 +1423,97 @@ export default function SosyalScreen() {
               navigation.navigate('Chat', { userId, userName })
             }
           />
-        ) : (
-          <RadarView />
         )}
       </View>
 
-      {/* ── Kamera FAB ── */}
-      {(activeTab === 'feed') && (
-        <SafeAreaView edges={['bottom']} style={styles.cameraFabSafe}>
-          <Animated.View style={[styles.cameraFabWrapper, { transform: [{ scale: cameraScale }] }]}>
-            <TouchableOpacity
-              onPress={handleCameraPress}
-              activeOpacity={0.9}
-              style={styles.cameraFabTouch}
-            >
-              <BlurView intensity={30} tint={isDark ? 'dark' : 'light'} style={[styles.cameraFabBlur, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                <LinearGradient
-                  colors={isDark ? [AMBER.vivid, '#d97706'] : ['#60a5fa', '#a78bfa']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.cameraFabGradient}
-                >
-                  <Camera color="#fff" size={26} strokeWidth={2} />
-                </LinearGradient>
-              </BlurView>
-            </TouchableOpacity>
+      {/* ── Yeni Alt Bar: Akış | Kamera Orb | Mesajlar ── */}
+      <SafeAreaView edges={['bottom']} style={[styles.sosyalBottomBar, { backgroundColor: isDark ? 'rgba(6,12,26,0.92)' : 'rgba(248,250,252,0.95)', borderTopColor: isDark ? DARK.border : LIGHT.border }]}>
+        {/* Akış */}
+        <TouchableOpacity
+          style={styles.sosyalBottomTab}
+          activeOpacity={0.75}
+          onPress={() => switchTab('feed')}
+        >
+          <Users
+            size={22}
+            strokeWidth={activeTab === 'feed' ? 2.5 : 1.8}
+            color={activeTab === 'feed' ? (isDark ? AMBER.warm : LIGHT.accent) : theme.textSub}
+          />
+          <Text style={[styles.sosyalBottomLabel, { color: activeTab === 'feed' ? (isDark ? AMBER.warm : LIGHT.accent) : theme.textSub, fontWeight: activeTab === 'feed' ? '700' : '500' }]}>
+            Akış
+          </Text>
+        </TouchableOpacity>
+
+        {/* Kamera Orb — merkez, büyük, parlayan */}
+        <View style={styles.sosyalOrbWrapper}>
+          <Animated.View style={[styles.sosyalOrbPulse, { transform: [{ scale: cameraScale }] }]}>
+            {/* Dış halka */}
+            <View style={[styles.sosyalOrbRing, { borderColor: isDark ? 'rgba(245,158,11,0.35)' : 'rgba(96,165,250,0.35)' }]} />
           </Animated.View>
-          <Text style={[styles.cameraFabHint, { color: theme.textSub }]}>Anlık çek · 4 saat kalır</Text>
-        </SafeAreaView>
-      )}
+          <TouchableOpacity
+            onPress={handleCameraPress}
+            activeOpacity={0.88}
+            style={styles.sosyalOrbTouch}
+          >
+            <LinearGradient
+              colors={isDark ? ['#f59e0b', '#d97706', '#b45309'] : ['#60a5fa', '#818cf8', '#a78bfa']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.sosyalOrbGradient}
+            >
+              {/* İç parlama */}
+              <View style={[styles.sosyalOrbInnerGlow, { backgroundColor: 'rgba(255,255,255,0.18)' }]} />
+              <Camera color="#fff" size={26} strokeWidth={2} />
+            </LinearGradient>
+          </TouchableOpacity>
+          <Text style={[styles.sosyalOrbLabel, { color: theme.textSub }]}>Çek</Text>
+        </View>
+
+        {/* Mesajlar */}
+        <TouchableOpacity
+          style={styles.sosyalBottomTab}
+          activeOpacity={0.75}
+          onPress={() => switchTab('messages')}
+        >
+          <View>
+            <MessageCircle
+              size={22}
+              strokeWidth={activeTab === 'messages' ? 2.5 : 1.8}
+              color={activeTab === 'messages' ? (isDark ? AMBER.warm : LIGHT.accent) : theme.textSub}
+            />
+            {conversations.some(c => c.unread_count > 0) && (
+              <View style={[styles.sosyalUnreadDot, { backgroundColor: isDark ? AMBER.vivid : '#ef4444' }]} />
+            )}
+          </View>
+          <Text style={[styles.sosyalBottomLabel, { color: activeTab === 'messages' ? (isDark ? AMBER.warm : LIGHT.accent) : theme.textSub, fontWeight: activeTab === 'messages' ? '700' : '500' }]}>
+            Mesajlar
+          </Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+
+      {/* ── Şehir Radarı Tam Ekran Modal ── */}
+      <Modal visible={radarModalVisible} animationType="slide" onRequestClose={() => setRadarModalVisible(false)}>
+        <View style={{ flex: 1, backgroundColor: isDark ? DARK.bg : LIGHT.bg }}>
+          <SafeAreaView edges={['top']} style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Radio size={18} color={isDark ? AMBER.warm : LIGHT.accent} strokeWidth={2} />
+                <Text style={{ fontSize: 18, fontWeight: '800', color: theme.text, letterSpacing: -0.4 }}>Şehir Radarı</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setRadarModalVisible(false)}
+                style={[styles.headerBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+              >
+                <XIcon size={18} color={theme.textSub} strokeWidth={2} />
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
+          <RadarView />
+        </View>
+      </Modal>
 
       {/* Kamera Modalı — Tam Ekran Snapchat Tarzı */}
-      <Modal visible={cameraVisible} animationType="fade" onRequestClose={() => { setCameraVisible(false); setCapturedPhotoUri(null); }} statusBarTranslucent>
+      <Modal visible={cameraVisible} animationType="fade" onRequestClose={() => { setCameraVisible(false); setCapturedPhotoUri(null); setCameraZoom(0); lastZoomRef.current = 0; }} statusBarTranslucent>
         <View style={styles.snapCameraRoot}>
           {!cameraPermission?.granted ? (
             /* İzin ekranı */
@@ -1240,60 +1530,103 @@ export default function SosyalScreen() {
           ) : capturedPhotoUri ? (
             /* Önizleme ekranı */
             <View style={styles.snapCameraRoot}>
-              <Image source={{ uri: capturedPhotoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-              <LinearGradient colors={['rgba(0,0,0,0.5)', 'transparent', 'transparent', 'rgba(0,0,0,0.7)']} style={StyleSheet.absoluteFill} />
+              {/* Fotoğraf arka planda */}
+              <Image source={{ uri: capturedPhotoUri }} style={[StyleSheet.absoluteFill, { zIndex: 0 }]} resizeMode="cover" />
+              {/* Gradient — dokunuşları geçirsin */}
+              <LinearGradient
+                colors={['rgba(0,0,0,0.55)', 'transparent', 'transparent', 'rgba(0,0,0,0.75)']}
+                style={[StyleSheet.absoluteFill, { zIndex: 1 }]}
+                pointerEvents="none"
+              />
 
-              {/* Üst bar */}
-              <SafeAreaView style={styles.snapCameraTopBar}>
-                <TouchableOpacity onPress={() => setCapturedPhotoUri(null)} style={styles.snapCameraTopBtn} activeOpacity={0.8}>
+              {/* Üst bar — önizleme */}
+              <View style={[styles.snapCameraTopBar, { paddingTop: insets.top + 8, zIndex: 20 }]}>
+                <TouchableOpacity
+                  onPress={() => setCapturedPhotoUri(null)}
+                  style={styles.snapCameraTopBtn}
+                  activeOpacity={0.8}
+                  hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+                >
                   <XIcon color="#fff" size={28} strokeWidth={2} />
                 </TouchableOpacity>
                 <Text style={styles.snapCameraTopTitle}>Önizleme</Text>
                 <View style={{ width: 44 }} />
-              </SafeAreaView>
+              </View>
 
               {/* Alt bar — Gönder */}
-              <SafeAreaView edges={['bottom']} style={styles.snapCameraBottomBar}>
+              <View style={[styles.snapCameraBottomBar, { paddingBottom: insets.bottom + 16, zIndex: 20 }]}>
                 <Text style={styles.snapCameraHint}>Paylaş ya da tekrar çek</Text>
                 <View style={styles.snapCameraBottomRow}>
-                  <TouchableOpacity onPress={() => setCapturedPhotoUri(null)} style={styles.snapCameraRetakeBtn} activeOpacity={0.85}>
+                  <TouchableOpacity
+                    onPress={() => setCapturedPhotoUri(null)}
+                    style={styles.snapCameraRetakeBtn}
+                    activeOpacity={0.85}
+                  >
                     <Text style={styles.snapCameraRetakeText}>Tekrar</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={handleConfirmPhoto} style={styles.snapCameraConfirmBtn} activeOpacity={0.9}>
+                  <TouchableOpacity
+                    onPress={handleConfirmPhoto}
+                    style={styles.snapCameraConfirmBtn}
+                    activeOpacity={0.9}
+                  >
                     <LinearGradient colors={['#f59e0b', '#d97706']} style={styles.snapCameraConfirmGrad}>
                       <Text style={styles.snapCameraConfirmText}>Paylaş ✦</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                 </View>
-              </SafeAreaView>
+              </View>
             </View>
           ) : (
             /* Canlı kamera */
             <View style={styles.snapCameraRoot}>
-              <CameraView
-                ref={cameraRef}
-                style={StyleSheet.absoluteFill}
-                facing="back"
-                ratio="16:9"
-              />
-              <LinearGradient colors={['rgba(0,0,0,0.45)', 'transparent', 'transparent', 'rgba(0,0,0,0.6)']} style={StyleSheet.absoluteFill} pointerEvents="none" />
+              {/* Kamera + pinch zoom — absoluteFill ama zIndex düşük */}
+              <PinchGestureHandler onGestureEvent={handlePinchGesture} onHandlerStateChange={handlePinchGesture}>
+                <View style={[StyleSheet.absoluteFill, { zIndex: 0 }]}>
+                  <CameraView
+                    ref={cameraRef}
+                    style={StyleSheet.absoluteFill}
+                    facing="back"
+                    ratio={Platform.OS === 'android' ? '16:9' : undefined}
+                    zoom={cameraZoom}
+                    enableTorch={false}
+                    autofocus="on"
+                  />
+                </View>
+              </PinchGestureHandler>
 
-              {/* Üst bar */}
-              <SafeAreaView style={styles.snapCameraTopBar}>
-                <TouchableOpacity onPress={() => setCameraVisible(false)} style={styles.snapCameraTopBtn} activeOpacity={0.8}>
+              {/* Gradient — dokunuş geçirgen */}
+              <LinearGradient
+                colors={['rgba(0,0,0,0.5)', 'transparent', 'transparent', 'rgba(0,0,0,0.65)']}
+                style={[StyleSheet.absoluteFill, { zIndex: 1 }]}
+                pointerEvents="none"
+              />
+
+              {/* Üst bar — canlı kamera */}
+              <View style={[styles.snapCameraTopBar, { paddingTop: insets.top + 8, zIndex: 20 }]}>
+                <TouchableOpacity
+                  onPress={() => { setCameraVisible(false); setCameraZoom(0); lastZoomRef.current = 0; }}
+                  style={styles.snapCameraTopBtn}
+                  activeOpacity={0.8}
+                  hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+                >
                   <XIcon color="#fff" size={28} strokeWidth={2} />
                 </TouchableOpacity>
                 <Text style={styles.snapCameraTopTitle}>ŞanlıSosyal</Text>
                 <View style={{ width: 44 }} />
-              </SafeAreaView>
+              </View>
 
-              {/* Orta — ipucu */}
-              <View style={styles.snapCameraMidHint} pointerEvents="none">
+              {/* Orta — ipucu + zoom göstergesi */}
+              <View style={[styles.snapCameraMidHint, { zIndex: 2 }]} pointerEvents="none">
                 <Text style={styles.snapCameraTimerBadge}>⏱ 4 saat · Anlık çekim</Text>
+                {cameraZoom > 0.02 && (
+                  <View style={styles.zoomBadge}>
+                    <Text style={styles.zoomBadgeText}>{(1 + cameraZoom * 8).toFixed(1)}x</Text>
+                  </View>
+                )}
               </View>
 
               {/* Alt bar — Hikayeler / Çekim / Mesajlar */}
-              <SafeAreaView edges={['bottom']} style={styles.snapCameraBottomBar}>
+              <View style={[styles.snapCameraBottomBar, { paddingBottom: insets.bottom + 16, zIndex: 20 }]}>
                 <View style={styles.snapCameraBottomRow}>
                   {/* Sol: Feed (hikayeler) */}
                   <TouchableOpacity
@@ -1325,7 +1658,7 @@ export default function SosyalScreen() {
                     <Text style={styles.snapCameraSideLbl}>Mesajlar</Text>
                   </TouchableOpacity>
                 </View>
-              </SafeAreaView>
+              </View>
             </View>
           )}
         </View>
@@ -1941,6 +2274,175 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
+  // ── Yeni Alt Bar ──────────────────────────────────────────────────────────
+  sosyalBottomBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingTop: 8,
+    paddingBottom: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  sosyalBottomTab: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    paddingVertical: 6,
+  },
+  sosyalBottomLabel: {
+    fontSize: 10,
+    letterSpacing: 0.2,
+  },
+  sosyalOrbWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 90,
+    gap: 3,
+  },
+  sosyalOrbPulse: {
+    position: 'absolute',
+    top: -8,
+    alignSelf: 'center',
+  },
+  sosyalOrbRing: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 1.5,
+  },
+  sosyalOrbTouch: {
+    borderRadius: 34,
+    overflow: 'hidden',
+    shadowColor: AMBER.vivid,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.55,
+    shadowRadius: 18,
+    elevation: 14,
+  },
+  sosyalOrbGradient: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sosyalOrbInnerGlow: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
+  sosyalOrbLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+    marginTop: 2,
+  },
+  sosyalUnreadDot: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+
+  // ── Header Profil Butonu ──────────────────────────────────────────────────
+  headerProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  headerAvatarCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerAvatarInitial: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+
+  // ── Kompakt Radar Kartı ───────────────────────────────────────────────────
+  radarCardOuter: {
+    marginHorizontal: 16,
+    marginBottom: 14,
+    borderRadius: 18,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  radarCardBlur: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 12,
+    overflow: 'hidden',
+  },
+  radarCardLeft: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 44,
+    height: 44,
+  },
+  radarPulseRing: {
+    position: 'absolute',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  radarIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radarCardBody: {
+    flex: 1,
+    gap: 3,
+  },
+  radarCardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  radarCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  radarCardSub: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  radarCardRight: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  radarMiniBar: {
+    width: 6,
+    height: 36,
+    borderRadius: 3,
+  },
+  radarCardArrow: {
+    fontSize: 20,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+
   // Modals
   cameraModalRoot: {
     flex: 1,
@@ -2329,13 +2831,13 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    zIndex: 10,
+    zIndex: 20,
+    elevation: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 8,
+    paddingBottom: 10,
   },
   snapCameraTopBtn: {
     width: 44,
@@ -2372,13 +2874,28 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
   },
+  zoomBadge: {
+    marginTop: 8,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  zoomBadgeText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
   snapCameraBottomBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    zIndex: 10,
-    paddingBottom: 16,
+    zIndex: 20,
+    elevation: 20,
   },
   snapCameraHint: {
     color: 'rgba(255,255,255,0.7)',

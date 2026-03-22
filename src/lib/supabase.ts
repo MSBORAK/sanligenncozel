@@ -17,7 +17,6 @@ export const getStorageUrl = (bucket: string, path: string): string => {
     .from(bucket)
     .getPublicUrl(path);
   
-  console.log(`[Storage] Bucket: ${bucket}, Path: ${path}, URL: ${data.publicUrl}`);
   return data.publicUrl;
 };
 
@@ -40,8 +39,7 @@ export const processImageUrl = (urlOrPath?: string | null, bucket: string = 'ima
   // Eğer Storage path'i ise (örn: 'story/baskan.jpg') public URL'e çevir
   try {
     return getStorageUrl(bucket, trimmedPath);
-  } catch (error) {
-    console.error('Error processing image URL:', error);
+  } catch {
     return null;
   }
 };

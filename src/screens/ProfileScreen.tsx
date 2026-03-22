@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, ScrollView, Platform, Switch, KeyboardAvoidingView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronRight, Bell, ShieldCheck, LogOut, User as UserIcon, X, Settings, HelpCircle, Info, Edit3, ArrowLeft, Moon, MessageSquare, Send, AlertCircle, Lightbulb, Heart } from 'lucide-react-native';
+import { ChevronRight, Bell, ShieldCheck, LogOut, User as UserIcon, X, Settings, HelpCircle, Info, Edit3, ArrowLeft, Moon, MessageSquare, Send, AlertCircle, Lightbulb, Heart, Users } from 'lucide-react-native';
 import { Colors, Gradients, DribbbleColors } from '@/constants/Colors';
 import { MOCK_USER } from '@/api/mockData';
 import { useThemeMode } from '@/context/ThemeContext';
@@ -32,6 +32,7 @@ const ProfileScreen = () => {
   const [feedbackType, setFeedbackType] = useState<'complaint' | 'bug' | 'feature'>('complaint');
   const [feedbackTitle, setFeedbackTitle] = useState('');
   const [feedbackDescription, setFeedbackDescription] = useState('');
+  const [friendCount, setFriendCount] = useState(0);
   const navigation = useNavigation<Nav>();
 
   const userName = profile?.name || MOCK_USER.name;
@@ -41,6 +42,16 @@ const ProfileScreen = () => {
   const isDark = mode === 'dark';
   const { events: favEvents, partners: favPartners, heritage: favHeritage, stops: favStops } = useFavorites();
   const favoritesCount = favEvents.length + favPartners.length + favHeritage.length + favStops.length;
+
+  useEffect(() => {
+    if (!profile?.userId) return;
+    supabase
+      .from('friendships')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'accepted')
+      .or(`sender_id.eq.${profile.userId},receiver_id.eq.${profile.userId}`)
+      .then(({ count }) => setFriendCount(count || 0));
+  }, [profile?.userId]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -104,6 +115,12 @@ const ProfileScreen = () => {
               ) : (
                 <Text style={[styles.userStatus, isDark && { color: Colors.dark.textMuted }]}>{MOCK_USER.status}</Text>
               )}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                <Users size={14} color={isDark ? '#f59e0b' : DribbbleColors.progressBlue} strokeWidth={2} />
+                <Text style={{ fontSize: 13, fontWeight: '600', color: isDark ? '#f59e0b' : DribbbleColors.progressBlue }}>
+                  {friendCount} arkadaş
+                </Text>
+              </View>
             </View>
           </View>
 

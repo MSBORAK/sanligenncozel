@@ -36,6 +36,7 @@ export type RootStackParamList = {
   StoryView: { storyId?: string; userId?: string } | undefined;
   CompleteProfile: undefined;
   CreatePost: undefined;
+  SosyalProfile: undefined;
 };
 
 // HomeScreen için özel tip oluşturma. Bu, hem Stack hem de Tab tiplerini birleştirir.

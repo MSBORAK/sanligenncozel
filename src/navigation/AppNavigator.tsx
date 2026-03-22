@@ -34,6 +34,7 @@ import SocialFeedScreen from '@/screens/SocialFeedScreen';
 import StoryViewScreen from '@/screens/StoryViewScreen';
 import CompleteProfileScreen from '@/screens/CompleteProfileScreen';
 import CreatePostScreen from '@/screens/CreatePostScreen';
+import SosyalProfileScreen from '@/screens/SosyalProfileScreen';
 
 // Custom Tab Bar
 import CustomTabBar from './CustomTabBar';
@@ -156,6 +157,7 @@ const AppNavigator = () => {
         <Stack.Screen name="StoryView" component={StoryViewScreen} />
         <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
         <Stack.Screen name="CreatePost" component={CreatePostScreen} />
+        <Stack.Screen name="SosyalProfile" component={SosyalProfileScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

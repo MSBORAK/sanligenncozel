@@ -74,16 +74,29 @@ const ChatScreen = () => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        console.log('Current user:', user.id);
-        console.log('Other user ID:', params.userId);
-        
         if (!params.userId || params.userId === '') {
-          console.error('Invalid userId parameter');
           Alert.alert('Hata', 'Kullanıcı bilgisi bulunamadı');
           navigation.goBack();
           return;
         }
-        
+
+        // Arkadaşlık kontrolü
+        const { data: friendship } = await supabase
+          .from('friendships')
+          .select('id, status')
+          .eq('status', 'accepted')
+          .or(`and(sender_id.eq.${user.id},receiver_id.eq.${params.userId}),and(sender_id.eq.${params.userId},receiver_id.eq.${user.id})`)
+          .single();
+
+        if (!friendship) {
+          Alert.alert(
+            'Arkadaş Değilsiniz',
+            'Mesajlaşmak için önce arkadaşlık isteği gönderip kabul ettirmeniz gerekiyor.',
+            [{ text: 'Tamam', onPress: () => navigation.goBack() }]
+          );
+          return;
+        }
+
         setCurrentUserId(user.id);
         await getOrCreateConversation(user.id, params.userId);
       }
@@ -93,77 +106,47 @@ const ChatScreen = () => {
 
   useEffect(() => {
     if (conversationId && currentUserId) {
-      console.log('Setting up conversation:', conversationId);
       fetchMessages();
       
-      // Realtime subscription - daha basit ve güvenilir
       const channel = supabase
         .channel(`messages:${conversationId}`, {
-          config: {
-            broadcast: { self: true },
-          },
+          config: { broadcast: { self: true } },
         })
         .on(
           'postgres_changes',
           {
-            event: '*', // Tüm değişiklikleri dinle
+            event: '*',
             schema: 'public',
             table: 'messages',
             filter: `conversation_id=eq.${conversationId}`,
           },
           (payload) => {
-            console.log('Message change received:', payload.eventType, payload);
-            
             if (payload.eventType === 'INSERT') {
-              const newMessage = payload.new as Message;
-              
-              // Mesajı listeye ekle (duplicate kontrolü ile)
+              const newMsg = payload.new as Message;
               setMessages((prev) => {
-                const exists = prev.some(msg => msg.id === newMessage.id);
-                if (exists) {
-                  console.log('Message already exists, skipping');
-                  return prev;
-                }
-                console.log('Adding new message to list');
-                return [...prev, newMessage];
+                if (prev.some(msg => msg.id === newMsg.id)) return prev;
+                return [...prev, newMsg];
               });
-              
-              // Scroll to bottom
               setTimeout(() => {
                 flatListRef.current?.scrollToEnd({ animated: true });
               }, 100);
-
-              // Eğer mesaj benden değilse, okundu olarak işaretle
-              if (newMessage.sender_id !== currentUserId) {
-                console.log('Marking message as read');
+              if (newMsg.sender_id !== currentUserId) {
                 supabase.rpc('mark_messages_as_read', {
                   p_conversation_id: conversationId,
                   p_user_id: currentUserId,
                 });
               }
             } else if (payload.eventType === 'UPDATE') {
-              const updatedMessage = payload.new as Message;
-              console.log('Updating message in list');
-              
-              // Mesajı güncelle (snap açılma durumu için)
-              setMessages((prev) => 
-                prev.map(msg => msg.id === updatedMessage.id ? updatedMessage : msg)
+              const updatedMsg = payload.new as Message;
+              setMessages((prev) =>
+                prev.map(msg => msg.id === updatedMsg.id ? updatedMsg : msg)
               );
             }
           }
         )
-        .subscribe((status, err) => {
-          console.log('Subscription status:', status);
-          if (err) {
-            console.error('Subscription error:', err);
-          }
-          if (status === 'SUBSCRIBED') {
-            console.log('Successfully subscribed to messages');
-          }
-        });
+        .subscribe();
 
       return () => {
-        console.log('Cleaning up subscription for conversation:', conversationId);
         supabase.removeChannel(channel);
       };
     }
@@ -171,22 +154,15 @@ const ChatScreen = () => {
 
   const getOrCreateConversation = async (user1Id: string, user2Id: string) => {
     try {
-      console.log('Getting/creating conversation between:', user1Id, 'and', user2Id);
-      
       const { data, error } = await supabase.rpc('get_or_create_conversation', {
         user1_id: user1Id,
         user2_id: user2Id,
       });
-
-      if (error) {
-        console.error('Conversation error:', error);
-        throw error;
-      }
-      
-      console.log('Conversation ID:', data);
+      if (error) throw error;
       setConversationId(data);
-    } catch (error) {
-      console.error('Conversation error:', error);
+    } catch {
+      Alert.alert('Hata', 'Sohbet başlatılamadı. Lütfen tekrar deneyin.');
+      navigation.goBack();
     }
   };
 
@@ -195,20 +171,13 @@ const ChatScreen = () => {
 
     try {
       setLoading(true);
-      console.log('Fetching messages for conversation:', conversationId);
-      
       const { data, error } = await supabase
         .from('messages')
-        .select('*')
+        .select('id, conversation_id, sender_id, content, image_url, is_read, is_snap, snap_opened_at, snap_expires_at, created_at')
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true });
 
-      if (error) {
-        console.error('Fetch messages error:', error);
-        throw error;
-      }
-      
-      console.log('Fetched messages:', data?.length || 0);
+      if (error) throw error;
       if (data) setMessages(data);
 
       // Mesajları okundu olarak işaretle
@@ -218,8 +187,8 @@ const ChatScreen = () => {
           p_user_id: currentUserId,
         });
       }
-    } catch (error) {
-      console.error('Messages fetch error:', error);
+    } catch {
+      // sessiz hata — kullanıcı deneyimini bozmaz
     } finally {
       setLoading(false);
     }
@@ -233,8 +202,6 @@ const ChatScreen = () => {
 
     try {
       setSending(true);
-      console.log('Sending message to conversation:', conversationId);
-      
       const { data, error } = await supabase
         .from('messages')
         .insert({
@@ -245,30 +212,18 @@ const ChatScreen = () => {
         .select()
         .single();
 
-      if (error) {
-        console.error('Send message error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log('Message sent successfully:', data.id);
-
-      // Realtime subscription otomatik olarak mesajı ekleyecek
-      // Ama yine de fallback olarak ekleyelim
+      // Realtime subscription mesajı ekleyecek, fallback olarak da ekle
       setTimeout(() => {
         setMessages((prev) => {
-          const exists = prev.some(msg => msg.id === data.id);
-          if (!exists) {
-            console.log('Adding sent message as fallback');
-            return [...prev, data as Message];
-          }
-          return prev;
+          if (prev.some(msg => msg.id === data.id)) return prev;
+          return [...prev, data as Message];
         });
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 200);
-    } catch (error) {
-      console.error('Send message error:', error);
-      Alert.alert('Hata', 'Mesaj gönderilemedi');
-      // Hata durumunda mesajı geri koy
+    } catch {
+      Alert.alert('Hata', 'Mesaj gönderilemedi. Lütfen tekrar deneyin.');
       setNewMessage(messageContent);
     } finally {
       setSending(false);

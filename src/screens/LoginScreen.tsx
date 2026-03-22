@@ -60,7 +60,7 @@ const LoginScreen = () => {
         const { error } = await supabase.auth.verifyOtp({
           email: email.trim(),
           token: loginVerificationCode.trim(),
-          type: 'magiclink',
+          type: 'email',
         });
         if (error) throw error;
         navigation.replace('Main', { screen: 'Home' });
@@ -102,7 +102,7 @@ const LoginScreen = () => {
         const { data, error } = await supabase.auth.verifyOtp({
           email: registerEmail.trim(),
           token: registerVerificationCode.trim(),
-          type: 'magiclink',
+          type: 'email',
         });
         if (error) throw error;
         // Profil oluştur
@@ -306,7 +306,7 @@ const LoginScreen = () => {
                     </LinearGradient>
                   </TouchableOpacity>
 
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     onPress={() => navigation.replace('Main', { screen: 'Home' })}
                     style={styles.guestLoginButton}
                   >
