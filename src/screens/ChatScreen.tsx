@@ -70,6 +70,8 @@ const ChatScreen = () => {
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const flatListRef = useRef<FlatList>(null);
   const cameraRef = useRef<any>(null);
+  /** Tepki mesajındaki kıvılcım önizlemesi — tam ekran */
+  const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
 
   useEffect(() => {
     const init = async () => {
@@ -351,6 +353,8 @@ const ChatScreen = () => {
   const renderMessage = ({ item }: { item: Message }) => {
     const isMe = item.sender_id === currentUserId;
     const isSnap = item.is_snap && item.image_url;
+    /** Kıvılcım tepkisi: metin + küçük görsel (is_snap değil, sadece önizleme URL'i) */
+    const isKivilcimReplyPreview = !!item.image_url && item.is_snap !== true;
 
     // Snap için özel görünüm
     if (isSnap) {
@@ -379,6 +383,52 @@ const ChatScreen = () => {
                 {isExpired ? '🔒 Süre doldu' : isOpened && !isMe ? '👁 Açıldı' : 'Kıvılcım'}
               </Text>
             </View>
+            <Text style={[styles.messageTime, isMe ? styles.myMessageTime : styles.theirMessageTime]}>
+              {formatTime(item.created_at)}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    // Kıvılcım tepkisi — üstte küçük görsel, altta metin
+    if (isKivilcimReplyPreview) {
+      const thumbUri = processImageUrl(item.image_url!) ?? item.image_url!;
+      return (
+        <View style={[styles.messageContainer, isMe ? styles.myMessage : styles.theirMessage]}>
+          {!isMe && (
+            <Image
+              source={{ uri: params.userAvatar || 'https://i.pravatar.cc/150' }}
+              style={styles.messageAvatar}
+            />
+          )}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onLongPress={() => handleDeleteMessage(item)}
+            delayLongPress={400}
+            style={[
+              styles.messageBubble,
+              styles.kivilcimReplyBubble,
+              isMe ? styles.myBubble : styles.theirBubble,
+            ]}
+          >
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => setPreviewImageUri(thumbUri)}
+              style={styles.kivilcimReplyThumbWrap}
+            >
+              <Image
+                source={{ uri: thumbUri }}
+                style={styles.kivilcimReplyThumb}
+                resizeMode="cover"
+              />
+              <View style={styles.kivilcimReplyThumbLabel}>
+                <Text style={styles.kivilcimReplyThumbLabelText}>Kıvılcım</Text>
+              </View>
+            </TouchableOpacity>
+            <Text style={[styles.messageText, isMe ? styles.myMessageText : styles.theirMessageText]}>
+              {item.content}
+            </Text>
             <Text style={[styles.messageTime, isMe ? styles.myMessageTime : styles.theirMessageTime]}>
               {formatTime(item.created_at)}
             </Text>
@@ -530,6 +580,38 @@ const ChatScreen = () => {
           )}
         </View>
       </Modal>
+
+      {/* Kıvılcım tepkisi — önizleme tam ekran */}
+      <Modal
+        visible={!!previewImageUri}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPreviewImageUri(null)}
+      >
+        <View style={styles.imagePreviewRoot}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFillObject}
+            activeOpacity={1}
+            onPress={() => setPreviewImageUri(null)}
+          />
+          {previewImageUri ? (
+            <Image
+              source={{ uri: previewImageUri }}
+              style={styles.imagePreviewImage}
+              resizeMode="contain"
+            />
+          ) : null}
+          <SafeAreaView edges={['top']} style={styles.imagePreviewTopBar}>
+            <TouchableOpacity
+              onPress={() => setPreviewImageUri(null)}
+              style={styles.imagePreviewCloseBtn}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <X color="#fff" size={28} />
+            </TouchableOpacity>
+          </SafeAreaView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -604,6 +686,61 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
+  },
+  kivilcimReplyBubble: {
+    maxWidth: '78%',
+    paddingTop: 8,
+    paddingBottom: 10,
+    paddingHorizontal: 8,
+    overflow: 'hidden',
+  },
+  kivilcimReplyThumbWrap: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    marginBottom: 8,
+    position: 'relative',
+  },
+  kivilcimReplyThumb: {
+    width: 220,
+    height: 132,
+    backgroundColor: '#0f172a',
+  },
+  kivilcimReplyThumbLabel: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  kivilcimReplyThumbLabelText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  imagePreviewRoot: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.94)',
+    justifyContent: 'center',
+  },
+  imagePreviewImage: {
+    width: '100%',
+    height: '78%',
+    alignSelf: 'center',
+  },
+  imagePreviewTopBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 8,
+    paddingTop: 4,
+  },
+  imagePreviewCloseBtn: {
+    padding: 10,
   },
   myBubble: {
     backgroundColor: SnapColors.blue,

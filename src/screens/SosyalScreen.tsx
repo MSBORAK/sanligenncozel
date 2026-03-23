@@ -30,7 +30,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import QRCode from 'react-native-qrcode-svg';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
+import { Video, ResizeMode } from 'expo-av';
 import * as Location from 'expo-location';
 import * as FileSystem from 'expo-file-system';
 import {
@@ -71,7 +72,9 @@ export interface SnapPost {
     username: string;
     avatarColor: string; // Renk kodu — gerçek avatar yokken kullanılır
   };
-  imageUri: string; // Kameradan gelen anlık fotoğraf URI
+  imageUri: string; // Foto veya video dosyasının URI / public URL
+  /** true ise imageUri bir videoyu gösterir */
+  isVideo?: boolean;
   location: {
     lat: number;
     lng: number;
@@ -247,6 +250,55 @@ function formatTimeLeft(snap: SnapPost, referenceTime: Date = new Date()): strin
   return `${m}d`;
 }
 
+/** Grup kıvılcımı: aynı anda 2–5 arkadaş */
+const GROUP_KIVILCIM_MIN = 2;
+const GROUP_KIVILCIM_MAX = 5;
+
+function SnapMediaThumb({
+  uri,
+  isVideo,
+  style,
+  imageResizeMode = 'cover',
+}: {
+  uri: string;
+  isVideo?: boolean;
+  style: object;
+  imageResizeMode?: 'cover' | 'contain';
+}) {
+  if (!uri) {
+    return <View style={[style, { backgroundColor: '#1a1f2e' }]} />;
+  }
+  if (isVideo) {
+    return (
+      <View style={style}>
+        <Video
+          source={{ uri }}
+          style={StyleSheet.absoluteFill}
+          resizeMode={ResizeMode.COVER}
+          shouldPlay={false}
+          isMuted
+          useNativeControls={false}
+        />
+        <View
+          style={[StyleSheet.absoluteFillObject, { justifyContent: 'center', alignItems: 'center' }]}
+          pointerEvents="none"
+        >
+          <View style={{ backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}>
+            <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 0.5 }}>VIDEO</Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+  return (
+    <Image
+      source={{ uri }}
+      style={style}
+      resizeMode={imageResizeMode}
+    />
+  );
+}
+
 // ─────────────────────────────────────────────
 // SUB-COMPONENT: CountdownRing
 // Snap'in kalan ömrünü dairesel çember olarak gösterir
@@ -327,11 +379,7 @@ function SnapCard({ snap, onPress, isDark }: SnapCardProps) {
         ]}>
           {/* Fotoğraf Alanı */}
           <View style={[styles.snapImageContainer, { backgroundColor: isDark ? '#1a1f2e' : '#eef2ff' }]}>
-            <Image
-              source={{ uri: snap.imageUri }}
-              style={styles.snapImage}
-              resizeMode="cover"
-            />
+            <SnapMediaThumb uri={snap.imageUri} isVideo={snap.isVideo} style={styles.snapImage} />
             {/* Kalan süre etiketi */}
             <View style={[styles.snapTimeTag, { backgroundColor: isDark ? 'rgba(6,12,26,0.7)' : 'rgba(255,255,255,0.86)', borderColor: isDark ? AMBER.border : LIGHT.border }]}>
               <Clock color={isDark ? AMBER.warm : LIGHT.accent} size={10} strokeWidth={2.5} />
@@ -409,10 +457,10 @@ function SnapGroupCard({ group, onPress, isDark }: { group: SnapGroup; onPress: 
               onPress={() => onPress(snap)}
               style={{ width: SCREEN_W - 32 }}
             >
-              <Image
-                source={{ uri: snap.imageUri }}
+              <SnapMediaThumb
+                uri={snap.imageUri}
+                isVideo={snap.isVideo}
                 style={{ width: SCREEN_W - 32, height: SCREEN_W * 0.75 }}
-                resizeMode="cover"
               />
             </TouchableOpacity>
           ))}
@@ -664,6 +712,12 @@ function FeedView({
   friends,
   onOpenRadar,
   loading,
+  streakPersonal,
+  streakBest,
+  streakBuddyLabel,
+  buddyMutual,
+  onOpenStreakBuddy,
+  streakLoggedIn,
 }: {
   snaps: SnapPost[];
   isDark: boolean;
@@ -673,6 +727,12 @@ function FeedView({
   friends: UserProfile[];
   onOpenRadar: () => void;
   loading?: boolean;
+  streakPersonal: number;
+  streakBest: number;
+  streakBuddyLabel: string;
+  buddyMutual: number;
+  onOpenStreakBuddy: () => void;
+  streakLoggedIn: boolean;
 }) {
   const theme = isDark ? DARK : LIGHT;
   const accentColor = isDark ? AMBER.warm : LIGHT.accent;
@@ -694,6 +754,15 @@ function FeedView({
         <>
           <FeedHeader isDark={isDark} friends={friends} onAddFriendPress={onAddFriendPress} />
           <RadarCompactCard isDark={isDark} onPress={onOpenRadar} />
+          <StreakStrip
+            isDark={isDark}
+            personal={streakPersonal}
+            best={streakBest}
+            buddyLabel={streakBuddyLabel}
+            mutual={buddyMutual}
+            onPressBuddy={onOpenStreakBuddy}
+            loggedIn={streakLoggedIn}
+          />
           {loading && (
             <View style={{ alignItems: 'center', paddingVertical: 12 }}>
               <ActivityIndicator size="small" color={accentColor} />
@@ -739,6 +808,70 @@ function FeedHeader({ isDark, friends, onAddFriendPress }: { isDark: boolean; fr
         </ScrollView>
       )}
     </View>
+  );
+}
+
+function StreakStrip({
+  isDark,
+  personal,
+  best,
+  buddyLabel,
+  mutual,
+  onPressBuddy,
+  loggedIn,
+}: {
+  isDark: boolean;
+  personal: number;
+  best: number;
+  buddyLabel: string;
+  mutual: number;
+  onPressBuddy: () => void;
+  loggedIn: boolean;
+}) {
+  const theme = isDark ? DARK : LIGHT;
+  const accentColor = isDark ? AMBER.warm : LIGHT.accent;
+  if (!loggedIn) return null;
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onPressBuddy}
+      style={{
+        marginTop: 12,
+        marginBottom: 4,
+        borderRadius: 16,
+        paddingVertical: 12,
+        paddingHorizontal: 14,
+        borderWidth: 1,
+        borderColor: isDark ? AMBER.border : LIGHT.border,
+        backgroundColor: isDark ? 'rgba(245,158,11,0.08)' : 'rgba(96,165,250,0.08)',
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+          <View style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: isDark ? AMBER.glow : 'rgba(96,165,250,0.18)',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <Flame color={accentColor} size={22} strokeWidth={2.2} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: theme.text, fontSize: 15, fontWeight: '800' }}>
+              {personal} gün zincir · en iyi {best}
+            </Text>
+            <Text style={{ color: theme.textSub, fontSize: 12, marginTop: 2 }} numberOfLines={2}>
+              {buddyLabel
+                ? `İkili: ${mutual} gün · ${buddyLabel}`
+                : 'İkili zincir için dokunup arkadaş seç'}
+            </Text>
+          </View>
+        </View>
+        <Text style={{ color: accentColor, fontSize: 12, fontWeight: '700' }}>Düzenle</Text>
+      </View>
+    </TouchableOpacity>
   );
 }
 
@@ -1154,10 +1287,25 @@ export default function SosyalScreen() {
   const [snapReplyText, setSnapReplyText] = useState('');
   const [snapReplySending, setSnapReplySending] = useState(false);
   const [capturedPhotoUri, setCapturedPhotoUri] = useState<string | null>(null);
+  const [capturedIsVideo, setCapturedIsVideo] = useState(false);
+  const [cameraCaptureMode, setCameraCaptureMode] = useState<'photo' | 'video'>('photo');
+  const [isRecordingVideo, setIsRecordingVideo] = useState(false);
   const [friendPhone, setFriendPhone] = useState('');
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [microphonePermission, requestMicrophonePermission] = useMicrophonePermissions();
   const cameraRef = useRef<any>(null);
+  const recordingPromiseRef = useRef<Promise<{ uri: string } | undefined> | null>(null);
   const [cameraBusy, setCameraBusy] = useState(false);
+  const [snapGroupMode, setSnapGroupMode] = useState(false);
+  const [groupRecipientIds, setGroupRecipientIds] = useState<string[]>([]);
+  const [groupPickModalVisible, setGroupPickModalVisible] = useState(false);
+  const [streakCurrent, setStreakCurrent] = useState(0);
+  const [streakBest, setStreakBest] = useState(0);
+  const [streakBuddyUserId, setStreakBuddyUserId] = useState<string | null>(null);
+  const [streakBuddyLabel, setStreakBuddyLabel] = useState('');
+  const [buddyMutual, setBuddyMutual] = useState(0);
+  const [streakBuddyModalVisible, setStreakBuddyModalVisible] = useState(false);
+  const [streakBuddyPickId, setStreakBuddyPickId] = useState<string | null>(null);
   const [clockTick, setClockTick] = useState(0);
   const tabAnim = useRef(new Animated.Value(0)).current;
   const cameraScale = useRef(new Animated.Value(1)).current;
@@ -1209,6 +1357,12 @@ export default function SosyalScreen() {
       fetchConversations(currentUserId);
       fetchIncomingRequests(currentUserId);
       fetchFriends(currentUserId);
+    } else {
+      setStreakCurrent(0);
+      setStreakBest(0);
+      setStreakBuddyUserId(null);
+      setStreakBuddyLabel('');
+      setBuddyMutual(0);
     }
   }, [currentUserId]);
 
@@ -1262,6 +1416,59 @@ export default function SosyalScreen() {
     return () => clearTimeout(timer);
   }, [searchQuery, currentUserId]);
 
+  const loadStreakData = useCallback(async (userId: string) => {
+    const resetAll = () => {
+      setStreakCurrent(0);
+      setStreakBest(0);
+      setStreakBuddyUserId(null);
+      setStreakBuddyLabel('');
+      setBuddyMutual(0);
+    };
+    try {
+      // Önce sadece streak sayıları — buddy kolonu DB'de yoksa bile uygulama kırılmasın
+      const { data: row, error } = await supabase
+        .from('user_profiles')
+        .select('snap_streak_current, snap_streak_best')
+        .eq('user_id', userId)
+        .single();
+      if (error || !row) {
+        resetAll();
+        return;
+      }
+      setStreakCurrent(Number(row.snap_streak_current) || 0);
+      setStreakBest(Number(row.snap_streak_best) || 0);
+
+      let bid: string | null = null;
+      const buddyRow = await supabase
+        .from('user_profiles')
+        .select('streak_buddy_user_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (!buddyRow.error && buddyRow.data) {
+        bid = (buddyRow.data as { streak_buddy_user_id?: string | null }).streak_buddy_user_id ?? null;
+      }
+      setStreakBuddyUserId(bid);
+      if (bid) {
+        const { data: bp } = await supabase
+          .from('user_profiles')
+          .select('name, username')
+          .eq('user_id', bid)
+          .single();
+        setStreakBuddyLabel(bp?.username ? `@${bp.username}` : (bp?.name ?? ''));
+        const { data: mutual, error: mErr } = await supabase.rpc('buddy_mutual_snap_streak', {
+          p_a: userId,
+          p_b: bid,
+        });
+        setBuddyMutual(!mErr && typeof mutual === 'number' ? mutual : 0);
+      } else {
+        setStreakBuddyLabel('');
+        setBuddyMutual(0);
+      }
+    } catch {
+      resetAll();
+    }
+  }, []);
+
   const fetchIncomingRequests = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -1299,7 +1506,11 @@ export default function SosyalScreen() {
       );
       setFriendCount(friendIds.length);
 
-      if (friendIds.length === 0) { setFriends([]); return; }
+      if (friendIds.length === 0) {
+        setFriends([]);
+        await loadStreakData(userId);
+        return;
+      }
 
       const { data: profiles } = await supabase
         .from('user_profiles')
@@ -1311,6 +1522,7 @@ export default function SosyalScreen() {
         // Arkadaşların snap'lerini de çek
         await fetchFriendSnaps([userId, ...friendIds]);
       }
+      await loadStreakData(userId);
     } catch {
       // sessiz hata
     }
@@ -1321,13 +1533,12 @@ export default function SosyalScreen() {
     try {
       const expiryThreshold = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
 
-      // Snap'leri çek — son 4 saatte oluşturulmuş, image_url'i olan
+      // Snap'leri çek — son 4 saat; foto (image_url) veya video (video_url)
       const { data: posts, error } = await supabase
         .from('social_posts')
-        .select('id, user_id, image_url, content, latitude, longitude, created_at, expires_at')
+        .select('id, user_id, image_url, video_url, content, latitude, longitude, created_at, expires_at, viewed_by, recipient_user_ids')
         .in('user_id', userIds)
-        .not('image_url', 'is', null)
-        .neq('image_url', '')
+        .or('image_url.not.is.null,video_url.not.is.null')
         .gte('created_at', expiryThreshold)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -1336,7 +1547,21 @@ export default function SosyalScreen() {
         // Hata varsa mevcut snap'leri koru, silme
         return;
       }
-      if (!posts || posts.length === 0) {
+      const visiblePosts = (posts ?? []).filter((post: any) => {
+        const hasImg = post.image_url && String(post.image_url).trim() !== '';
+        const hasVid = post.video_url && String(post.video_url).trim() !== '';
+        if (!hasImg && !hasVid) return false;
+        // Kendi kıvılcımlarımız listede kalabilir; arkadaş kıvılcımları ise bir kez görünür.
+        if (post.user_id === currentUserId) return true;
+        const rec = post.recipient_user_ids;
+        if (Array.isArray(rec) && rec.length > 0) {
+          if (!currentUserId || !rec.includes(currentUserId)) return false;
+        }
+        const viewedBy: string[] = Array.isArray(post.viewed_by) ? post.viewed_by : [];
+        return !currentUserId || !viewedBy.includes(currentUserId);
+      });
+
+      if (visiblePosts.length === 0) {
         // Supabase'de kayıt yoksa local snap'leri de temizle
         // ama sadece Supabase'e kaydedilmiş olanları — local URI'leri koru
         setSnaps(prev => prev.filter(s => s.imageUri.startsWith('http')));
@@ -1344,7 +1569,7 @@ export default function SosyalScreen() {
       }
 
       // Benzersiz user_id'leri topla, profilleri tek sorguda çek
-      const uniqueUserIds = [...new Set(posts.map((p: any) => p.user_id))];
+      const uniqueUserIds = [...new Set(visiblePosts.map((p: any) => p.user_id))];
       const { data: profiles } = await supabase
         .from('user_profiles')
         .select('user_id, name, username, avatar_url')
@@ -1353,10 +1578,12 @@ export default function SosyalScreen() {
       const profileMap: Record<string, any> = {};
       (profiles ?? []).forEach((p: any) => { profileMap[p.user_id] = p; });
 
-      const mapped: SnapPost[] = posts.map((post: any) => {
+      const mapped: SnapPost[] = visiblePosts.map((post: any) => {
         const createdAt = new Date(post.created_at);
         const expiresAt = new Date(createdAt.getTime() + 4 * 60 * 60 * 1000);
         const prof = profileMap[post.user_id];
+        const vUrl = post.video_url && String(post.video_url).trim() !== '' ? post.video_url : '';
+        const isVid = !!vUrl;
         return {
           id: post.id,
           user: {
@@ -1365,7 +1592,8 @@ export default function SosyalScreen() {
             username: prof?.username ?? '',
             avatarColor: '#f59e0b',
           },
-          imageUri: post.image_url ?? '',
+          imageUri: isVid ? vUrl : (post.image_url ?? ''),
+          ...(isVid ? { isVideo: true } : {}),
           location: {
             lat: post.latitude ?? 37.1591,
             lng: post.longitude ?? 38.7969,
@@ -1537,7 +1765,7 @@ export default function SosyalScreen() {
     }).start();
   }, [tabAnim]);
 
-  const createLocalSnap = useCallback((uri: string): SnapPost => ({
+  const createLocalSnap = useCallback((uri: string, isVideo = false): SnapPost => ({
     id: `local-${Date.now()}`,
     user: {
       id: profile?.userId ?? 'me',
@@ -1546,6 +1774,7 @@ export default function SosyalScreen() {
       avatarColor: isDark ? '#f59e0b' : '#60a5fa',
     },
     imageUri: uri,
+    ...(isVideo ? { isVideo: true } : {}),
     location: { lat: 37.1591, lng: 38.7969, label: 'Şanlıurfa' },
     created_at: new Date(),
     expires_at: new Date(Date.now() + SNAP_EXPIRES_MS),
@@ -1563,11 +1792,16 @@ export default function SosyalScreen() {
       setCameraVisible(true);
       return;
     }
+    setSnapGroupMode(false);
+    setGroupRecipientIds([]);
+    setCameraCaptureMode('photo');
+    setIsRecordingVideo(false);
+    recordingPromiseRef.current = null;
     setCameraVisible(true);
   }, [cameraScale, cameraPermission, requestCameraPermission]);
 
   const handleTakePhoto = useCallback(async () => {
-    if (!cameraRef.current || cameraBusy) return;
+    if (cameraCaptureMode !== 'photo' || !cameraRef.current || cameraBusy) return;
     try {
       setCameraBusy(true);
       const photo = await cameraRef.current.takePictureAsync({
@@ -1579,14 +1813,72 @@ export default function SosyalScreen() {
         shutterSound: false,
       });
       if (photo?.uri) {
+        setCapturedIsVideo(false);
         setCapturedPhotoUri(photo.uri);
       }
     } finally {
       setCameraBusy(false);
     }
-  }, [cameraBusy, createLocalSnap]);
+  }, [cameraBusy, cameraCaptureMode]);
 
-  const uploadSnapToSupabase = useCallback(async (photoUri: string, userId: string, localSnapId: string) => {
+  const handleVideoRecordToggle = useCallback(async () => {
+    if (cameraCaptureMode !== 'video' || !cameraRef.current || cameraBusy) return;
+
+    if (!isRecordingVideo) {
+      const mic = microphonePermission ?? await requestMicrophonePermission();
+      if (!mic?.granted) {
+        Alert.alert('Mikrofon', 'Video kıvılcımı için mikrofon iznine ihtiyaç var.');
+        return;
+      }
+      try {
+        setCameraBusy(true);
+        await new Promise<void>(r => setTimeout(r, 320));
+        const p = cameraRef.current.recordAsync({ maxDuration: 60 });
+        recordingPromiseRef.current = p;
+        setIsRecordingVideo(true);
+      } catch (e: any) {
+        recordingPromiseRef.current = null;
+        Alert.alert('Video', e?.message ?? 'Kayıt başlatılamadı.');
+      } finally {
+        setCameraBusy(false);
+      }
+      return;
+    }
+
+    try {
+      setCameraBusy(true);
+      cameraRef.current?.stopRecording?.();
+      setIsRecordingVideo(false);
+      const result = await recordingPromiseRef.current;
+      recordingPromiseRef.current = null;
+      if (result?.uri) {
+        setCapturedIsVideo(true);
+        setCapturedPhotoUri(result.uri);
+      } else {
+        Alert.alert('Video', 'Kayıt dosyası alınamadı.');
+      }
+    } catch (e: any) {
+      recordingPromiseRef.current = null;
+      setIsRecordingVideo(false);
+      Alert.alert('Video', e?.message ?? 'Kayıt bitirilemedi.');
+    } finally {
+      setCameraBusy(false);
+    }
+  }, [
+    cameraBusy,
+    cameraCaptureMode,
+    isRecordingVideo,
+    microphonePermission,
+    requestMicrophonePermission,
+  ]);
+
+  const uploadSnapToSupabase = useCallback(async (
+    mediaUri: string,
+    userId: string,
+    localSnapId: string,
+    recipientIds: string[] | null,
+    isVideo: boolean,
+  ) => {
     try {
       // 1. Auth token
       const { data: { session } } = await supabase.auth.getSession();
@@ -1597,17 +1889,19 @@ export default function SosyalScreen() {
       }
 
       // 2. Dosyayı yükle
-      const fileName = `${userId}/${Date.now()}.jpg`;
+      const ext = isVideo ? 'mp4' : 'jpg';
+      const contentType = isVideo ? 'video/mp4' : 'image/jpeg';
+      const fileName = `${userId}/${Date.now()}.${ext}`;
       const uploadUrl = `${SUPABASE_URL}/storage/v1/object/snaps/${fileName}`;
 
-      const fetchResp = await fetch(photoUri);
+      const fetchResp = await fetch(mediaUri);
       if (!fetchResp.ok) {
-        Alert.alert('Dosya Hatası', `Fotoğraf okunamadı: ${fetchResp.status}`);
+        Alert.alert('Dosya Hatası', `Medya okunamadı: ${fetchResp.status}`);
         return;
       }
       const blob = await fetchResp.blob();
       if (blob.size === 0) {
-        Alert.alert('Dosya Hatası', 'Fotoğraf boş geldi.');
+        Alert.alert('Dosya Hatası', 'Dosya boş geldi.');
         return;
       }
 
@@ -1616,7 +1910,7 @@ export default function SosyalScreen() {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'apikey': SUPABASE_ANON_KEY,
-          'Content-Type': 'image/jpeg',
+          'Content-Type': contentType,
           'x-upsert': 'true',
         },
         body: blob,
@@ -1653,39 +1947,67 @@ export default function SosyalScreen() {
 
       // 5. Veritabanına kaydet
       const expiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
-      const { error: insertError } = await supabase.from('social_posts').insert({
+      const row: Record<string, unknown> = {
         user_id: userId,
         content: locationLabel,
-        image_url: publicUrl,
         latitude,
         longitude,
         expires_at: expiresAt,
-      });
+      };
+      if (isVideo) {
+        row.video_url = publicUrl;
+        row.image_url = null;
+      } else {
+        row.image_url = publicUrl;
+      }
+      if (recipientIds && recipientIds.length >= GROUP_KIVILCIM_MIN) {
+        row.recipient_user_ids = recipientIds.slice(0, GROUP_KIVILCIM_MAX);
+      }
+
+      const { error: insertError } = await supabase.from('social_posts').insert(row);
 
       if (insertError) {
         Alert.alert('Kayıt Hatası', insertError.message);
         return;
       }
 
+      const { error: rpcErr } = await supabase.rpc('refresh_snap_streak', { p_user_id: userId });
+      if (rpcErr) {
+        /* Kolon/RPC yoksa streak sunucuda güncellenmez; yine de profili yenile */
+      }
+      void loadStreakData(userId);
+
       // 6. Local snap'i gerçek URL ile güncelle
       setSnaps(prev =>
-        prev.map(s => s.id === localSnapId ? { ...s, imageUri: publicUrl } : s)
+        prev.map(s =>
+          s.id === localSnapId
+            ? { ...s, imageUri: publicUrl, ...(isVideo ? { isVideo: true } : { isVideo: undefined }) }
+            : s
+        )
       );
 
-      // 7. Arkadaşlara bildirim gönder (arka planda)
+      // 7. Arkadaşlara bildirim (grup veya tümü)
       const myName = profile?.name || profile?.username || 'Biri';
-      const currentFriends = friendsRef.current;
-      currentFriends.forEach(friend => {
-        notify.newSnap(friend.user_id, myName).catch(() => {});
+      const targets =
+        recipientIds && recipientIds.length >= GROUP_KIVILCIM_MIN
+          ? recipientIds.slice(0, GROUP_KIVILCIM_MAX)
+          : friendsRef.current.map(f => f.user_id);
+      const n = targets.length;
+      targets.forEach((fid) => {
+        if (recipientIds && recipientIds.length >= GROUP_KIVILCIM_MIN) {
+          notify.groupSnap(fid, myName, n).catch(() => {});
+        } else {
+          notify.newSnap(fid, myName).catch(() => {});
+        }
       });
     } catch (e: any) {
       Alert.alert('Beklenmeyen Hata', e?.message ?? 'Kıvılcım kaydedilemedi.');
     }
-  }, [profile]);
+  }, [profile, loadStreakData]);
 
   const handleConfirmPhoto = useCallback(async () => {
     if (!capturedPhotoUri) {
-      Alert.alert('Hata', 'Fotoğraf bulunamadı.');
+      Alert.alert('Hata', 'Medya bulunamadı.');
       return;
     }
     if (!profile?.userId) {
@@ -1699,21 +2021,57 @@ export default function SosyalScreen() {
 
     // URI'yi local değişkene al — state sıfırlanmadan önce kullanmak için
     const photoUri = capturedPhotoUri;
+    const isVid = capturedIsVideo;
     const userId = profile.userId;
 
+    if (snapGroupMode) {
+      if (friends.length < GROUP_KIVILCIM_MIN) {
+        Alert.alert(
+          'Grup kıvılcımı',
+          `Grup kıvılcımı için en az ${GROUP_KIVILCIM_MIN} arkadaşın olmalı.`,
+        );
+        return;
+      }
+      if (groupRecipientIds.length < GROUP_KIVILCIM_MIN) {
+        Alert.alert(
+          'Grup kıvılcımı',
+          `En az ${GROUP_KIVILCIM_MIN}, en fazla ${GROUP_KIVILCIM_MAX} arkadaş seç.`,
+        );
+        return;
+      }
+    }
+
+    const recipientsForUpload =
+      snapGroupMode && groupRecipientIds.length >= GROUP_KIVILCIM_MIN
+        ? groupRecipientIds.slice(0, GROUP_KIVILCIM_MAX)
+        : null;
+
     // Önce local snap ile UI'ı anında güncelle (optimistic)
-    const localSnap = createLocalSnap(photoUri);
+    const localSnap = createLocalSnap(photoUri, isVid);
     setSnaps(prev => [localSnap, ...prev]);
     setSelectedSnap(localSnap);
     setCapturedPhotoUri(null);
+    setCapturedIsVideo(false);
     setCameraVisible(false);
+    setSnapGroupMode(false);
+    setGroupRecipientIds([]);
 
     // Arka planda Supabase'e yükle
-    uploadSnapToSupabase(photoUri, userId, localSnap.id);
-  }, [capturedPhotoUri, createLocalSnap, profile?.userId]);
+    uploadSnapToSupabase(photoUri, userId, localSnap.id, recipientsForUpload, isVid);
+  }, [
+    capturedPhotoUri,
+    capturedIsVideo,
+    createLocalSnap,
+    profile?.userId,
+    snapGroupMode,
+    groupRecipientIds,
+    friends.length,
+    uploadSnapToSupabase,
+  ]);
 
   const handleRetakePhoto = useCallback(() => {
     setCapturedPhotoUri(null);
+    setCapturedIsVideo(false);
   }, []);
 
   // Snap'in Supabase ID'sini tutmak için ref (kapanışta silmek için)
@@ -1864,6 +2222,34 @@ export default function SosyalScreen() {
     }
   }, [qrScanned, currentUserId, profile]);
 
+  const toggleGroupRecipient = useCallback((id: string) => {
+    setGroupRecipientIds(prev => {
+      if (prev.includes(id)) return prev.filter(x => x !== id);
+      if (prev.length >= GROUP_KIVILCIM_MAX) return prev;
+      return [...prev, id];
+    });
+  }, []);
+
+  const saveStreakBuddy = useCallback(async () => {
+    if (!currentUserId) return;
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ streak_buddy_user_id: streakBuddyPickId })
+        .eq('user_id', currentUserId);
+      if (error) throw error;
+      setStreakBuddyModalVisible(false);
+      await loadStreakData(currentUserId);
+    } catch (e: any) {
+      const msg = e?.message ?? '';
+      const schemaHint =
+        /schema cache|could not find|column/i.test(msg)
+          ? '\n\nSupabase SQL Editor’da database/14_streak_and_group_snap.sql dosyasını çalıştırın. Sonra Dashboard → Project Settings → Data API → Reload schema (veya birkaç dakika bekleyin).'
+          : '';
+      Alert.alert('Hata', (msg || 'Kaydedilemedi.') + schemaHint);
+    }
+  }, [currentUserId, streakBuddyPickId, loadStreakData]);
+
   const handleCloseSnapViewer = useCallback(() => {
     const snapId = viewingSnapDbId.current;
     viewingSnapDbId.current = null;
@@ -1891,6 +2277,30 @@ export default function SosyalScreen() {
 
     setSnapReplySending(true);
     try {
+      const trimmed = text.trim();
+      const isQuickReaction = /^(❤️|🔥|😂|😮|👏)$/.test(trimmed);
+      const created = selectedSnap.created_at instanceof Date
+        ? selectedSnap.created_at
+        : new Date(selectedSnap.created_at);
+      const timeStr = created.toLocaleString('tr-TR', {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      const who = selectedSnap.user.username
+        ? `${selectedSnap.user.name} (@${selectedSnap.user.username})`
+        : selectedSnap.user.name;
+      const locPart = selectedSnap.location?.label
+        ? `\n📍 ${selectedSnap.location.label}`
+        : '';
+      /** Mesajda hangi kıvılcıma tepki verildiği net görünsün */
+      const snapRefBlock =
+        `Hangisi: ${who} kıvılcımı\n📅 ${timeStr}${locPart}`;
+      const messageContent = isQuickReaction
+        ? `Tepki: ${trimmed}\n────────\n${snapRefBlock}`
+        : `Yanıt: ${trimmed}\n────────\n${snapRefBlock}`;
+
       // Konuşmayı bul veya oluştur
       const { data: convData } = await supabase.rpc('get_or_create_conversation', {
         user1_id: currentUserId,
@@ -1899,11 +2309,18 @@ export default function SosyalScreen() {
       const convId = convData;
       if (!convId) throw new Error('Konuşma oluşturulamadı');
 
-      // Mesajı gönder
+      // Önizleme: sadece kalıcı URL (Supabase); file:// karşı tarafa gitmez
+      const previewUrl =
+        selectedSnap.imageUri && selectedSnap.imageUri.startsWith('http')
+          ? selectedSnap.imageUri
+          : null;
+
+      // Mesajı gönder (görsel önizleme = hangi kıvılcıma tepki)
       await supabase.from('messages').insert({
         conversation_id: convId,
         sender_id: currentUserId,
-        content: text.trim(),
+        content: messageContent,
+        ...(previewUrl ? { image_url: previewUrl } : {}),
       });
 
       setSnapReplyText('');
@@ -1978,7 +2395,6 @@ export default function SosyalScreen() {
             </TouchableOpacity>
           </View>
         </View>
-
       </SafeAreaView>
 
       {/* ── İçerik Katmanı ── */}
@@ -1993,6 +2409,15 @@ export default function SosyalScreen() {
             friends={friends}
             onOpenRadar={() => setRadarModalVisible(true)}
             loading={snapsLoading}
+            streakPersonal={streakCurrent}
+            streakBest={streakBest}
+            streakBuddyLabel={streakBuddyLabel}
+            buddyMutual={buddyMutual}
+            streakLoggedIn={!!currentUserId}
+            onOpenStreakBuddy={() => {
+              setStreakBuddyPickId(streakBuddyUserId);
+              setStreakBuddyModalVisible(true);
+            }}
           />
         ) : (
           <MessagesView
@@ -2103,7 +2528,23 @@ export default function SosyalScreen() {
       </Modal>
 
       {/* Kamera Modalı — Tam Ekran Snapchat Tarzı */}
-      <Modal visible={cameraVisible} animationType="fade" onRequestClose={() => { setCameraVisible(false); setCapturedPhotoUri(null); setCameraZoom(0); lastZoomRef.current = 0; }} statusBarTranslucent>
+      <Modal visible={cameraVisible} animationType="fade" onRequestClose={() => {
+        if (isRecordingVideo && cameraRef.current?.stopRecording) {
+          try {
+            cameraRef.current.stopRecording();
+          } catch { /* */ }
+        }
+        setIsRecordingVideo(false);
+        recordingPromiseRef.current = null;
+        setCameraVisible(false);
+        setCapturedPhotoUri(null);
+        setCapturedIsVideo(false);
+        setCameraCaptureMode('photo');
+        setCameraZoom(0);
+        lastZoomRef.current = 0;
+        setSnapGroupMode(false);
+        setGroupRecipientIds([]);
+      }} statusBarTranslucent>
         <View style={styles.snapCameraRoot}>
           {!cameraPermission?.granted ? (
             /* İzin ekranı */
@@ -2111,7 +2552,7 @@ export default function SosyalScreen() {
               <Camera color="#f59e0b" size={52} strokeWidth={1.5} />
               <Text style={[styles.permissionTitle, { color: '#fff' }]}>Kamera izni gerekiyor</Text>
               <Text style={[styles.permissionSub, { color: 'rgba(255,255,255,0.5)' }]}>
-                ŞanlıSosyal yalnızca anlık fotoğraf çeker, galeriye erişmez.
+                Anlık foto ve kısa video çekilir; galeriye erişilmez.
               </Text>
               <TouchableOpacity activeOpacity={0.85} style={styles.permissionButton} onPress={requestCameraPermission}>
                 <Text style={styles.permissionButtonText}>İzin Ver</Text>
@@ -2120,8 +2561,20 @@ export default function SosyalScreen() {
           ) : capturedPhotoUri ? (
             /* Önizleme ekranı */
             <View style={styles.snapCameraRoot}>
-              {/* Fotoğraf arka planda */}
-              <Image source={{ uri: capturedPhotoUri }} style={[StyleSheet.absoluteFill, { zIndex: 0 }]} resizeMode="cover" />
+              {/* Önizleme: foto veya video */}
+              {capturedIsVideo ? (
+                <Video
+                  source={{ uri: capturedPhotoUri }}
+                  style={[StyleSheet.absoluteFill, { zIndex: 0 }]}
+                  resizeMode={ResizeMode.COVER}
+                  shouldPlay
+                  isLooping
+                  isMuted={false}
+                  useNativeControls
+                />
+              ) : (
+                <Image source={{ uri: capturedPhotoUri }} style={[StyleSheet.absoluteFill, { zIndex: 0 }]} resizeMode="cover" />
+              )}
               {/* Gradient — dokunuşları geçirsin */}
               <LinearGradient
                 colors={['rgba(0,0,0,0.55)', 'transparent', 'transparent', 'rgba(0,0,0,0.75)']}
@@ -2132,7 +2585,7 @@ export default function SosyalScreen() {
               {/* Üst bar — önizleme */}
               <View style={[styles.snapCameraTopBar, { paddingTop: insets.top + 8, zIndex: 20 }]}>
                 <TouchableOpacity
-                  onPress={() => setCapturedPhotoUri(null)}
+                  onPress={() => { setCapturedPhotoUri(null); setCapturedIsVideo(false); }}
                   style={styles.snapCameraTopBtn}
                   activeOpacity={0.8}
                   hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
@@ -2145,10 +2598,64 @@ export default function SosyalScreen() {
 
               {/* Alt bar — Gönder */}
               <View style={[styles.snapCameraBottomBar, { paddingBottom: insets.bottom + 16, zIndex: 20 }]}>
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      setSnapGroupMode(false);
+                      setGroupRecipientIds([]);
+                    }}
+                    style={{
+                      paddingHorizontal: 14,
+                      paddingVertical: 8,
+                      borderRadius: 999,
+                      backgroundColor: !snapGroupMode ? 'rgba(245,158,11,0.35)' : 'rgba(255,255,255,0.12)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,255,255,0.25)',
+                    }}
+                  >
+                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Tüm arkadaşlar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      if (friends.length < GROUP_KIVILCIM_MIN) {
+                        Alert.alert(
+                          'Grup kıvılcımı',
+                          `En az ${GROUP_KIVILCIM_MIN} arkadaşın olmalı.`,
+                        );
+                        return;
+                      }
+                      setSnapGroupMode(true);
+                      setGroupPickModalVisible(true);
+                    }}
+                    style={{
+                      paddingHorizontal: 14,
+                      paddingVertical: 8,
+                      borderRadius: 999,
+                      backgroundColor: snapGroupMode ? 'rgba(245,158,11,0.35)' : 'rgba(255,255,255,0.12)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,255,255,0.25)',
+                    }}
+                  >
+                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Grup (2–5)</Text>
+                  </TouchableOpacity>
+                </View>
+                {snapGroupMode && (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => setGroupPickModalVisible(true)}
+                    style={{ marginBottom: 10 }}
+                  >
+                    <Text style={{ color: 'rgba(252,211,77,0.95)', fontSize: 13, fontWeight: '600', textAlign: 'center' }}>
+                      Kişi seç · {groupRecipientIds.length}/{GROUP_KIVILCIM_MAX} seçili (en az {GROUP_KIVILCIM_MIN})
+                    </Text>
+                  </TouchableOpacity>
+                )}
                 <Text style={styles.snapCameraHint}>Kıvılcım at ya da tekrar çek</Text>
                 <View style={styles.snapCameraBottomRow}>
                   <TouchableOpacity
-                    onPress={() => setCapturedPhotoUri(null)}
+                    onPress={() => { setCapturedPhotoUri(null); setCapturedIsVideo(false); }}
                     style={styles.snapCameraRetakeBtn}
                     activeOpacity={0.85}
                   >
@@ -2176,6 +2683,7 @@ export default function SosyalScreen() {
                     ref={cameraRef}
                     style={StyleSheet.absoluteFill}
                     facing="back"
+                    mode={cameraCaptureMode === 'video' ? 'video' : 'picture'}
                     ratio={Platform.OS === 'android' ? '16:9' : undefined}
                     zoom={cameraZoom}
                     enableTorch={false}
@@ -2194,7 +2702,21 @@ export default function SosyalScreen() {
               {/* Üst bar — canlı kamera */}
               <View style={[styles.snapCameraTopBar, { paddingTop: insets.top + 8, zIndex: 20 }]}>
                 <TouchableOpacity
-                  onPress={() => { setCameraVisible(false); setCameraZoom(0); lastZoomRef.current = 0; }}
+                  onPress={() => {
+                    if (isRecordingVideo && cameraRef.current?.stopRecording) {
+                      try {
+                        cameraRef.current.stopRecording();
+                      } catch { /* */ }
+                    }
+                    setIsRecordingVideo(false);
+                    recordingPromiseRef.current = null;
+                    setCameraVisible(false);
+                    setCameraZoom(0);
+                    lastZoomRef.current = 0;
+                    setSnapGroupMode(false);
+                    setGroupRecipientIds([]);
+                    setCameraCaptureMode('photo');
+                  }}
                   style={styles.snapCameraTopBtn}
                   activeOpacity={0.8}
                   hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
@@ -2205,10 +2727,57 @@ export default function SosyalScreen() {
                 <View style={{ width: 44 }} />
               </View>
 
+              {/* Foto / Video seçimi */}
+              <View style={{
+                position: 'absolute',
+                top: insets.top + 52,
+                left: 0,
+                right: 0,
+                flexDirection: 'row',
+                justifyContent: 'center',
+                gap: 10,
+                zIndex: 20,
+              }}>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  disabled={isRecordingVideo}
+                  onPress={() => setCameraCaptureMode('photo')}
+                  style={{
+                    paddingHorizontal: 18,
+                    paddingVertical: 8,
+                    borderRadius: 999,
+                    backgroundColor: cameraCaptureMode === 'photo' ? 'rgba(245,158,11,0.45)' : 'rgba(255,255,255,0.12)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.3)',
+                  }}
+                >
+                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Foto</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  disabled={isRecordingVideo}
+                  onPress={() => setCameraCaptureMode('video')}
+                  style={{
+                    paddingHorizontal: 18,
+                    paddingVertical: 8,
+                    borderRadius: 999,
+                    backgroundColor: cameraCaptureMode === 'video' ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.12)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.3)',
+                  }}
+                >
+                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Video</Text>
+                </TouchableOpacity>
+              </View>
+
               {/* Orta — ipucu + zoom göstergesi */}
               <View style={[styles.snapCameraMidHint, { zIndex: 2 }]} pointerEvents="none">
-                <Text style={styles.snapCameraTimerBadge}>⏱ 4 saat · Anlık çekim</Text>
-                {cameraZoom > 0.02 && (
+                <Text style={styles.snapCameraTimerBadge}>
+                  {cameraCaptureMode === 'video'
+                    ? (isRecordingVideo ? '● Kayıt… · durmak için tekrar dokun' : 'Video · başlatmak için dokun · en fazla 60 sn')
+                    : '⏱ 4 saat · Anlık çekim'}
+                </Text>
+                {cameraCaptureMode === 'photo' && cameraZoom > 0.02 && (
                   <View style={styles.zoomBadge}>
                     <Text style={styles.zoomBadgeText}>{(1 + cameraZoom * 8).toFixed(1)}x</Text>
                   </View>
@@ -2228,15 +2797,33 @@ export default function SosyalScreen() {
                     <Text style={styles.snapCameraSideLbl}>Akış</Text>
                   </TouchableOpacity>
 
-                  {/* Orta: Çekim butonu */}
-                  <TouchableOpacity
-                    onPress={handleTakePhoto}
-                    disabled={cameraBusy}
-                    activeOpacity={0.85}
-                    style={styles.snapShutterOuter}
-                  >
-                    <View style={styles.snapShutterInner} />
-                  </TouchableOpacity>
+                  {/* Orta: Foto shutter veya Video kayıt */}
+                  {cameraCaptureMode === 'photo' ? (
+                    <TouchableOpacity
+                      onPress={handleTakePhoto}
+                      disabled={cameraBusy}
+                      activeOpacity={0.85}
+                      style={styles.snapShutterOuter}
+                    >
+                      <View style={styles.snapShutterInner} />
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={handleVideoRecordToggle}
+                      disabled={cameraBusy}
+                      activeOpacity={0.85}
+                      style={[styles.snapShutterOuter, { borderColor: 'rgba(239,68,68,0.9)' }]}
+                    >
+                      <View
+                        style={{
+                          width: isRecordingVideo ? 26 : 54,
+                          height: isRecordingVideo ? 26 : 54,
+                          borderRadius: isRecordingVideo ? 5 : 27,
+                          backgroundColor: '#ef4444',
+                        }}
+                      />
+                    </TouchableOpacity>
+                  )}
 
                   {/* Sağ: Mesajlar */}
                   <TouchableOpacity
@@ -2263,7 +2850,19 @@ export default function SosyalScreen() {
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={handleCloseSnapViewer} />
           {selectedSnap && (
             <View style={styles.snapViewerCard}>
-              <Image source={{ uri: selectedSnap.imageUri }} style={styles.snapViewerImage} />
+              {selectedSnap.isVideo ? (
+                <Video
+                  source={{ uri: selectedSnap.imageUri }}
+                  style={styles.snapViewerImage}
+                  resizeMode={ResizeMode.CONTAIN}
+                  useNativeControls
+                  shouldPlay
+                  isLooping
+                  isMuted={false}
+                />
+              ) : (
+                <Image source={{ uri: selectedSnap.imageUri }} style={styles.snapViewerImage} />
+              )}
               <LinearGradient colors={['transparent', 'rgba(6,12,26,0.92)']} style={StyleSheet.absoluteFill} pointerEvents="none" />
               {/* Üst bar */}
               <View style={styles.snapViewerTop}>
@@ -2326,6 +2925,118 @@ export default function SosyalScreen() {
             </View>
           )}
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Grup kıvılcımı — arkadaş seçimi */}
+      <Modal visible={groupPickModalVisible} animationType="slide" transparent onRequestClose={() => setGroupPickModalVisible(false)}>
+        <View style={styles.friendModalBackdrop}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setGroupPickModalVisible(false)} />
+          <View style={[styles.friendModalCard, { backgroundColor: theme.surfaceHi, borderColor: theme.border, maxHeight: '72%' }]}>
+            <View style={styles.friendModalHeader}>
+              <Text style={[styles.friendModalTitle, { color: theme.text }]}>Grup kıvılcımı</Text>
+              <TouchableOpacity onPress={() => setGroupPickModalVisible(false)} style={styles.modalCloseBtn} activeOpacity={0.8}>
+                <Text style={styles.modalCloseText}>Tamam</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={{ color: theme.textSub, fontSize: 13, marginBottom: 12, paddingHorizontal: 4 }}>
+              {GROUP_KIVILCIM_MIN}–{GROUP_KIVILCIM_MAX} kişi seç. Yalnızca seçilenler görür ve bildirim alır.
+            </Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {friends.map((f) => {
+                const on = groupRecipientIds.includes(f.user_id);
+                return (
+                  <TouchableOpacity
+                    key={f.user_id}
+                    activeOpacity={0.75}
+                    onPress={() => toggleGroupRecipient(f.user_id)}
+                    style={[styles.msgItem, { borderBottomColor: theme.border }]}
+                  >
+                    <View style={[styles.msgAvatar, { backgroundColor: isDark ? AMBER.glow : 'rgba(96,165,250,0.15)' }]}>
+                      {f.avatar_url ? (
+                        <Image source={{ uri: processImageUrl(f.avatar_url) ?? undefined }} style={styles.msgAvatarImg} />
+                      ) : (
+                        <Text style={[styles.msgAvatarText, { color: isDark ? AMBER.warm : LIGHT.accent }]}>
+                          {f.name.charAt(0).toUpperCase()}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={[styles.msgInfo, { flex: 1 }]}>
+                      <Text style={[styles.msgName, { color: theme.text }]}>{f.name}</Text>
+                      <Text style={[styles.msgSub, { color: theme.textSub }]}>@{f.username}</Text>
+                    </View>
+                    <View style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 14,
+                      borderWidth: 2,
+                      borderColor: on ? (isDark ? AMBER.warm : LIGHT.accent) : theme.border,
+                      backgroundColor: on ? (isDark ? AMBER.glow : 'rgba(96,165,250,0.2)') : 'transparent',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      {on && <Check color={isDark ? AMBER.warm : LIGHT.accent} size={16} strokeWidth={3} />}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Zincir arkadaşı seçimi */}
+      <Modal visible={streakBuddyModalVisible} animationType="slide" transparent onRequestClose={() => setStreakBuddyModalVisible(false)}>
+        <View style={styles.friendModalBackdrop}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setStreakBuddyModalVisible(false)} />
+          <View style={[styles.friendModalCard, { backgroundColor: theme.surfaceHi, borderColor: theme.border, maxHeight: '72%' }]}>
+            <View style={styles.friendModalHeader}>
+              <Text style={[styles.friendModalTitle, { color: theme.text }]}>İkili zincir</Text>
+              <TouchableOpacity onPress={() => setStreakBuddyModalVisible(false)} style={styles.modalCloseBtn} activeOpacity={0.8}>
+                <Text style={styles.modalCloseText}>Kapat</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={{ color: theme.textSub, fontSize: 13, marginBottom: 12 }}>
+              Aynı gün içinde ikiniz de kıvılcım attığınız ardışık günler sayılır (İstanbul saati).
+            </Text>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 320 }}>
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => setStreakBuddyPickId(null)}
+                style={[styles.msgItem, { borderBottomColor: theme.border }]}
+              >
+                <Text style={[styles.msgName, { color: theme.text, flex: 1 }]}>Kimse (sadece kişisel zincir)</Text>
+                {!streakBuddyPickId && <Check color={isDark ? AMBER.warm : LIGHT.accent} size={18} strokeWidth={2.5} />}
+              </TouchableOpacity>
+              {friends.map((f) => {
+                const on = streakBuddyPickId === f.user_id;
+                return (
+                  <TouchableOpacity
+                    key={f.user_id}
+                    activeOpacity={0.75}
+                    onPress={() => setStreakBuddyPickId(f.user_id)}
+                    style={[styles.msgItem, { borderBottomColor: theme.border }]}
+                  >
+                    <View style={[styles.msgAvatar, { backgroundColor: isDark ? AMBER.glow : 'rgba(96,165,250,0.15)' }]}>
+                      <Text style={[styles.msgAvatarText, { color: isDark ? AMBER.warm : LIGHT.accent }]}>
+                        {f.name.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={[styles.msgInfo, { flex: 1 }]}>
+                      <Text style={[styles.msgName, { color: theme.text }]}>{f.name}</Text>
+                      <Text style={[styles.msgSub, { color: theme.textSub }]}>@{f.username}</Text>
+                    </View>
+                    {on && <Check color={isDark ? AMBER.warm : LIGHT.accent} size={18} strokeWidth={2.5} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            <TouchableOpacity activeOpacity={0.9} style={[styles.friendActionBtn, { marginTop: 12 }]} onPress={saveStreakBuddy}>
+              <LinearGradient colors={isDark ? [AMBER.vivid, '#d97706'] : ['#60a5fa', '#a78bfa']} style={styles.friendActionGradient}>
+                <Text style={styles.friendActionText}>Kaydet</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
 
       {/* Arkadaş Ekle Modalı */}

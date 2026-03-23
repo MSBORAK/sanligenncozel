@@ -618,7 +618,7 @@ const HomeScreen = () => {
                   style={[
                     styles.widgetCard,
                     styles.quoteCard,
-                    { width: '100%', height: 152 },
+                    { width: '100%', height: 152, paddingHorizontal: 14, paddingVertical: 11 },
                     !isDark && { borderColor: 'rgba(96,165,250,0.22)', shadowColor: '#60a5fa', shadowOpacity: 0.14, shadowRadius: 22 },
                   ]}
                   activeOpacity={0.9}
@@ -644,20 +644,20 @@ const HomeScreen = () => {
                     />
                     <View style={styles.radarHeroHeader}>
                       <View style={[styles.radarHeroIcon, !isDark && { backgroundColor: 'rgba(59,130,246,0.14)', borderColor: 'rgba(59,130,246,0.22)' }]}>
-                        <Radio color={isDark ? '#f59e0b' : '#60a5fa'} size={18} strokeWidth={2} />
+                        <Radio color={isDark ? '#f59e0b' : '#60a5fa'} size={20} strokeWidth={2} />
                       </View>
                       <View style={[styles.radarHeroBadge, !isDark && { backgroundColor: 'rgba(96,165,250,0.10)', borderColor: 'rgba(96,165,250,0.18)' }]}>
                         <View style={styles.radarHeroLiveDot} />
                         <Text style={[styles.radarHeroLiveText, !isDark && { color: '#2563eb' }]}>CANLI</Text>
                       </View>
                     </View>
-                    <Text style={[styles.radarHeroTitle, !isDark && { color: '#0f172a', fontSize: 17 }]}>Şehir Radarı</Text>
-                    <Text style={[styles.radarHeroSub, !isDark && { color: 'rgba(37,99,235,0.68)' }]}>ŞanlıSosyal · son 4 saatteki anonim hareketlilik</Text>
+                    <Text style={[styles.radarHeroTitle, !isDark && { color: '#0f172a', fontSize: 22 }]}>ŞanlıSosyal</Text>
+                    <Text style={[styles.radarHeroSub, !isDark && { color: 'rgba(37,99,235,0.78)', fontSize: 14 }]}>Şehir radarı, akış ve kıvılcımlar · son 4 saat</Text>
                     <View style={styles.radarHeroMiniMap}>
-                      <View style={[styles.radarHeroDot, { top: 16, left: 20, width: 14, height: 14, opacity: 0.24, backgroundColor: isDark ? '#f59e0b' : '#60a5fa' }]} />
-                      <View style={[styles.radarHeroDot, { top: 30, left: 95, width: 18, height: 18, opacity: 0.32, backgroundColor: isDark ? '#f59e0b' : '#3b82f6' }]} />
-                      <View style={[styles.radarHeroDot, { top: 10, left: 160, width: 10, height: 10, opacity: 0.20, backgroundColor: isDark ? '#f59e0b' : '#93c5fd' }]} />
-                      <View style={[styles.radarHeroDot, { top: 46, left: 140, width: 24, height: 24, opacity: 0.26, backgroundColor: isDark ? '#f59e0b' : '#818cf8' }]} />
+                      <View style={[styles.radarHeroDot, { top: 4, left: 18, width: 10, height: 10, opacity: 0.28, backgroundColor: isDark ? '#f59e0b' : '#60a5fa' }]} />
+                      <View style={[styles.radarHeroDot, { top: 10, left: 88, width: 14, height: 14, opacity: 0.36, backgroundColor: isDark ? '#f59e0b' : '#3b82f6' }]} />
+                      <View style={[styles.radarHeroDot, { top: 2, left: 150, width: 8, height: 8, opacity: 0.22, backgroundColor: isDark ? '#f59e0b' : '#93c5fd' }]} />
+                      <View style={[styles.radarHeroDot, { top: 8, left: 132, width: 16, height: 16, opacity: 0.3, backgroundColor: isDark ? '#f59e0b' : '#818cf8' }]} />
                     </View>
                 </TouchableOpacity>
             </View>
@@ -1329,7 +1329,7 @@ const styles = StyleSheet.create({
     bentoTitle: { marginTop: 10, fontSize: 13, fontWeight: '400', letterSpacing: 1.2, color: Colors.primaryHex },
     bentoTitleSmall: { marginTop: 8, fontSize: 10, fontWeight: '400', letterSpacing: 0.8, color: Colors.primaryHex },
 
-    // ŞanlıSosyal — Şehir Radarı bento kartı
+    // ŞanlıSosyal ana sayfa kutucuğu (mavi kart)
     radarAmberOrb: {
       position: 'absolute',
       width: 200,
@@ -1456,12 +1456,12 @@ const styles = StyleSheet.create({
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 6,
+      marginBottom: 4,
     },
     radarHeroIcon: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
+      width: 34,
+      height: 34,
+      borderRadius: 17,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: 'rgba(245,158,11,0.14)',
@@ -1472,8 +1472,8 @@ const styles = StyleSheet.create({
       flexDirection: 'row',
       alignItems: 'center',
       gap: 5,
-      paddingHorizontal: 8,
-      paddingVertical: 3,
+      paddingHorizontal: 9,
+      paddingVertical: 4,
       borderRadius: 999,
       backgroundColor: 'rgba(34,197,94,0.12)',
       borderWidth: 1,
@@ -1486,28 +1486,28 @@ const styles = StyleSheet.create({
       backgroundColor: '#22c55e',
     },
     radarHeroLiveText: {
-      fontSize: 10,
-      fontWeight: '700',
+      fontSize: 12,
+      fontWeight: '800',
       color: '#22c55e',
-      letterSpacing: 1,
+      letterSpacing: 0.6,
     },
     radarHeroTitle: {
-      fontSize: 16,
-      fontWeight: '700',
+      fontSize: 21,
+      fontWeight: '800',
       color: '#fcd34d',
-      letterSpacing: -0.2,
+      letterSpacing: -0.4,
     },
     radarHeroSub: {
       marginTop: 2,
-      fontSize: 10,
-      lineHeight: 13,
-      fontWeight: '500',
-      color: 'rgba(252,211,77,0.72)',
-      maxWidth: '92%',
+      fontSize: 14,
+      lineHeight: 19,
+      fontWeight: '600',
+      color: 'rgba(252,211,77,0.82)',
+      maxWidth: '100%',
     },
     radarHeroMiniMap: {
-      height: 30,
-      marginTop: 6,
+      height: 24,
+      marginTop: 5,
       position: 'relative',
       overflow: 'hidden',
       borderRadius: 18,

@@ -13,14 +13,21 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.sanligenc.app"
+      "bundleIdentifier": "com.sanligenc.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "ŞanlıSosyal kıvılcım videoları için mikrofon kullanılır."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#ffffff"
       },
       "package": "com.sanligenc.app",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       [

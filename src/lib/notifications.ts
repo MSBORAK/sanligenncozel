@@ -158,4 +158,13 @@ export const notify = {
       `${senderName} yeni bir anlık görüntü paylaştı.`,
       { type: 'snap' }
     ),
+
+  /** Grup kıvılcımı — seçilen arkadaşlara */
+  groupSnap: (recipientId: string, senderName: string, totalRecipients: number) =>
+    sendPushNotification(
+      recipientId,
+      'Grup kıvılcımı',
+      `${senderName} seni ve ${Math.max(0, totalRecipients - 1)} kişiyi seçti.`,
+      { type: 'group_snap' }
+    ),
 };
