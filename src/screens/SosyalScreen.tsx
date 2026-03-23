@@ -8,7 +8,7 @@
  *  - Anonim şehir verisi, kişisel arkadaş bağı
  */
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -29,7 +29,10 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import QRCode from 'react-native-qrcode-svg';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as Location from 'expo-location';
+import * as FileSystem from 'expo-file-system';
 import {
   Camera,
   Radio,
@@ -44,16 +47,16 @@ import {
   Search,
   Check,
   X as XIcon,
+  QrCode,
 } from 'lucide-react-native';
-import MapView, { PROVIDER_DEFAULT, PROVIDER_GOOGLE, Heatmap } from 'react-native-maps';
+import MapView, { PROVIDER_DEFAULT, PROVIDER_GOOGLE, Heatmap, Marker } from 'react-native-maps';
 import { PinchGestureHandler, State } from 'react-native-gesture-handler';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
 import { useThemeMode } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
-import { supabase } from '@/lib/supabase';
-import { processImageUrl } from '@/lib/supabase';
+import { supabase, processImageUrl, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase';
 
 // ─────────────────────────────────────────────
 // TYPES
@@ -367,6 +370,103 @@ function SnapCard({ snap, onPress, isDark }: SnapCardProps) {
 }
 
 // ─────────────────────────────────────────────
+// SUB-COMPONENT: SnapGroupCard
+// Aynı kullanıcının tüm snap'leri tek kart içinde
+// ─────────────────────────────────────────────
+
+function SnapGroupCard({ group, onPress, isDark }: { group: SnapGroup; onPress: (snap: SnapPost) => void; isDark: boolean }) {
+  const theme = isDark ? DARK : LIGHT;
+  const accentColor = isDark ? AMBER.warm : LIGHT.accent;
+  const [activeIdx, setActiveIdx] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
+
+  const activeSnap = group.snaps[activeIdx];
+  const progress = getExpiryProgress(activeSnap);
+  const timeLeft = formatTimeLeft(activeSnap);
+
+  return (
+    <View style={[
+      styles.snapCardOuter,
+      { borderColor: group.hasUnseen ? accentColor : theme.border, borderWidth: 1.5 },
+    ]}>
+      {/* Fotoğraf alanı — yatay kaydırılabilir */}
+      <View style={styles.snapImageContainer}>
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={(e) => {
+            const idx = Math.round(e.nativeEvent.contentOffset.x / (SCREEN_W - 32));
+            setActiveIdx(idx);
+          }}
+        >
+          {group.snaps.map((snap) => (
+            <TouchableOpacity
+              key={snap.id}
+              activeOpacity={0.92}
+              onPress={() => onPress(snap)}
+              style={{ width: SCREEN_W - 32 }}
+            >
+              <Image
+                source={{ uri: snap.imageUri }}
+                style={{ width: SCREEN_W - 32, height: SCREEN_W * 0.75 }}
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* Kalan süre etiketi */}
+        <View style={[styles.snapTimeTag, { backgroundColor: isDark ? 'rgba(6,12,26,0.7)' : 'rgba(255,255,255,0.86)', borderColor: isDark ? AMBER.border : LIGHT.border }]}>
+          <Clock color={isDark ? AMBER.warm : LIGHT.accent} size={10} strokeWidth={2.5} />
+          <Text style={[styles.snapTimeText, { color: isDark ? AMBER.warm : LIGHT.accent }]}>{timeLeft}</Text>
+        </View>
+
+        {/* Birden fazla snap varsa üstte nokta göstergesi */}
+        {group.snaps.length > 1 && (
+          <View style={{ position: 'absolute', top: 10, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 5 }}>
+            {group.snaps.map((_, i) => (
+              <View key={i} style={{
+                width: i === activeIdx ? 18 : 6,
+                height: 4,
+                borderRadius: 2,
+                backgroundColor: i === activeIdx ? '#fff' : 'rgba(255,255,255,0.45)',
+              }} />
+            ))}
+          </View>
+        )}
+
+        {/* Alt gradient */}
+        <LinearGradient
+          colors={isDark ? ['transparent', 'rgba(6,12,26,0.78)'] : ['transparent', 'rgba(248,250,252,0.22)']}
+          style={styles.snapImageOverlay}
+          pointerEvents="none"
+        />
+      </View>
+
+      {/* Footer */}
+      <View style={[styles.snapFooter, { backgroundColor: theme.surface }]}>
+        <View style={styles.snapAvatarWrapper}>
+          <CountdownRing progress={progress} size={46} seen={!group.hasUnseen} />
+          <View style={[styles.snapAvatar, { backgroundColor: group.avatarColor + '33' }]}>
+            <Text style={[styles.snapAvatarText, { color: group.avatarColor }]}>
+              {group.userName.charAt(0)}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.snapUserInfo}>
+          <Text style={[styles.snapUserName, { color: theme.text }]}>{group.userName}</Text>
+          <Text style={[styles.snapLocationText, { color: theme.textSub }]}>
+            {group.snaps.length > 1 ? `${activeIdx + 1}/${group.snaps.length} snap` : '@' + group.username}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────
 // SUB-COMPONENT: FeedView
 // Arkadaş akışı — sadece arkadaşlar görünür
 // ─────────────────────────────────────────────
@@ -377,6 +477,7 @@ function RadarCompactCard({ isDark, onPress }: { isDark: boolean; onPress: () =>
   const theme = isDark ? DARK : LIGHT;
   const accentColor = isDark ? AMBER.warm : LIGHT.accent;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const [activeCount, setActiveCount] = useState<number | null>(null);
 
   useEffect(() => {
     const pulse = Animated.loop(
@@ -388,6 +489,23 @@ function RadarCompactCard({ isDark, onPress }: { isDark: boolean; onPress: () =>
     pulse.start();
     return () => pulse.stop();
   }, [pulseAnim]);
+
+  useEffect(() => {
+    const fetchCount = async () => {
+      try {
+        const since = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+        const { count } = await supabase
+          .from('social_posts')
+          .select('id', { count: 'exact', head: true })
+          .gte('created_at', since)
+          .not('latitude', 'is', null);
+        setActiveCount(count ?? 0);
+      } catch {
+        setActiveCount(null);
+      }
+    };
+    fetchCount();
+  }, []);
 
   return (
     <TouchableOpacity activeOpacity={0.88} onPress={onPress} style={styles.radarCardOuter}>
@@ -412,7 +530,7 @@ function RadarCompactCard({ isDark, onPress }: { isDark: boolean; onPress: () =>
             <Text style={[styles.radarLiveText, { color: isDark ? '#ef4444' : '#f97316' }]}>CANLI</Text>
           </View>
           <Text style={[styles.radarCardSub, { color: theme.textSub }]}>
-            Son 4 saatte {MOCK_HEAT_POINTS.length} aktif bölge
+            Son 4 saatte {activeCount !== null ? `${activeCount} paylaşım` : 'yükleniyor...'}
           </Text>
         </View>
 
@@ -428,6 +546,111 @@ function RadarCompactCard({ isDark, onPress }: { isDark: boolean; onPress: () =>
         </View>
       </BlurView>
     </TouchableOpacity>
+  );
+}
+
+// Kullanıcı bazlı gruplandırılmış snap'ler
+interface SnapGroup {
+  userId: string;
+  userName: string;
+  username: string;
+  avatarColor: string;
+  snaps: SnapPost[];
+  hasUnseen: boolean;
+}
+
+function groupSnapsByUser(snaps: SnapPost[]): SnapGroup[] {
+  const map = new Map<string, SnapGroup>();
+  for (const snap of snaps) {
+    const uid = snap.user.id;
+    if (!map.has(uid)) {
+      map.set(uid, {
+        userId: uid,
+        userName: snap.user.name,
+        username: snap.user.username,
+        avatarColor: snap.user.avatarColor,
+        snaps: [],
+        hasUnseen: false,
+      });
+    }
+    const group = map.get(uid)!;
+    group.snaps.push(snap);
+    if (!snap.seen) group.hasUnseen = true;
+  }
+  return Array.from(map.values());
+}
+
+function StoryBar({
+  groups,
+  isDark,
+  onPress,
+}: {
+  groups: SnapGroup[];
+  isDark: boolean;
+  onPress: (group: SnapGroup) => void;
+}) {
+  const theme = isDark ? DARK : LIGHT;
+  const accentColor = isDark ? AMBER.warm : LIGHT.accent;
+  if (groups.length === 0) return null;
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 10, gap: 14 }}
+    >
+      {groups.map((g) => (
+        <TouchableOpacity
+          key={g.userId}
+          activeOpacity={0.8}
+          onPress={() => onPress(g)}
+          style={{ alignItems: 'center', gap: 5 }}
+        >
+          {/* Hikaye halkası */}
+          <View style={{
+            width: 66,
+            height: 66,
+            borderRadius: 33,
+            padding: 2.5,
+            backgroundColor: 'transparent',
+            borderWidth: 2.5,
+            borderColor: g.hasUnseen ? accentColor : 'rgba(148,163,184,0.3)',
+          }}>
+            <View style={{
+              flex: 1,
+              borderRadius: 30,
+              backgroundColor: g.avatarColor + '33',
+              alignItems: 'center',
+              justifyContent: 'center',
+              overflow: 'hidden',
+            }}>
+              <Text style={{ color: g.avatarColor, fontSize: 22, fontWeight: '800' }}>
+                {g.userName.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          </View>
+          {/* Snap sayısı badge */}
+          {g.snaps.length > 1 && (
+            <View style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              backgroundColor: accentColor,
+              borderRadius: 10,
+              minWidth: 18,
+              height: 18,
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingHorizontal: 4,
+            }}>
+              <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{g.snaps.length}</Text>
+            </View>
+          )}
+          <Text style={{ color: theme.textSub, fontSize: 11, fontWeight: '500', maxWidth: 64, textAlign: 'center' }} numberOfLines={1}>
+            {g.username || g.userName}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
   );
 }
 
@@ -452,19 +675,18 @@ function FeedView({
 }) {
   const theme = isDark ? DARK : LIGHT;
   const accentColor = isDark ? AMBER.warm : LIGHT.accent;
+  const groups = useMemo(() => groupSnapsByUser(snaps), [snaps]);
 
-  const renderSnap = useCallback(({ item }: { item: SnapPost }) => (
-    <SnapCard snap={item} onPress={onSnapPress} isDark={isDark} />
+  const renderGroup = useCallback(({ item }: { item: SnapGroup }) => (
+    <SnapGroupCard group={item} onPress={onSnapPress} isDark={isDark} />
   ), [onSnapPress, isDark]);
 
   return (
     <FlatList
-      data={snaps}
-      renderItem={renderSnap}
-      keyExtractor={(item) => item.id}
+      data={groups}
+      renderItem={renderGroup}
+      keyExtractor={(item) => item.userId}
       extraData={refreshTick}
-      numColumns={2}
-      columnWrapperStyle={styles.feedRow}
       contentContainerStyle={styles.feedContent}
       showsVerticalScrollIndicator={false}
       ListHeaderComponent={
@@ -474,7 +696,7 @@ function FeedView({
           {loading && (
             <View style={{ alignItems: 'center', paddingVertical: 12 }}>
               <ActivityIndicator size="small" color={accentColor} />
-              <Text style={{ color: theme.textSub, fontSize: 12, marginTop: 6 }}>Snap'ler yükleniyor...</Text>
+              <Text style={{ color: theme.textSub, fontSize: 12, marginTop: 6 }}>Yükleniyor...</Text>
             </View>
           )}
         </>
@@ -558,6 +780,7 @@ interface MessagesViewProps {
   currentUserId: string | null;
   formatMsgTime: (t: string) => string;
   onNavigateChat: (userId: string, userName: string, userAvatar: string, username: string) => void;
+  onDeleteConversation: (conversationId: string) => void;
   incomingRequests: FriendRequest[];
   onShowRequests: () => void;
 }
@@ -565,7 +788,7 @@ interface MessagesViewProps {
 function MessagesView({
   isDark, theme, conversations, searchQuery, setSearchQuery,
   isSearching, searchResults, loading, currentUserId, formatMsgTime, onNavigateChat,
-  incomingRequests, onShowRequests,
+  onDeleteConversation, incomingRequests, onShowRequests,
 }: MessagesViewProps) {
   const accentColor = isDark ? AMBER.warm : LIGHT.accent;
 
@@ -610,6 +833,21 @@ function MessagesView({
         processImageUrl(conv.other_user.avatar_url) ?? 'https://i.pravatar.cc/150',
         conv.other_user.username,
       )}
+      onLongPress={() => {
+        Alert.alert(
+          'Sohbeti Sil',
+          `${conv.other_user.name} ile olan tüm mesajlaşmayı silmek istediğine emin misin?`,
+          [
+            { text: 'İptal', style: 'cancel' },
+            {
+              text: 'Sil',
+              style: 'destructive',
+              onPress: () => onDeleteConversation(conv.conversation_id),
+            },
+          ]
+        );
+      }}
+      delayLongPress={400}
     >
       <View style={[styles.msgAvatar, { backgroundColor: isDark ? AMBER.glow : 'rgba(96,165,250,0.15)' }]}>
         {conv.other_user.avatar_url ? (
@@ -729,12 +967,60 @@ function RadarView() {
   const { mode } = useThemeMode();
   const isDark = mode === 'dark';
   const theme = isDark ? DARK : LIGHT;
+  const [heatPoints, setHeatPoints] = useState<HeatPoint[]>([]);
+  const [activeCount, setActiveCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
   const URFA_CENTER = {
     latitude: 37.1591,
     longitude: 38.7969,
     latitudeDelta: 0.08,
     longitudeDelta: 0.08,
   };
+
+  useEffect(() => {
+    const fetchRadarData = async () => {
+      try {
+        const since = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+        const { data, error } = await supabase
+          .from('social_posts')
+          .select('latitude, longitude, created_at')
+          .gte('created_at', since)
+          .not('latitude', 'is', null)
+          .not('longitude', 'is', null);
+
+        if (error || !data || data.length === 0) {
+          // Gerçek veri yoksa mock'u koru
+          setActiveCount(0);
+          return;
+        }
+
+        // Her noktanın ağırlığını hesapla — yakın zamanlı = daha yüksek ağırlık
+        const now = Date.now();
+        const points: HeatPoint[] = data.map((row) => {
+          const age = now - new Date(row.created_at).getTime();
+          const freshness = Math.max(0.2, 1 - age / (4 * 60 * 60 * 1000));
+          return {
+            latitude: row.latitude,
+            longitude: row.longitude,
+            weight: freshness,
+          };
+        });
+
+        setHeatPoints(points);
+        setActiveCount(points.length);
+      } catch {
+        // Hata durumunda mock veri kalır
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRadarData();
+    // Her 2 dakikada bir yenile
+    const interval = setInterval(fetchRadarData, 2 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <View style={styles.radarContainer}>
@@ -747,12 +1033,9 @@ function RadarView() {
         showsCompass={false}
         showsScale={false}
       >
-        {/* Isı haritası katmanı — Google Maps heatmap
-            NOT: Bu bileşen sadece Android PROVIDER_GOOGLE ile çalışır.
-            iOS'ta özel overlay ile simüle edilmesi gerekir. */}
-        {Platform.OS === 'android' && (
+        {Platform.OS === 'android' && heatPoints.length > 0 && (
           <Heatmap
-            points={MOCK_HEAT_POINTS}
+            points={heatPoints}
             radius={40}
             opacity={0.85}
             gradient={{
@@ -762,30 +1045,67 @@ function RadarView() {
             }}
           />
         )}
+
+        {/* iOS: gerçek noktalara marker */}
+        {Platform.OS !== 'android' && heatPoints.map((pt, i) => (
+          <Marker
+            key={i}
+            coordinate={{ latitude: pt.latitude, longitude: pt.longitude }}
+            anchor={{ x: 0.5, y: 0.5 }}
+          >
+            <View style={{
+              width: Math.max(10, (pt.weight ?? 0.5) * 24),
+              height: Math.max(10, (pt.weight ?? 0.5) * 24),
+              borderRadius: 99,
+              backgroundColor: isDark
+                ? `rgba(245,158,11,${0.3 + (pt.weight ?? 0.5) * 0.5})`
+                : `rgba(239,68,68,${0.25 + (pt.weight ?? 0.5) * 0.45})`,
+            }} />
+          </Marker>
+        ))}
       </MapView>
-      {Platform.OS !== 'android' && (
+
+      {/* iOS'ta gerçek veri varsa hafif gradient overlay */}
+      {Platform.OS !== 'android' && heatPoints.length > 0 && (
         <View pointerEvents="none" style={styles.radarIosFallback}>
           <LinearGradient
-            colors={isDark ? ['rgba(34,197,94,0.16)', 'rgba(245,158,11,0.14)', 'rgba(239,68,68,0.10)'] : ['rgba(134,239,172,0.14)', 'rgba(251,191,36,0.10)', 'rgba(251,113,133,0.08)']}
+            colors={isDark
+              ? ['rgba(34,197,94,0.08)', 'rgba(245,158,11,0.06)', 'rgba(239,68,68,0.04)']
+              : ['rgba(134,239,172,0.08)', 'rgba(251,191,36,0.05)', 'rgba(251,113,133,0.04)']}
             style={StyleSheet.absoluteFill}
           />
         </View>
       )}
 
-      {/* Üst Radar Başlığı — blur overlay */}
+      {/* Veri yoksa boş durum mesajı */}
+      {!loading && heatPoints.length === 0 && (
+        <View pointerEvents="none" style={{ position: 'absolute', top: '40%', left: 0, right: 0, alignItems: 'center' }}>
+          <View style={{ backgroundColor: isDark ? 'rgba(6,12,26,0.75)' : 'rgba(255,255,255,0.80)', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 12 }}>
+            <Text style={{ color: theme.textSub, fontSize: 13, textAlign: 'center' }}>
+              Henüz bu bölgede paylaşım yok
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* Üst Radar Başlığı */}
       <View style={styles.radarHeaderOverlay}>
         <BlurView intensity={25} tint={isDark ? 'dark' : 'light'} style={styles.radarHeaderBlur}>
           <Radio color={isDark ? AMBER.warm : LIGHT.accent} size={16} strokeWidth={2} />
           <Text style={[styles.radarHeaderText, { color: theme.text }]}>Şehir Radarı</Text>
           <View style={styles.radarLiveDot} />
           <Text style={styles.radarLiveText}>CANLI</Text>
+          {loading && <ActivityIndicator size="small" color={isDark ? AMBER.warm : LIGHT.accent} style={{ marginLeft: 6 }} />}
         </BlurView>
       </View>
 
       {/* Alt açıklama kartı */}
       <View style={styles.radarLegendOuter}>
         <BlurView intensity={30} tint={isDark ? 'dark' : 'light'} style={styles.radarLegendBlur}>
-          <Text style={[styles.radarLegendTitle, { color: theme.text }]}>Son 4 saatteki hareketlilik</Text>
+          <Text style={[styles.radarLegendTitle, { color: theme.text }]}>
+            Son 4 saatteki hareketlilik
+            {activeCount > 0 ? ` · ${activeCount} paylaşım` : ''}
+          </Text>
           <View style={styles.radarLegendBar}>
             <LinearGradient
               colors={isDark ? ['#22c55e', '#f59e0b', '#ef4444'] : ['#86efac', '#fbbf24', '#fb7185']}
@@ -826,6 +1146,9 @@ export default function SosyalScreen() {
   const [activeTab, setActiveTab] = useState<Tab>('feed');
   const [cameraVisible, setCameraVisible] = useState(false);
   const [friendModalVisible, setFriendModalVisible] = useState(false);
+  const [qrModalVisible, setQrModalVisible] = useState(false);
+  const [qrScanVisible, setQrScanVisible] = useState(false);
+  const [qrScanned, setQrScanned] = useState(false);
   const [selectedSnap, setSelectedSnap] = useState<SnapPost | null>(null);
   const [capturedPhotoUri, setCapturedPhotoUri] = useState<string | null>(null);
   const [friendPhone, setFriendPhone] = useState('');
@@ -883,6 +1206,19 @@ export default function SosyalScreen() {
       fetchFriends(currentUserId);
     }
   }, [currentUserId]);
+
+  // Ekrana her dönüşte snap feed'ini arka planda yenile (mevcut snap'leri silmeden)
+  useFocusEffect(
+    useCallback(() => {
+      if (currentUserId) {
+        // Küçük gecikme ile yenile — ekran geçişi tamamlansın
+        const timer = setTimeout(() => {
+          fetchFriends(currentUserId);
+        }, 500);
+        return () => clearTimeout(timer);
+      }
+    }, [currentUserId])
+  );
 
   // Mesajlar sekmesi açıldığında yenile
   useEffect(() => {
@@ -978,35 +1314,49 @@ export default function SosyalScreen() {
     setSnapsLoading(true);
     try {
       const expiryThreshold = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
-      const { data, error } = await supabase
+
+      // Snap'leri çek — son 4 saatte oluşturulmuş, image_url'i olan
+      const { data: posts, error } = await supabase
         .from('social_posts')
-        .select(`
-          id,
-          user_id,
-          image_url,
-          created_at,
-          user_profiles!social_posts_user_id_fkey(name, username, avatar_url)
-        `)
+        .select('id, user_id, image_url, created_at, expires_at')
         .in('user_id', userIds)
+        .not('image_url', 'is', null)
+        .neq('image_url', '')
         .gte('created_at', expiryThreshold)
         .order('created_at', { ascending: false })
-        .limit(30);
+        .limit(50);
 
-      if (error || !data || data.length === 0) {
-        setSnaps([]);
+      if (error) {
+        // Hata varsa mevcut snap'leri koru, silme
+        return;
+      }
+      if (!posts || posts.length === 0) {
+        // Supabase'de kayıt yoksa local snap'leri de temizle
+        // ama sadece Supabase'e kaydedilmiş olanları — local URI'leri koru
+        setSnaps(prev => prev.filter(s => s.imageUri.startsWith('http')));
         return;
       }
 
-      const mapped: SnapPost[] = data.map((post: any) => {
+      // Benzersiz user_id'leri topla, profilleri tek sorguda çek
+      const uniqueUserIds = [...new Set(posts.map((p: any) => p.user_id))];
+      const { data: profiles } = await supabase
+        .from('user_profiles')
+        .select('user_id, name, username, avatar_url')
+        .in('user_id', uniqueUserIds);
+
+      const profileMap: Record<string, any> = {};
+      (profiles ?? []).forEach((p: any) => { profileMap[p.user_id] = p; });
+
+      const mapped: SnapPost[] = posts.map((post: any) => {
         const createdAt = new Date(post.created_at);
         const expiresAt = new Date(createdAt.getTime() + 4 * 60 * 60 * 1000);
-        const userProf = post.user_profiles;
+        const prof = profileMap[post.user_id];
         return {
           id: post.id,
           user: {
             id: post.user_id,
-            name: userProf?.name ?? 'Kullanıcı',
-            username: userProf?.username ?? '',
+            name: prof?.name ?? 'Kullanıcı',
+            username: prof?.username ?? '',
             avatarColor: '#f59e0b',
           },
           imageUri: post.image_url ?? '',
@@ -1018,7 +1368,7 @@ export default function SosyalScreen() {
       });
       setSnaps(mapped);
     } catch {
-      setSnaps([]);
+      // Hata durumunda mevcut snap'leri koru
     } finally {
       setSnapsLoading(false);
     }
@@ -1059,6 +1409,30 @@ export default function SosyalScreen() {
       Alert.alert('Hata', e.message);
     }
   };
+
+  const handleDeleteConversation = useCallback(async (conversationId: string) => {
+    if (!currentUserId) return;
+    try {
+      // Tüm mesajları sil
+      await supabase.from('messages').delete().eq('conversation_id', conversationId);
+      // Katılımcı kaydını sil
+      await supabase.from('conversation_participants').delete()
+        .eq('conversation_id', conversationId)
+        .eq('user_id', currentUserId);
+      // Conversation'ı sil (diğer katılımcı yoksa)
+      const { data: remaining } = await supabase
+        .from('conversation_participants')
+        .select('id')
+        .eq('conversation_id', conversationId);
+      if (!remaining || remaining.length === 0) {
+        await supabase.from('conversations').delete().eq('id', conversationId);
+      }
+      // Listeden kaldır
+      setConversations(prev => prev.filter(c => c.conversation_id !== conversationId));
+    } catch {
+      Alert.alert('Hata', 'Sohbet silinemedi.');
+    }
+  }, [currentUserId]);
 
   const fetchConversations = async (userId: string) => {
     setMessagesLoading(true);
@@ -1198,6 +1572,89 @@ export default function SosyalScreen() {
     }
   }, [cameraBusy, createLocalSnap]);
 
+  const uploadSnapToSupabase = useCallback(async (photoUri: string, userId: string, localSnapId: string) => {
+    try {
+      // 1. Auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      const authToken = session?.access_token;
+      if (!authToken) {
+        Alert.alert('Oturum Hatası', 'Lütfen tekrar giriş yap.');
+        return;
+      }
+
+      // 2. Dosyayı yükle
+      const fileName = `${userId}/${Date.now()}.jpg`;
+      const uploadUrl = `${SUPABASE_URL}/storage/v1/object/snaps/${fileName}`;
+
+      const fetchResp = await fetch(photoUri);
+      if (!fetchResp.ok) {
+        Alert.alert('Dosya Hatası', `Fotoğraf okunamadı: ${fetchResp.status}`);
+        return;
+      }
+      const blob = await fetchResp.blob();
+      if (blob.size === 0) {
+        Alert.alert('Dosya Hatası', 'Fotoğraf boş geldi.');
+        return;
+      }
+
+      const uploadResp = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'apikey': SUPABASE_ANON_KEY,
+          'Content-Type': 'image/jpeg',
+          'x-upsert': 'true',
+        },
+        body: blob,
+      });
+
+      if (!uploadResp.ok) {
+        const errText = await uploadResp.text();
+        Alert.alert('Yükleme Hatası', `${uploadResp.status}: ${errText}`);
+        return;
+      }
+
+      // 3. Public URL al
+      const { data: urlData } = supabase.storage.from('snaps').getPublicUrl(fileName);
+      const publicUrl = urlData.publicUrl;
+
+      // 4. Konum al (sessizce, hata olursa varsayılan)
+      let latitude: number = 37.1591 + (Math.random() - 0.5) * 0.04;
+      let longitude: number = 38.7969 + (Math.random() - 0.5) * 0.04;
+      try {
+        const locPerm = await Location.getForegroundPermissionsAsync();
+        if (locPerm.status === 'granted') {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          latitude = loc.coords.latitude;
+          longitude = loc.coords.longitude;
+        }
+      } catch { /* konum alınamazsa varsayılan kullan */ }
+
+      // 5. Veritabanına kaydet
+      const expiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
+      const { error: insertError } = await supabase.from('social_posts').insert({
+        user_id: userId,
+        content: '',
+        image_url: publicUrl,
+        latitude,
+        longitude,
+        expires_at: expiresAt,
+      });
+
+      if (insertError) {
+        Alert.alert('Kayıt Hatası', insertError.message);
+        return;
+      }
+
+      // 6. Local snap'i gerçek URL ile güncelle
+      setSnaps(prev =>
+        prev.map(s => s.id === localSnapId ? { ...s, imageUri: publicUrl } : s)
+      );
+    } catch (e: any) {
+      Alert.alert('Beklenmeyen Hata', e?.message ?? 'Snap kaydedilemedi.');
+    }
+  }, []);
+
   const handleConfirmPhoto = useCallback(async () => {
     if (!capturedPhotoUri) {
       Alert.alert('Hata', 'Fotoğraf bulunamadı.');
@@ -1206,7 +1663,7 @@ export default function SosyalScreen() {
     if (!profile?.userId) {
       Alert.alert(
         'Giriş Gerekiyor',
-        'Snap paylaşmak için ŞanlıSosyal hesabınla giriş yapman gerekiyor. Misafir olarak paylaşım yapamazsın.',
+        'Snap paylaşmak için ŞanlıSosyal hesabınla giriş yapman gerekiyor.',
         [{ text: 'Tamam', style: 'default' }]
       );
       return;
@@ -1224,33 +1681,7 @@ export default function SosyalScreen() {
     setCameraVisible(false);
 
     // Arka planda Supabase'e yükle
-    try {
-      const fileName = `${userId}/${Date.now()}.jpg`;
-      const response = await fetch(photoUri);
-      const blob = await response.blob();
-
-      const { error: uploadError } = await supabase.storage
-        .from('snaps')
-        .upload(fileName, blob, { contentType: 'image/jpeg', upsert: false });
-
-      if (uploadError) return;
-
-      const { data: urlData } = supabase.storage.from('snaps').getPublicUrl(fileName);
-      const publicUrl = urlData.publicUrl;
-
-      await supabase.from('social_posts').insert({
-        user_id: userId,
-        content: '',
-        image_url: publicUrl,
-      });
-
-      // Local snap'in URI'sini gerçek URL ile güncelle
-      setSnaps(prev =>
-        prev.map(s => s.id === localSnap.id ? { ...s, imageUri: publicUrl } : s)
-      );
-    } catch {
-      // Upload başarısız olsa bile local snap görünmeye devam eder
-    }
+    uploadSnapToSupabase(photoUri, userId, localSnap.id);
   }, [capturedPhotoUri, createLocalSnap, profile?.userId]);
 
   const handleRetakePhoto = useCallback(() => {
@@ -1322,6 +1753,73 @@ export default function SosyalScreen() {
       Alert.alert('Hata', e.message || 'Bir hata oluştu.');
     }
   }, [friendPhone, currentUserId]);
+
+  const handleQrScanned = useCallback(async ({ data: qrData }: { data: string }) => {
+    if (qrScanned) return;
+    setQrScanned(true);
+
+    // QR format: sanligencsosyal://add/<username>
+    const match = qrData.match(/sanligencsosyal:\/\/add\/(.+)/);
+    if (!match) {
+      Alert.alert('Geçersiz QR', 'Bu QR kodu ŞanlıSosyal\'e ait değil.', [
+        { text: 'Tekrar Dene', onPress: () => setQrScanned(false) },
+        { text: 'Kapat', onPress: () => { setQrScanVisible(false); setQrScanned(false); } },
+      ]);
+      return;
+    }
+
+    const scannedUsername = match[1].toLowerCase();
+    setQrScanVisible(false);
+
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('user_id, name, username')
+        .ilike('username', scannedUsername)
+        .single();
+
+      if (error || !data) {
+        Alert.alert('Bulunamadı', 'Bu QR koduna ait kullanıcı bulunamadı.');
+        setQrScanned(false);
+        return;
+      }
+
+      if (!currentUserId) { setQrScanned(false); return; }
+      if (data.user_id === currentUserId) {
+        Alert.alert('Bu senin QR kodun!', 'Kendi QR kodunu okutamazsın.');
+        setQrScanned(false);
+        return;
+      }
+
+      const { data: existing } = await supabase
+        .from('friendships')
+        .select('id, status')
+        .or(`and(sender_id.eq.${currentUserId},receiver_id.eq.${data.user_id}),and(sender_id.eq.${data.user_id},receiver_id.eq.${currentUserId})`)
+        .maybeSingle();
+
+      if (existing) {
+        if (existing.status === 'accepted') {
+          Alert.alert('Zaten Arkadaşsınız', `@${data.username} ile zaten arkadaşsınız.`);
+        } else {
+          Alert.alert('İstek Mevcut', `@${data.username} kullanıcısına zaten istek gönderilmiş.`);
+        }
+        setQrScanned(false);
+        return;
+      }
+
+      const { error: insertError } = await supabase
+        .from('friendships')
+        .insert({ sender_id: currentUserId, receiver_id: data.user_id, status: 'pending' });
+
+      if (insertError) throw insertError;
+
+      Alert.alert('İstek Gönderildi! 🎉', `@${data.username} kullanıcısına arkadaşlık isteği gönderildi.`);
+    } catch (e: any) {
+      Alert.alert('Hata', e.message || 'Bir hata oluştu.');
+    } finally {
+      setQrScanned(false);
+    }
+  }, [qrScanned, currentUserId]);
 
   const handleCloseSnapViewer = useCallback(() => {
     setSelectedSnap(null);
@@ -1419,6 +1917,7 @@ export default function SosyalScreen() {
             formatMsgTime={formatMsgTime}
             incomingRequests={incomingRequests}
             onShowRequests={() => setRequestsModalVisible(true)}
+            onDeleteConversation={handleDeleteConversation}
             onNavigateChat={(userId, userName, userAvatar, username) =>
               navigation.navigate('Chat', { userId, userName })
             }
@@ -1701,10 +2200,39 @@ export default function SosyalScreen() {
                 <Text style={styles.modalCloseText}>Kapat</Text>
               </TouchableOpacity>
             </View>
-            <View style={[styles.friendQrBox, { backgroundColor: isDark ? '#f8fafc0f' : '#f8fafc', borderColor: theme.border }]}>
-              <Plus color={isDark ? AMBER.warm : '#60a5fa'} size={34} strokeWidth={2} />
-              <Text style={[styles.friendQrCode, { color: theme.text }]}>QR Kod</Text>
-              <Text style={[styles.friendQrSub, { color: theme.textSub }]}>Arkadaşınla kapalı çevre kur</Text>
+            {/* QR butonları — yan yana */}
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {/* QR Göster */}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => { setFriendModalVisible(false); setQrModalVisible(true); }}
+                style={[styles.friendQrBox, { flex: 1, backgroundColor: isDark ? '#f8fafc0f' : '#f8fafc', borderColor: theme.border }]}
+              >
+                <LinearGradient
+                  colors={isDark ? [AMBER.vivid, '#d97706'] : ['#60a5fa', '#a78bfa']}
+                  style={{ width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <QrCode color="#fff" size={22} strokeWidth={2} />
+                </LinearGradient>
+                <Text style={[styles.friendQrCode, { color: theme.text, fontSize: 13 }]}>QR Göster</Text>
+                <Text style={[styles.friendQrSub, { color: theme.textSub }]}>Arkadaşına tarat</Text>
+              </TouchableOpacity>
+
+              {/* QR Okut */}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => { setFriendModalVisible(false); setQrScanned(false); setQrScanVisible(true); }}
+                style={[styles.friendQrBox, { flex: 1, backgroundColor: isDark ? '#f8fafc0f' : '#f8fafc', borderColor: theme.border }]}
+              >
+                <LinearGradient
+                  colors={isDark ? ['#10b981', '#059669'] : ['#a78bfa', '#7c3aed']}
+                  style={{ width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Camera color="#fff" size={22} strokeWidth={2} />
+                </LinearGradient>
+                <Text style={[styles.friendQrCode, { color: theme.text, fontSize: 13 }]}>QR Okut</Text>
+                <Text style={[styles.friendQrSub, { color: theme.textSub }]}>Arkadaşından tara</Text>
+              </TouchableOpacity>
             </View>
             <TextInput
               value={friendPhone}
@@ -1769,6 +2297,131 @@ export default function SosyalScreen() {
                 </View>
               ))}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* QR Kod Modalı */}
+      <Modal visible={qrModalVisible} animationType="fade" transparent onRequestClose={() => setQrModalVisible(false)}>
+        <View style={styles.friendModalBackdrop}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setQrModalVisible(false)} />
+          <View style={[styles.friendModalCard, { backgroundColor: theme.surfaceHi, borderColor: theme.border, alignItems: 'center', paddingBottom: 28 }]}>
+            {/* Başlık */}
+            <View style={[styles.friendModalHeader, { width: '100%' }]}>
+              <Text style={[styles.friendModalTitle, { color: theme.text }]}>QR Kodum</Text>
+              <TouchableOpacity onPress={() => setQrModalVisible(false)} style={styles.modalCloseBtn} activeOpacity={0.8}>
+                <Text style={styles.modalCloseText}>Kapat</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* QR Kodu */}
+            <View style={{
+              backgroundColor: '#fff',
+              borderRadius: 20,
+              padding: 20,
+              marginVertical: 20,
+              shadowColor: '#000',
+              shadowOpacity: 0.12,
+              shadowRadius: 16,
+              shadowOffset: { width: 0, height: 4 },
+              elevation: 6,
+            }}>
+              <QRCode
+                value={`sanligencsosyal://add/${profile?.username || profile?.name || 'kullanici'}`}
+                size={200}
+                color="#0f172a"
+                backgroundColor="#ffffff"
+              />
+            </View>
+
+            {/* Kullanıcı adı */}
+            <View style={{ alignItems: 'center', gap: 4 }}>
+              <Text style={{ fontSize: 22, fontWeight: '800', color: theme.text, letterSpacing: 0.3 }}>
+                {profile?.name || 'İsimsiz'}
+              </Text>
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: isDark ? 'rgba(245,158,11,0.15)' : 'rgba(96,165,250,0.12)',
+                borderRadius: 20,
+                paddingHorizontal: 14,
+                paddingVertical: 6,
+                marginTop: 4,
+              }}>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: isDark ? AMBER.warm : '#60a5fa' }}>
+                  @{profile?.username || 'kullanici'}
+                </Text>
+              </View>
+              <Text style={{ fontSize: 13, color: theme.textSub, marginTop: 10, textAlign: 'center' }}>
+                Bu kodu arkadaşına tarat — seni otomatik eklesin
+              </Text>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* QR Tarama Modalı — Tam Ekran Kamera */}
+      <Modal visible={qrScanVisible} animationType="slide" onRequestClose={() => { setQrScanVisible(false); setQrScanned(false); }} statusBarTranslucent>
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          {cameraPermission?.granted ? (
+            <CameraView
+              style={StyleSheet.absoluteFill}
+              facing="back"
+              barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+              onBarcodeScanned={qrScanned ? undefined : handleQrScanned}
+            />
+          ) : (
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+              <QrCode color="#f59e0b" size={52} strokeWidth={1.5} />
+              <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700' }}>Kamera izni gerekiyor</Text>
+              <TouchableOpacity onPress={requestCameraPermission} style={{ backgroundColor: '#f59e0b', borderRadius: 16, paddingHorizontal: 24, paddingVertical: 12 }}>
+                <Text style={{ color: '#000', fontWeight: '700' }}>İzin Ver</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Tarama çerçevesi */}
+          <View style={{ ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' }} pointerEvents="none">
+            {/* Karartma — üst */}
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '25%', backgroundColor: 'rgba(0,0,0,0.6)' }} />
+            {/* Karartma — alt */}
+            <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '30%', backgroundColor: 'rgba(0,0,0,0.6)' }} />
+            {/* Karartma — sol */}
+            <View style={{ position: 'absolute', top: '25%', left: 0, width: '10%', height: '45%', backgroundColor: 'rgba(0,0,0,0.6)' }} />
+            {/* Karartma — sağ */}
+            <View style={{ position: 'absolute', top: '25%', right: 0, width: '10%', height: '45%', backgroundColor: 'rgba(0,0,0,0.6)' }} />
+
+            {/* Köşe çerçeveleri */}
+            {[
+              { top: '25%', left: '10%', borderTopWidth: 3, borderLeftWidth: 3 },
+              { top: '25%', right: '10%', borderTopWidth: 3, borderRightWidth: 3 },
+              { bottom: '30%', left: '10%', borderBottomWidth: 3, borderLeftWidth: 3 },
+              { bottom: '30%', right: '10%', borderBottomWidth: 3, borderRightWidth: 3 },
+            ].map((corner, i) => (
+              <View key={i} style={[{ position: 'absolute', width: 28, height: 28, borderColor: '#f59e0b' } as const, corner as any]} />
+            ))}
+          </View>
+
+          {/* Üst bar */}
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20, paddingTop: insets.top + 8, paddingHorizontal: 16, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <TouchableOpacity
+              onPress={() => { setQrScanVisible(false); setQrScanned(false); }}
+              style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' }}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <XIcon color="#fff" size={24} strokeWidth={2} />
+            </TouchableOpacity>
+            <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 }}>
+              QR Kodu Tara
+            </Text>
+            <View style={{ width: 44 }} />
+          </View>
+
+          {/* Alt açıklama */}
+          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 20, paddingBottom: insets.bottom + 32, alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)', paddingTop: 20 }}>
+            <QrCode color="#f59e0b" size={28} strokeWidth={1.8} />
+            <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600', marginTop: 10 }}>Arkadaşının QR kodunu çerçeveye getir</Text>
+            <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 13, marginTop: 4 }}>Otomatik tanınır ve istek gönderilir</Text>
           </View>
         </View>
       </Modal>
@@ -1966,6 +2619,7 @@ const styles = StyleSheet.create({
   feedContent: {
     paddingHorizontal: 16,
     paddingBottom: 120,
+    gap: 12,
   },
   feedRow: {
     justifyContent: 'space-between',
@@ -1988,8 +2642,7 @@ const styles = StyleSheet.create({
 
   // Snap Card
   snapCardOuter: {
-    width: (SCREEN_W - 42) / 2,
-    marginBottom: 10,
+    width: '100%',
     borderRadius: 20,
     overflow: 'hidden',
   },
@@ -2019,7 +2672,7 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   snapImageContainer: {
-    height: (SCREEN_W - 42) / 2 * 1.25,
+    height: SCREEN_W * 0.75,
     backgroundColor: '#1a1f2e',
     overflow: 'hidden',
   },

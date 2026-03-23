@@ -80,15 +80,16 @@ const ChatScreen = () => {
           return;
         }
 
-        // Arkadaşlık kontrolü
-        const { data: friendship } = await supabase
+        // Arkadaşlık kontrolü — her iki yönü de kontrol et
+        const { data: friendships } = await supabase
           .from('friendships')
           .select('id, status')
           .eq('status', 'accepted')
-          .or(`and(sender_id.eq.${user.id},receiver_id.eq.${params.userId}),and(sender_id.eq.${params.userId},receiver_id.eq.${user.id})`)
-          .single();
+          .or(`and(sender_id.eq.${user.id},receiver_id.eq.${params.userId}),and(sender_id.eq.${params.userId},receiver_id.eq.${user.id})`);
 
-        if (!friendship) {
+        const isFriend = friendships && friendships.length > 0;
+
+        if (!isFriend) {
           Alert.alert(
             'Arkadaş Değilsiniz',
             'Mesajlaşmak için önce arkadaşlık isteği gönderip kabul ettirmeniz gerekiyor.',
@@ -160,8 +161,9 @@ const ChatScreen = () => {
       });
       if (error) throw error;
       setConversationId(data);
-    } catch {
-      Alert.alert('Hata', 'Sohbet başlatılamadı. Lütfen tekrar deneyin.');
+    } catch (err: any) {
+      const detail = err?.message || err?.details || JSON.stringify(err) || 'Bilinmeyen hata';
+      Alert.alert('Sohbet Başlatılamadı', detail);
       navigation.goBack();
     }
   };
@@ -222,8 +224,9 @@ const ChatScreen = () => {
         });
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 200);
-    } catch {
-      Alert.alert('Hata', 'Mesaj gönderilemedi. Lütfen tekrar deneyin.');
+    } catch (err: any) {
+      const detail = err?.message || err?.details || JSON.stringify(err) || 'Bilinmeyen hata';
+      Alert.alert('Mesaj Gönderilemedi', detail);
       setNewMessage(messageContent);
     } finally {
       setSending(false);
@@ -313,10 +316,38 @@ const ChatScreen = () => {
     }
   };
 
+  const handleDeleteMessage = (item: Message) => {
+    const isMe = item.sender_id === currentUserId;
+    if (!isMe) return; // Sadece kendi mesajlarını silebilir
+
+    Alert.alert(
+      'Mesajı Sil',
+      'Bu mesajı silmek istediğine emin misin?',
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await supabase
+              .from('messages')
+              .delete()
+              .eq('id', item.id);
+            if (error) {
+              Alert.alert('Hata', 'Mesaj silinemedi.');
+            } else {
+              setMessages(prev => prev.filter(m => m.id !== item.id));
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const renderMessage = ({ item }: { item: Message }) => {
     const isMe = item.sender_id === currentUserId;
     const isSnap = item.is_snap && item.image_url;
-    
+
     // Snap için özel görünüm
     if (isSnap) {
       const isOpened = !!item.snap_opened_at;
@@ -334,17 +365,14 @@ const ChatScreen = () => {
           <TouchableOpacity
             style={[styles.snapBubble, isMe ? styles.mySnapBubble : styles.theirSnapBubble]}
             onPress={() => handleSnapPress(item)}
+            onLongPress={() => handleDeleteMessage(item)}
+            delayLongPress={400}
             disabled={!canView}
           >
             <View style={styles.snapContent}>
-              <Camera 
-                color={isMe ? SnapColors.white : SnapColors.blue} 
-                size={20} 
-              />
+              <Camera color={isMe ? SnapColors.white : SnapColors.blue} size={20} />
               <Text style={[styles.snapText, isMe ? styles.mySnapText : styles.theirSnapText]}>
-                {isExpired ? '🔒 Snap süresi doldu' : 
-                 isOpened && !isMe ? '👁 Açıldı' : 
-                 'Snap'}
+                {isExpired ? '🔒 Süre doldu' : isOpened && !isMe ? '👁 Açıldı' : 'Snap'}
               </Text>
             </View>
             <Text style={[styles.messageTime, isMe ? styles.myMessageTime : styles.theirMessageTime]}>
@@ -364,14 +392,19 @@ const ChatScreen = () => {
             style={styles.messageAvatar}
           />
         )}
-        <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.theirBubble]}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onLongPress={() => handleDeleteMessage(item)}
+          delayLongPress={400}
+          style={[styles.messageBubble, isMe ? styles.myBubble : styles.theirBubble]}
+        >
           <Text style={[styles.messageText, isMe ? styles.myMessageText : styles.theirMessageText]}>
             {item.content}
           </Text>
           <Text style={[styles.messageTime, isMe ? styles.myMessageTime : styles.theirMessageTime]}>
             {formatTime(item.created_at)}
           </Text>
-        </View>
+        </TouchableOpacity>
       </View>
     );
   };
