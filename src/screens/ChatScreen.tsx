@@ -19,6 +19,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
 import { supabase, processImageUrl } from '@/lib/supabase';
+import { notify } from '@/lib/notifications';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
 // Snapchat Renk Paleti
@@ -216,6 +217,9 @@ const ChatScreen = () => {
 
       if (error) throw error;
 
+      // Alıcıya push bildirim gönder (arka planda, hata olsa devam et)
+      notify.newMessage(params.userId, params.userName, messageContent, conversationId).catch(() => {});
+
       // Realtime subscription mesajı ekleyecek, fallback olarak da ekle
       setTimeout(() => {
         setMessages((prev) => {
@@ -243,7 +247,7 @@ const ChatScreen = () => {
   const handleCameraPress = async () => {
     const perm = cameraPermission ?? await requestCameraPermission();
     if (!perm?.granted) {
-      Alert.alert('Kamera İzni', 'Snap çekebilmek için kamera iznine ihtiyaç var.');
+      Alert.alert('Kamera İzni', 'Kıvılcım çekebilmek için kamera iznine ihtiyaç var.');
       return;
     }
     setCapturedPhoto(null);
@@ -291,7 +295,7 @@ const ChatScreen = () => {
     if (message.snap_expires_at) {
       const expiresAt = new Date(message.snap_expires_at);
       if (now > expiresAt) {
-        Alert.alert('Snap Süresi Doldu', 'Bu snap artık görüntülenemiyor.');
+        Alert.alert('Kıvılcım Süresi Doldu', 'Bu kıvılcım artık görüntülenemiyor.');
         return;
       }
     }
@@ -372,7 +376,7 @@ const ChatScreen = () => {
             <View style={styles.snapContent}>
               <Camera color={isMe ? SnapColors.white : SnapColors.blue} size={20} />
               <Text style={[styles.snapText, isMe ? styles.mySnapText : styles.theirSnapText]}>
-                {isExpired ? '🔒 Süre doldu' : isOpened && !isMe ? '👁 Açıldı' : 'Snap'}
+                {isExpired ? '🔒 Süre doldu' : isOpened && !isMe ? '👁 Açıldı' : 'Kıvılcım'}
               </Text>
             </View>
             <Text style={[styles.messageTime, isMe ? styles.myMessageTime : styles.theirMessageTime]}>

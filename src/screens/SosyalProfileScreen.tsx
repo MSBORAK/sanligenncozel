@@ -11,6 +11,7 @@ import {
   RefreshControl,
   Modal,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,7 +22,8 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
 import { useThemeMode } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
-import { supabase, processImageUrl } from '@/lib/supabase';
+import { supabase, processImageUrl, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase';
+import * as ImagePicker from 'expo-image-picker';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -176,13 +178,14 @@ const SosyalProfileScreen = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const { mode } = useThemeMode();
   const isDark = mode === 'dark';
-  const { profile } = useUser();
+  const { profile, refreshProfile } = useUser();
   const theme = isDark ? DARK : LIGHT;
 
   const [friends, setFriends] = useState<FriendEntry[]>([]);
   const [snapCount, setSnapCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   // Arkadaş profil modalı
   const [selectedFriend, setSelectedFriend] = useState<FriendEntry | null>(null);
@@ -213,6 +216,103 @@ const SosyalProfileScreen = () => {
       setFriendStatsLoading(false);
     }
   }, []);
+
+  const handleAvatarPress = useCallback(() => {
+    Alert.alert('Profil Fotoğrafı', 'Nasıl yüklemek istersin?', [
+      {
+        text: 'Galeriden Seç',
+        onPress: () => pickAvatar('gallery'),
+      },
+      {
+        text: 'Kamera ile Çek',
+        onPress: () => pickAvatar('camera'),
+      },
+      { text: 'İptal', style: 'cancel' },
+    ]);
+  }, []);
+
+  const pickAvatar = useCallback(async (source: 'gallery' | 'camera') => {
+    if (!profile?.userId) return;
+
+    let result;
+    if (source === 'camera') {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('İzin Gerekli', 'Kamera erişimine izin ver.');
+        return;
+      }
+      result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+    } else {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('İzin Gerekli', 'Galeri erişimine izin ver.');
+        return;
+      }
+      result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+    }
+
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+
+    const uri = result.assets[0].uri;
+    setAvatarUploading(true);
+    try {
+      // Auth token al
+      const { data: { session } } = await supabase.auth.getSession();
+      const authToken = session?.access_token;
+      if (!authToken) throw new Error('Oturum bulunamadı');
+
+      // Dosyayı yükle
+      const fileName = `avatars/${profile.userId}_${Date.now()}.jpg`;
+      const uploadUrl = `${SUPABASE_URL}/storage/v1/object/snaps/${fileName}`;
+
+      const fetchResp = await fetch(uri);
+      const blob = await fetchResp.blob();
+
+      const uploadResp = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'apikey': SUPABASE_ANON_KEY,
+          'Content-Type': 'image/jpeg',
+          'x-upsert': 'true',
+        },
+        body: blob,
+      });
+
+      if (!uploadResp.ok) {
+        const errText = await uploadResp.text();
+        throw new Error(`Yükleme hatası: ${errText}`);
+      }
+
+      // Public URL al
+      const { data: urlData } = supabase.storage.from('snaps').getPublicUrl(fileName);
+      const publicUrl = urlData.publicUrl;
+
+      // user_profiles tablosunu güncelle
+      await supabase
+        .from('user_profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('user_id', profile.userId);
+
+      // UserContext'i yenile
+      await refreshProfile();
+      Alert.alert('Başarılı', 'Profil fotoğrafın güncellendi!');
+    } catch (e: any) {
+      Alert.alert('Hata', e.message || 'Fotoğraf yüklenemedi.');
+    } finally {
+      setAvatarUploading(false);
+    }
+  }, [profile?.userId, refreshProfile]);
 
   const fetchData = useCallback(async () => {
     if (!profile?.userId) return;
@@ -338,24 +438,39 @@ const SosyalProfileScreen = () => {
               },
             ]}
           >
-            {/* Avatar */}
-            <View style={[styles.avatarCircle, { borderColor: isDark ? AMBER.vivid : LIGHT.accent }]}>
-              {profile?.avatarUrl ? (
-                <Image
-                  source={{ uri: processImageUrl(profile.avatarUrl) ?? undefined }}
-                  style={styles.avatarImg}
-                />
-              ) : (
-                <LinearGradient
-                  colors={isDark ? ['#f59e0b', '#d97706'] : ['#60a5fa', '#3b82f6']}
-                  style={styles.avatarGradient}
-                >
-                  <Text style={styles.avatarInitial}>
-                    {profile?.name?.charAt(0).toUpperCase() ?? 'S'}
-                  </Text>
-                </LinearGradient>
-              )}
-            </View>
+            {/* Avatar — tıklanabilir */}
+            <TouchableOpacity
+              activeOpacity={0.82}
+              onPress={handleAvatarPress}
+              style={{ marginBottom: 14 }}
+              disabled={avatarUploading}
+            >
+              <View style={[styles.avatarCircle, { borderColor: isDark ? AMBER.vivid : LIGHT.accent, marginBottom: 0 }]}>
+                {avatarUploading ? (
+                  <View style={[styles.avatarGradient, { backgroundColor: isDark ? '#1e293b' : '#e2e8f0' }]}>
+                    <ActivityIndicator color={isDark ? AMBER.warm : LIGHT.accent} />
+                  </View>
+                ) : profile?.avatarUrl ? (
+                  <Image
+                    source={{ uri: processImageUrl(profile.avatarUrl) ?? undefined }}
+                    style={styles.avatarImg}
+                  />
+                ) : (
+                  <LinearGradient
+                    colors={isDark ? ['#f59e0b', '#d97706'] : ['#60a5fa', '#3b82f6']}
+                    style={styles.avatarGradient}
+                  >
+                    <Text style={styles.avatarInitial}>
+                      {profile?.name?.charAt(0).toUpperCase() ?? 'S'}
+                    </Text>
+                  </LinearGradient>
+                )}
+              </View>
+              {/* Kamera ikonu rozeti */}
+              <View style={[styles.avatarCameraBtn, { backgroundColor: isDark ? AMBER.vivid : LIGHT.accent }]}>
+                <Camera size={12} color="#fff" strokeWidth={2.5} />
+              </View>
+            </TouchableOpacity>
 
             <Text style={[styles.profileName, { color: theme.text }]}>
               {profile?.name ?? 'Kullanıcı'}
@@ -380,7 +495,7 @@ const SosyalProfileScreen = () => {
                 <BentoCard
                   icon={<Camera size={20} color={isDark ? AMBER.warm : LIGHT.accent} strokeWidth={2} />}
                   value={snapCount}
-                  label="Toplam Snap"
+                  label="Kıvılcım"
                   isDark={isDark}
                 />
                 <View style={{ width: 10 }} />
@@ -503,7 +618,7 @@ const SosyalProfileScreen = () => {
                 <View style={[styles.sheetBentoCard, { backgroundColor: isDark ? DARK.surface : LIGHT.surface, borderColor: isDark ? DARK.border : LIGHT.border }]}>
                   <Camera size={18} color={accentColor} strokeWidth={2} />
                   <Text style={[styles.sheetBentoValue, { color: accentColor }]}>{friendSnapCount}</Text>
-                  <Text style={[styles.sheetBentoLabel, { color: isDark ? DARK.textSub : LIGHT.textSub }]}>Snap</Text>
+                  <Text style={[styles.sheetBentoLabel, { color: isDark ? DARK.textSub : LIGHT.textSub }]}>Kıvılcım</Text>
                 </View>
                 <View style={[styles.sheetBentoCard, { backgroundColor: isDark ? DARK.surface : LIGHT.surface, borderColor: isDark ? DARK.border : LIGHT.border }]}>
                   <Users size={18} color={accentColor} strokeWidth={2} />
@@ -598,7 +713,18 @@ const styles = StyleSheet.create({
     borderRadius: 42,
     borderWidth: 2.5,
     overflow: 'hidden',
-    marginBottom: 14,
+  },
+  avatarCameraBtn: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
   },
   avatarImg: { width: '100%', height: '100%' },
   avatarGradient: {

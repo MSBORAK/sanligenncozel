@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { registerForPushNotificationsAsync } from '@/lib/notifications';
 
 interface UserProfile {
   userId: string;
@@ -34,13 +35,17 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         .eq('user_id', user.id)
         .single();
 
-      setProfile({
+      const profile: UserProfile = {
         userId: user.id,
         name: data?.name || user.email?.split('@')[0] || 'Kullanıcı',
         username: data?.username || '',
         email: user.email || '',
         avatarUrl: data?.avatar_url,
-      });
+      };
+      setProfile(profile);
+
+      // Push token'ı arka planda kaydet (hata olsa da devam et)
+      registerForPushNotificationsAsync(user.id).catch(() => {});
     } catch {
       setProfile(null);
     } finally {

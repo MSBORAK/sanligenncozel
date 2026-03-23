@@ -57,6 +57,7 @@ import { RootStackParamList } from '@/types/navigation';
 import { useThemeMode } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
 import { supabase, processImageUrl, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase';
+import { notify } from '@/lib/notifications';
 
 // ─────────────────────────────────────────────
 // TYPES
@@ -458,7 +459,7 @@ function SnapGroupCard({ group, onPress, isDark }: { group: SnapGroup; onPress: 
         <View style={styles.snapUserInfo}>
           <Text style={[styles.snapUserName, { color: theme.text }]}>{group.userName}</Text>
           <Text style={[styles.snapLocationText, { color: theme.textSub }]}>
-            {group.snaps.length > 1 ? `${activeIdx + 1}/${group.snaps.length} snap` : '@' + group.username}
+            {group.snaps.length > 1 ? `${activeIdx + 1}/${group.snaps.length} kıvılcım` : '@' + group.username}
           </Text>
         </View>
       </View>
@@ -746,7 +747,7 @@ function FeedEmpty({ isDark, onAddFriendPress }: { isDark: boolean; onAddFriendP
   return (
     <View style={styles.emptyContainer}>
       <Users color={isDark ? AMBER.text : LIGHT.accent} size={40} strokeWidth={1.5} />
-      <Text style={[styles.emptyTitle, { color: theme.text }]}>Henüz snap yok</Text>
+      <Text style={[styles.emptyTitle, { color: theme.text }]}>Henüz kıvılcım yok</Text>
       <Text style={[styles.emptySub, { color: theme.textSub }]}>
         Arkadaşlarını ekle ve anlık paylaşımlarını gör.
       </Text>
@@ -1150,6 +1151,8 @@ export default function SosyalScreen() {
   const [qrScanVisible, setQrScanVisible] = useState(false);
   const [qrScanned, setQrScanned] = useState(false);
   const [selectedSnap, setSelectedSnap] = useState<SnapPost | null>(null);
+  const [snapReplyText, setSnapReplyText] = useState('');
+  const [snapReplySending, setSnapReplySending] = useState(false);
   const [capturedPhotoUri, setCapturedPhotoUri] = useState<string | null>(null);
   const [friendPhone, setFriendPhone] = useState('');
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -1192,6 +1195,8 @@ export default function SosyalScreen() {
   const [requestsModalVisible, setRequestsModalVisible] = useState(false);
   const [friends, setFriends] = useState<UserProfile[]>([]);
   const [friendCount, setFriendCount] = useState(0);
+  // Snap bildirimlerinde arkadaş listesine erişmek için ref
+  const friendsRef = useRef<UserProfile[]>([]);
 
   useEffect(() => {
     const timer = setInterval(() => setClockTick(t => t + 1), 60000);
@@ -1302,6 +1307,7 @@ export default function SosyalScreen() {
         .in('user_id', friendIds);
       if (profiles) {
         setFriends(profiles);
+        friendsRef.current = profiles;
         // Arkadaşların snap'lerini de çek
         await fetchFriendSnaps([userId, ...friendIds]);
       }
@@ -1318,7 +1324,7 @@ export default function SosyalScreen() {
       // Snap'leri çek — son 4 saatte oluşturulmuş, image_url'i olan
       const { data: posts, error } = await supabase
         .from('social_posts')
-        .select('id, user_id, image_url, created_at, expires_at')
+        .select('id, user_id, image_url, content, latitude, longitude, created_at, expires_at')
         .in('user_id', userIds)
         .not('image_url', 'is', null)
         .neq('image_url', '')
@@ -1360,7 +1366,11 @@ export default function SosyalScreen() {
             avatarColor: '#f59e0b',
           },
           imageUri: post.image_url ?? '',
-          location: { lat: 37.1591, lng: 38.7969, label: 'Şanlıurfa' },
+          location: {
+            lat: post.latitude ?? 37.1591,
+            lng: post.longitude ?? 38.7969,
+            label: post.content || 'Şanlıurfa',
+          },
           created_at: createdAt,
           expires_at: expiresAt,
           seen: false,
@@ -1388,10 +1398,14 @@ export default function SosyalScreen() {
         user2_id: senderId,
       });
 
+      // Gönderene "isteğin kabul edildi" bildirimi gönder
+      const myName = profile?.name || profile?.username || 'Biri';
+      notify.friendAccepted(senderId, myName).catch(() => {});
+
       await fetchIncomingRequests(currentUserId);
       await fetchConversations(currentUserId);
       await fetchFriends(currentUserId);
-      Alert.alert('Arkadaş Eklendi! 🎉', 'Artık mesajlaşabilir ve snap atabilirsiniz.');
+      Alert.alert('Arkadaş Eklendi! 🎉', 'Artık mesajlaşabilir ve anlık görüntü atabilirsiniz.');
     } catch (e: any) {
       Alert.alert('Hata', e.message);
     }
@@ -1621,12 +1635,19 @@ export default function SosyalScreen() {
       // 4. Konum al (sessizce, hata olursa varsayılan)
       let latitude: number = 37.1591 + (Math.random() - 0.5) * 0.04;
       let longitude: number = 38.7969 + (Math.random() - 0.5) * 0.04;
+      let locationLabel = 'Şanlıurfa';
       try {
         const locPerm = await Location.getForegroundPermissionsAsync();
         if (locPerm.status === 'granted') {
           const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
           latitude = loc.coords.latitude;
           longitude = loc.coords.longitude;
+          // Koordinatları mahalle/ilçe adına çevir
+          const [geo] = await Location.reverseGeocodeAsync({ latitude, longitude });
+          if (geo) {
+            const parts = [geo.district || geo.subregion, geo.city || geo.region].filter(Boolean);
+            locationLabel = parts.join(', ') || 'Şanlıurfa';
+          }
         }
       } catch { /* konum alınamazsa varsayılan kullan */ }
 
@@ -1634,7 +1655,7 @@ export default function SosyalScreen() {
       const expiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
       const { error: insertError } = await supabase.from('social_posts').insert({
         user_id: userId,
-        content: '',
+        content: locationLabel,
         image_url: publicUrl,
         latitude,
         longitude,
@@ -1650,10 +1671,17 @@ export default function SosyalScreen() {
       setSnaps(prev =>
         prev.map(s => s.id === localSnapId ? { ...s, imageUri: publicUrl } : s)
       );
+
+      // 7. Arkadaşlara bildirim gönder (arka planda)
+      const myName = profile?.name || profile?.username || 'Biri';
+      const currentFriends = friendsRef.current;
+      currentFriends.forEach(friend => {
+        notify.newSnap(friend.user_id, myName).catch(() => {});
+      });
     } catch (e: any) {
-      Alert.alert('Beklenmeyen Hata', e?.message ?? 'Snap kaydedilemedi.');
+      Alert.alert('Beklenmeyen Hata', e?.message ?? 'Kıvılcım kaydedilemedi.');
     }
-  }, []);
+  }, [profile]);
 
   const handleConfirmPhoto = useCallback(async () => {
     if (!capturedPhotoUri) {
@@ -1663,7 +1691,7 @@ export default function SosyalScreen() {
     if (!profile?.userId) {
       Alert.alert(
         'Giriş Gerekiyor',
-        'Snap paylaşmak için ŞanlıSosyal hesabınla giriş yapman gerekiyor.',
+        'Kıvılcım paylaşmak için ŞanlıSosyal hesabınla giriş yapman gerekiyor.',
         [{ text: 'Tamam', style: 'default' }]
       );
       return;
@@ -1688,10 +1716,17 @@ export default function SosyalScreen() {
     setCapturedPhotoUri(null);
   }, []);
 
+  // Snap'in Supabase ID'sini tutmak için ref (kapanışta silmek için)
+  const viewingSnapDbId = useRef<string | null>(null);
+
   const handleSnapPress = useCallback((snap: SnapPost) => {
     setSnaps(prev => prev.map(item => (item.id === snap.id ? { ...item, seen: true } : item)));
     setSelectedSnap(snap);
-  }, []);
+    // Snap'in gerçek DB id'sini sakla (kendi snap'lerimizi silmiyoruz)
+    if (snap.user.id !== currentUserId) {
+      viewingSnapDbId.current = snap.id;
+    }
+  }, [currentUserId]);
 
   const handleAddFriendPress = useCallback(() => {
     setFriendModalVisible(true);
@@ -1745,6 +1780,10 @@ export default function SosyalScreen() {
         .insert({ sender_id: currentUserId, receiver_id: data.user_id, status: 'pending' });
 
       if (insertError) throw insertError;
+
+      // Alıcıya bildirim gönder
+      const myName = profile?.name || profile?.username || 'Biri';
+      notify.friendRequest(data.user_id, myName).catch(() => {});
 
       setFriendPhone('');
       setFriendModalVisible(false);
@@ -1813,17 +1852,69 @@ export default function SosyalScreen() {
 
       if (insertError) throw insertError;
 
+      // Alıcıya bildirim gönder
+      const myName = profile?.name || profile?.username || 'Biri';
+      notify.friendRequest(data.user_id, myName).catch(() => {});
+
       Alert.alert('İstek Gönderildi! 🎉', `@${data.username} kullanıcısına arkadaşlık isteği gönderildi.`);
     } catch (e: any) {
       Alert.alert('Hata', e.message || 'Bir hata oluştu.');
     } finally {
       setQrScanned(false);
     }
-  }, [qrScanned, currentUserId]);
+  }, [qrScanned, currentUserId, profile]);
 
   const handleCloseSnapViewer = useCallback(() => {
+    const snapId = viewingSnapDbId.current;
+    viewingSnapDbId.current = null;
     setSelectedSnap(null);
-  }, []);
+
+    if (snapId && currentUserId) {
+      // Görüntülendi olarak işaretle ve feed'den kaldır
+      (async () => {
+        try {
+          await supabase.rpc('mark_snap_viewed', {
+            snap_id: snapId,
+            viewer_id: currentUserId,
+          });
+        } catch { /* sessiz */ }
+        // Her durumda feed'den kaldır
+        setSnaps(prev => prev.filter(s => s.id !== snapId));
+      })();
+    }
+  }, [currentUserId]);
+
+  const handleSnapReply = useCallback(async (text: string) => {
+    if (!selectedSnap || !currentUserId || !text.trim()) return;
+    const recipientId = selectedSnap.user.id;
+    if (recipientId === currentUserId) return; // Kendi snap'ine yanıt yok
+
+    setSnapReplySending(true);
+    try {
+      // Konuşmayı bul veya oluştur
+      const { data: convData } = await supabase.rpc('get_or_create_conversation', {
+        user1_id: currentUserId,
+        user2_id: recipientId,
+      });
+      const convId = convData;
+      if (!convId) throw new Error('Konuşma oluşturulamadı');
+
+      // Mesajı gönder
+      await supabase.from('messages').insert({
+        conversation_id: convId,
+        sender_id: currentUserId,
+        content: text.trim(),
+      });
+
+      setSnapReplyText('');
+      // Snap'i kapat
+      handleCloseSnapViewer();
+    } catch {
+      Alert.alert('Hata', 'Yanıt gönderilemedi.');
+    } finally {
+      setSnapReplySending(false);
+    }
+  }, [selectedSnap, currentUserId, handleCloseSnapViewer]);
 
   // Tab gösterge pill'inin konumu (2 tab: feed=0, messages=1)
   const tabWidth = (SCREEN_W - 48) / 2;
@@ -2054,7 +2145,7 @@ export default function SosyalScreen() {
 
               {/* Alt bar — Gönder */}
               <View style={[styles.snapCameraBottomBar, { paddingBottom: insets.bottom + 16, zIndex: 20 }]}>
-                <Text style={styles.snapCameraHint}>Paylaş ya da tekrar çek</Text>
+                <Text style={styles.snapCameraHint}>Kıvılcım at ya da tekrar çek</Text>
                 <View style={styles.snapCameraBottomRow}>
                   <TouchableOpacity
                     onPress={() => setCapturedPhotoUri(null)}
@@ -2069,7 +2160,7 @@ export default function SosyalScreen() {
                     activeOpacity={0.9}
                   >
                     <LinearGradient colors={['#f59e0b', '#d97706']} style={styles.snapCameraConfirmGrad}>
-                      <Text style={styles.snapCameraConfirmText}>Paylaş ✦</Text>
+                      <Text style={styles.snapCameraConfirmText}>Kıvılcım At ✦</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                 </View>
@@ -2134,7 +2225,7 @@ export default function SosyalScreen() {
                     activeOpacity={0.8}
                   >
                     <Users color="rgba(255,255,255,0.85)" size={26} strokeWidth={1.8} />
-                    <Text style={styles.snapCameraSideLbl}>Hikayeler</Text>
+                    <Text style={styles.snapCameraSideLbl}>Akış</Text>
                   </TouchableOpacity>
 
                   {/* Orta: Çekim butonu */}
@@ -2165,12 +2256,16 @@ export default function SosyalScreen() {
 
       {/* Snap Viewer */}
       <Modal visible={!!selectedSnap} animationType="fade" transparent onRequestClose={handleCloseSnapViewer}>
-        <View style={styles.snapViewerBackdrop}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.snapViewerBackdrop}
+        >
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={handleCloseSnapViewer} />
           {selectedSnap && (
             <View style={styles.snapViewerCard}>
               <Image source={{ uri: selectedSnap.imageUri }} style={styles.snapViewerImage} />
-              <LinearGradient colors={['transparent', 'rgba(6,12,26,0.9)']} style={StyleSheet.absoluteFill} />
+              <LinearGradient colors={['transparent', 'rgba(6,12,26,0.92)']} style={StyleSheet.absoluteFill} pointerEvents="none" />
+              {/* Üst bar */}
               <View style={styles.snapViewerTop}>
                 <View>
                   <Text style={styles.snapViewerName}>{selectedSnap.user.name}</Text>
@@ -2180,13 +2275,57 @@ export default function SosyalScreen() {
                   <Text style={styles.modalCloseText}>Kapat</Text>
                 </TouchableOpacity>
               </View>
+              {/* Alt alan — tepki + mesaj */}
               <View style={styles.snapViewerBottom}>
                 <Text style={styles.snapViewerTime}>{formatTimeLeft(selectedSnap)}</Text>
-                <Text style={styles.snapViewerNote}>Bu snap geçici. 4 saat sonra silinir.</Text>
+                {selectedSnap.user.id !== currentUserId && (
+                  <>
+                    {/* Hızlı emoji tepkileri */}
+                    <View style={styles.snapReactionRow}>
+                      {['❤️', '🔥', '😂', '😮', '👏'].map(emoji => (
+                        <TouchableOpacity
+                          key={emoji}
+                          style={styles.snapReactionBtn}
+                          activeOpacity={0.7}
+                          onPress={() => handleSnapReply(emoji)}
+                        >
+                          <Text style={{ fontSize: 26 }}>{emoji}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                    {/* Mesaj kutusu */}
+                    <View style={styles.snapReplyRow}>
+                      <TextInput
+                        style={styles.snapReplyInput}
+                        placeholder="Yanıt yaz..."
+                        placeholderTextColor="rgba(255,255,255,0.45)"
+                        value={snapReplyText}
+                        onChangeText={setSnapReplyText}
+                        returnKeyType="send"
+                        onSubmitEditing={() => handleSnapReply(snapReplyText)}
+                        editable={!snapReplySending}
+                      />
+                      <TouchableOpacity
+                        style={[styles.snapReplySendBtn, { opacity: snapReplyText.trim() ? 1 : 0.4 }]}
+                        activeOpacity={0.8}
+                        onPress={() => handleSnapReply(snapReplyText)}
+                        disabled={!snapReplyText.trim() || snapReplySending}
+                      >
+                        {snapReplySending
+                          ? <ActivityIndicator size="small" color="#fff" />
+                          : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Gönder</Text>
+                        }
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+                {selectedSnap.user.id === currentUserId && (
+                  <Text style={styles.snapViewerNote}>Kendi anlık görüntün — 4 saat sonra silinir.</Text>
+                )}
               </View>
             </View>
           )}
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Arkadaş Ekle Modalı */}
@@ -3274,6 +3413,44 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.8)',
     fontSize: 12,
     marginTop: 4,
+  },
+  snapReactionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  snapReactionBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  snapReplyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  snapReplyInput: {
+    flex: 1,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 16,
+    color: '#fff',
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  snapReplySendBtn: {
+    height: 44,
+    paddingHorizontal: 18,
+    borderRadius: 22,
+    backgroundColor: '#f59e0b',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   friendModalBackdrop: {
     flex: 1,
