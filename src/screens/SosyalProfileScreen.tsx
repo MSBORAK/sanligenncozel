@@ -39,7 +39,7 @@ const AMBER = {
 };
 
 const DARK = {
-  bg:       '#060c1a',
+  bg:       '#000000',
   surface:  'rgba(255,255,255,0.06)',
   border:   'rgba(255,255,255,0.10)',
   text:     '#f1f5f9',
@@ -457,7 +457,7 @@ const SosyalProfileScreen = () => {
                   />
                 ) : (
                   <LinearGradient
-                    colors={isDark ? ['#f59e0b', '#d97706'] : ['#60a5fa', '#3b82f6']}
+                    colors={isDark ? ['#0369a1', '#0ea5e9'] : ['#60a5fa', '#3b82f6']}
                     style={styles.avatarGradient}
                   >
                     <Text style={styles.avatarInitial}>
@@ -589,7 +589,7 @@ const SosyalProfileScreen = () => {
                 />
               ) : (
                 <LinearGradient
-                  colors={isDark ? ['#f59e0b', '#d97706'] : ['#60a5fa', '#3b82f6']}
+                  colors={isDark ? ['#0369a1', '#0ea5e9'] : ['#60a5fa', '#3b82f6']}
                   style={styles.sheetAvatarGradient}
                 >
                   <Text style={styles.sheetAvatarInitial}>
@@ -639,7 +639,7 @@ const SosyalProfileScreen = () => {
                 }}
               >
                 <LinearGradient
-                  colors={isDark ? ['#f59e0b', '#d97706'] : ['#60a5fa', '#818cf8']}
+                  colors={isDark ? ['#0369a1', '#38bdf8'] : ['#60a5fa', '#818cf8']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.sheetMsgGradient}

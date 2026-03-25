@@ -19,7 +19,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const value = useMemo(
     () => ({
       mode,
-      modeLabel: mode === 'dark' ? 'Amber Gece' : 'Gündüz',
+      modeLabel: mode === 'dark' ? 'Gece' : 'Gündüz',
       toggleTheme: () => {
         setMode(prev => (prev === 'light' ? 'dark' : 'light'));
       },

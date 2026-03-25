@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -45,10 +45,24 @@ const Stack = createStackNavigator<RootStackParamList>();
 const TAB_NAMES = ['Home', 'Transport', 'GencKart', 'Assistant', 'Profile'] as const;
 type TabName = typeof TAB_NAMES[number];
 
-const MainTabs = () => {
+const MainTabs = ({ route }: any) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const pagerRef = useRef<PagerView>(null);
   const isProgrammaticChangeRef = useRef(false);
+
+  // Stack'ten "Main" içine geçerken gelen { screen } parametresine göre
+  // PagerView sayfasını güncelle (örn. Home > "Tümünü Gör" => GencKart).
+  useEffect(() => {
+    const target = route?.params?.screen as TabName | undefined;
+    if (!target) return;
+
+    const idx = TAB_NAMES.indexOf(target);
+    if (idx < 0) return;
+
+    isProgrammaticChangeRef.current = true;
+    setActiveIndex(idx);
+    pagerRef.current?.setPage(idx);
+  }, [route?.params?.screen]);
 
   // PagerView'dan sayfa değiştiğinde güncelle (swipe tamamlandığında)
   const handlePageSelected = useCallback((e: any) => {

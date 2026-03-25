@@ -10,6 +10,7 @@
 
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { supabase } from './supabase';
 
@@ -55,8 +56,14 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
   }
 
   try {
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      Constants.easConfig?.projectId ??
+      undefined;
+    if (!projectId) return null;
+
     const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId: 'sanligenc', // EAS project ID yoksa slug kullanılır
+      projectId,
     });
     const token = tokenData.data;
 
@@ -98,8 +105,11 @@ export async function sendPushNotification(
     const token = profile?.push_token;
     if (!token || !token.startsWith('ExponentPushToken')) return;
 
-    // Expo Push API'ye gönder
-    await fetch('https://exp.host/--/api/v2/push/send', {
+    // Production'da mümkünse sunucu proxy'si kullanın (token gizliliği / güvenlik).
+    const proxyUrl = process.env.EXPO_PUBLIC_PUSH_PROXY_URL;
+    const endpoint = proxyUrl && proxyUrl.trim() !== '' ? proxyUrl : 'https://exp.host/--/api/v2/push/send';
+
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: {
         Accept: 'application/json',
@@ -115,6 +125,10 @@ export async function sendPushNotification(
         channelId: 'sosyal',
       }),
     });
+    if (!res.ok) {
+      // Sessiz devam: bildirim kritik akışı bloklamasın
+      return;
+    }
   } catch {
     // Bildirim gönderilemezse sessizce geç — kritik değil
   }

@@ -40,16 +40,25 @@ const CustomTabBar = ({ activeIndex, onTabPress, tabNames }: CustomTabBarProps) 
 
   const indicatorAnim = useRef(new Animated.Value(activeIndex * tabWidth)).current;
 
-  const TAB_COLORS: Record<TabName, string> = {
-    Home:      '#3b82f6', // mavi
-    Transport: '#f472b6', // pembe
-    GencKart:  '#f59e0b', // sarı
-    Assistant: '#10b981', // yeşil
-    Profile:   '#8b5cf6', // mor
+  const TAB_COLORS_LIGHT: Record<TabName, string> = {
+    Home:      '#3b82f6',
+    Transport: '#f472b6',
+    GencKart:  '#f59e0b',
+    Assistant: '#10b981',
+    Profile:   '#8b5cf6',
   };
+  /** Gece: turuncu amber yok — Genç Kart limon sarı, diğerleri biraz daha soft */
+  const TAB_COLORS_DARK: Record<TabName, string> = {
+    Home:      '#60a5fa',
+    Transport: '#f472b6',
+    GencKart:  '#fde047',
+    Assistant: '#34d399',
+    Profile:   '#a78bfa',
+  };
+  const tabColors = isDark ? TAB_COLORS_DARK : TAB_COLORS_LIGHT;
 
-  const activeColor = isDark ? Colors.primaryHex : TAB_COLORS[tabNames[activeIndex]];
-  const inactiveColor = isDark ? Colors.textHighlight : DribbbleColors.textSecondary;
+  const activeColor = tabColors[tabNames[activeIndex]];
+  const inactiveColor = isDark ? 'rgba(248, 250, 252, 0.42)' : DribbbleColors.textSecondary;
 
   useEffect(() => {
     Animated.spring(indicatorAnim, {
@@ -78,9 +87,7 @@ const CustomTabBar = ({ activeIndex, onTabPress, tabNames }: CustomTabBarProps) 
               }
             };
 
-            const iconColor = isFocused
-              ? (isDark ? Colors.primaryHex : TAB_COLORS[tabName])
-              : inactiveColor;
+            const iconColor = isFocused ? tabColors[tabName] : inactiveColor;
 
             return (
               <AnimatedPressable

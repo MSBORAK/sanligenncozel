@@ -1,15 +1,28 @@
 import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
 import { Library, MapPin, Clock, Navigation } from 'lucide-react-native';
-import { Colors, Gradients, DribbbleColors } from '@/constants/Colors';
+import { Colors, DribbbleColors } from '@/constants/Colors';
 import { MOCK_LIBRARIES, Library as LibraryType } from '@/api/mockData';
 import { useThemeMode } from '@/context/ThemeContext';
+
+/** Kütüphane ekranı — tek palet (ana sayfadaki mint / kütüphane hızlı erişim ile uyumlu) */
+const LIB = {
+  green700: '#15803d',
+  green500: '#22c55e',
+  mint100: '#dcfce7',
+  mint50: '#f0fdf4',
+  iconLight: '#15803d',
+  iconDark: '#86efac',
+  accentDark: '#6ee7b7',
+} as const;
 
 const LibraryListScreen = () => {
   const { mode } = useThemeMode();
   const isDark = mode === 'dark';
+  const insets = useSafeAreaInsets();
 
   const handleDirections = useCallback((library: LibraryType) => {
     // Adres string'i ile yönlendirme (koordinat gerekmez)
@@ -19,45 +32,69 @@ const LibraryListScreen = () => {
 
   const renderLibraryItem = useCallback(({ item }: { item: LibraryType }) => (
       <TouchableOpacity
-        style={[styles.libraryCard, isDark ? { backgroundColor: Colors.dark.card, borderWidth: 1, borderColor: Colors.dark.border } : { backgroundColor: '#E6F4EA' }]}
+        style={[
+          styles.libraryCard,
+          isDark
+            ? { backgroundColor: Colors.dark.card, borderWidth: 1, borderColor: Colors.dark.border }
+            : {
+                backgroundColor: DribbbleColors.cardWhite,
+                borderWidth: 1,
+                borderColor: 'rgba(22, 101, 52, 0.12)',
+              },
+        ]}
         activeOpacity={0.9}
       >
-        {!isDark && <LinearGradient colors={['#D9F0E0', '#E6F4EA']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />}
-        <View style={[styles.iconContainer, !isDark && { backgroundColor: 'rgba(255,255,255,0.6)' }, isDark && { backgroundColor: Colors.dark.border }]}>
-          <Library color={isDark ? '#86efac' : '#22c55e'} size={24} />
+        <View
+          style={[
+            styles.iconContainer,
+            !isDark && { backgroundColor: LIB.mint100 },
+            isDark && { backgroundColor: 'rgba(52, 211, 153, 0.12)' },
+          ]}
+        >
+          <Library color={isDark ? LIB.iconDark : LIB.iconLight} size={24} />
         </View>
         <View style={styles.infoContainer}>
           <Text style={[styles.libraryName, isDark && { color: '#f8fafc' }]}>{item.name}</Text>
           <View style={styles.addressRow}>
-            <MapPin color={isDark ? '#94a3b8' : '#6b7280'} size={14} />
+            <MapPin color={isDark ? '#94a3b8' : '#64748b'} size={14} />
             <Text style={[styles.address, isDark && { color: '#94a3b8' }]} numberOfLines={1}>{item.address}</Text>
           </View>
           <View style={styles.detailsRow}>
             <View style={styles.detailItem}>
-              <Clock color={isDark ? '#94a3b8' : '#6b7280'} size={14} />
+              <Clock color={isDark ? '#94a3b8' : '#64748b'} size={14} />
               <Text style={[styles.detailText, isDark && { color: '#94a3b8' }]}>{item.workingHours}</Text>
             </View>
-            <Text style={[styles.distance, isDark && { color: '#818cf8' }]}>{item.distance.toFixed(1)} km</Text>
+            <Text style={[styles.distance, isDark && { color: LIB.accentDark }]}>{item.distance.toFixed(1)} km</Text>
           </View>
         </View>
         <TouchableOpacity
-          style={[styles.directionsButton, isDark && { backgroundColor: Colors.dark.border }]}
+          style={[
+            styles.directionsButton,
+            !isDark && { backgroundColor: LIB.mint100 },
+            isDark && { backgroundColor: 'rgba(52, 211, 153, 0.15)' },
+          ]}
           onPress={() => handleDirections(item)}
           activeOpacity={0.9}
         >
-          <Navigation color={Colors.primary.indigo} size={20} />
+          <Navigation color={isDark ? LIB.iconDark : LIB.green700} size={20} />
         </TouchableOpacity>
       </TouchableOpacity>
   ), [isDark, handleDirections]);
 
+  const listBottomPad = Math.max(insets.bottom, 20);
+
   return (
-    <SafeAreaView
-      style={[styles.container, isDark ? { backgroundColor: Colors.dark.background } : { backgroundColor: DribbbleColors.background }]}
-      edges={['top']}
+    <View
+      style={[
+        styles.container,
+        isDark ? { backgroundColor: Colors.dark.background } : { backgroundColor: LIB.mint50 },
+      ]}
     >
+      {/* Durum çubuğu (saat/pil) alanı gradient ile aynı yeşil — SafeAreaView top kullanmıyoruz */}
+      <StatusBar style="light" />
       <LinearGradient
-        colors={isDark ? Gradients.dark : [DribbbleColors.progressBlue, '#60a5fa']}
-        style={styles.header}
+        colors={isDark ? ['#052e16', '#064e3b'] : [LIB.green700, LIB.green500]}
+        style={[styles.header, { paddingTop: insets.top + 16 }]}
       >
         <Text style={styles.headerTitle}>Kütüphaneler</Text>
         <Text style={styles.headerSubtitle}>{MOCK_LIBRARIES.length} kütüphane bulundu</Text>
@@ -67,14 +104,14 @@ const LibraryListScreen = () => {
         data={MOCK_LIBRARIES}
         renderItem={renderLibraryItem}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: listBottomPad }]}
         showsVerticalScrollIndicator={false}
         initialNumToRender={8}
         maxToRenderPerBatch={6}
         windowSize={7}
         removeClippedSubviews
       />
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -85,7 +122,6 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 20,
     paddingBottom: 30,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
@@ -110,11 +146,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     padding: 15,
     marginBottom: 15,
-    shadowColor: '#34d399',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 14,
-    elevation: 4,
+    shadowColor: '#15803d',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
   },
   iconContainer: {
     width: 50,
@@ -122,7 +158,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f0fdf4',
+    backgroundColor: LIB.mint100,
   },
   infoContainer: {
     flex: 1,
@@ -131,7 +167,7 @@ const styles = StyleSheet.create({
   libraryName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: Colors.darkGray,
+    color: DribbbleColors.textPrimary,
     marginBottom: 4,
   },
   addressRow: {
@@ -141,7 +177,7 @@ const styles = StyleSheet.create({
   },
   address: {
     fontSize: 13,
-    color: '#6b7280',
+    color: DribbbleColors.textSecondary,
     marginLeft: 4,
     flex: 1,
   },
@@ -157,18 +193,18 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 12,
-    color: '#6b7280',
+    color: DribbbleColors.textSecondary,
   },
   distance: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.primary.indigo,
+    color: LIB.green700,
   },
   directionsButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.6)',
+    backgroundColor: LIB.mint100,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 10,

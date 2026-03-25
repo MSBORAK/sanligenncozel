@@ -1,6 +1,6 @@
 /**
  * Light: açık, ferah, pastel
- * Dark: koyu, derin, amber vurgulu
+ * Dark: OLED siyah zemin, soğuk mavi/cyan vurgu (gündüzdeki turuncu/amber’in zıttı)
  */
 
 // Dribbble tasarım - birebir aynı hex
@@ -40,8 +40,8 @@ export const LightTheme = {
 };
 
 export const Colors = {
-  background: '#060c1a',
-  backgroundDark: '#040814',
+  background: '#000000',
+  backgroundDark: '#000000',
   backgroundLight: '#f8fafc',
 
   primary: { indigo: '#f59e0b', violet: '#334155', teal: '#10b981', terracotta: '#d97706' },
@@ -71,9 +71,10 @@ export const Colors = {
   transparent: 'transparent',
 
   dark: {
-    background: '#060c1a',
+    background: '#000000',
     card: 'rgba(255, 255, 255, 0.06)',
-    accent: '#f59e0b',
+    accent: '#38bdf8',
+    highlight: '#7dd3fc',
     border: 'rgba(255, 255, 255, 0.12)',
     text: '#f8fafc',
     textMuted: 'rgba(248, 250, 252, 0.68)',
@@ -89,17 +90,28 @@ export const Colors = {
 };
 
 export const Gradients = {
-  hero: ['#060c1a', '#0f172a', '#111827'] as const,
+  /** Tam siyah zemin (buton/kart dışı) */
+  pureBlack: ['#000000', '#000000'] as const,
+  hero: ['#000000', '#0a0a0e', '#121218'] as const,
   heroWarm: ['#f59e0b', '#fbbf24', '#f59e0b'] as const,
-  dark: ['#040814', '#060c1a', '#0f172a'] as const,
+  /** ŞanlıAsistan — kullanıcı balonu / gönder (açık-koyu) */
+  assistantUserLight: ['#0f766e', '#14b8a6', '#0d9488'] as const,
+  assistantUserDark: ['#065f46', '#0d9488', '#047857'] as const,
+  /** Sohbet kartı arka planı — hafif mint yıkama */
+  assistantSheetLight: ['#ffffff', '#ecfdf5', '#f8fafc'] as const,
+  assistantSheetDark: ['rgba(45,212,191,0.14)', 'rgba(255,255,255,0.065)', 'rgba(255,255,255,0.045)'] as const,
+  dark: ['#000000', '#000000', '#000000'] as const,
   card: ['rgba(255,255,255,0.06)', 'rgba(255,255,255,0.03)'] as const,
-  header: ['#040814', '#060c1a', '#0f172a'] as const,
-  background: ['#040814', '#060c1a', '#111827'] as const,
+  header: ['#000000', '#000000', '#000000'] as const,
+  background: ['#000000', '#000000', '#000000'] as const,
   quoteCard: ['#b45309', '#f59e0b', '#fbbf24'] as const,
   innerShadow: ['rgba(0,0,0,0.06)', 'transparent'] as const,
 
   meshMarigold: ['rgba(245, 158, 11, 0.2)', 'rgba(245, 158, 11, 0.06)', 'transparent'] as const,
-  meshNavy: ['transparent', 'rgba(6, 12, 26, 0.45)', 'rgba(4, 8, 20, 0.55)'] as const,
+  /** Gece ana sayfa — sıcak sarı yerine buzlu mavi mesh */
+  meshCool: ['rgba(56, 189, 248, 0.18)', 'rgba(56, 189, 248, 0.05)', 'transparent'] as const,
+  meshCoolFoot: ['transparent', 'transparent', 'rgba(14, 165, 233, 0.1)'] as const,
+  meshNavy: ['transparent', 'rgba(15, 23, 42, 0.45)', 'rgba(0, 0, 0, 0.55)'] as const,
   meshPearl: ['rgba(255, 255, 255, 0.06)', 'transparent'] as const,
   meshBuff: ['transparent', 'transparent', 'rgba(245, 158, 11, 0.08)'] as const,
 

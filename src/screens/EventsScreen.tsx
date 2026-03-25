@@ -1,15 +1,24 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ImageBackground, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  Image,
+  Platform,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { Heart } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
 import { Colors, DribbbleColors } from '@/constants/Colors';
+import { FontFamily } from '@/constants/Typography';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import Skeleton from '@/components/Skeleton';
-import { MOCK_EVENTS } from '@/api/mockData';
 import { Event } from '@/types';
 import { useThemeMode } from '@/context/ThemeContext';
 import { useFavorites } from '@/context/FavoritesContext';
@@ -17,7 +26,16 @@ import { supabase, processImageUrl } from '@/lib/supabase';
 
 const CATEGORIES = ['Tümü', 'Favorilerim', 'Konser', 'Gezi', 'Spor'];
 
-// Supabase Event Veri Tipi
+const CARD_RADIUS = 20;
+
+/** Ana sayfa Hızlı Erişim — Etkinlik kutusu (#EDE7F6) ile aynı hat */
+const EVENTS_LIGHT = {
+  pageBg: '#EDE7F6',
+  tabActive: ['#6d28d9', '#7c3aed', '#8b5cf6'] as const,
+  accent: '#7c3aed',
+  imageGlow: ['rgba(124,58,237,0.28)', 'transparent'] as const,
+};
+
 interface EventData {
   id: number;
   baslik: string;
@@ -33,6 +51,7 @@ type EventScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Events
 const EventsScreen = () => {
   const { mode } = useThemeMode();
   const isDark = mode === 'dark';
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<EventScreenNavigationProp>();
   const route = useRoute();
   const initialTab = (route.params as { initialTab?: string } | undefined)?.initialTab;
@@ -41,16 +60,15 @@ const EventsScreen = () => {
   const [loading, setLoading] = useState(true);
   const { favoriteEventIds, isFavoriteEvent, toggleFavorite } = useFavorites();
 
-  // Supabase'den etkinlikleri çek
   const fetchEvents = async () => {
     try {
       const { data, error } = await supabase
         .from('etkinlikler')
         .select('*')
         .order('created_at', { ascending: false });
-      
+
       if (data) setEvents(data);
-      if (error) console.log("Etkinlik hatası:", error);
+      if (error) console.log('Etkinlik hatası:', error);
     } catch (e) {
       console.log(e);
     } finally {
@@ -62,128 +80,289 @@ const EventsScreen = () => {
     fetchEvents();
   }, []);
 
-  // Filtrelenmiş etkinlikler (useMemo - gereksiz re-filter önler)
   const filteredEvents = useMemo(() => {
     if (activeTab === 'Tümü') return events;
     if (activeTab === 'Favorilerim') return events.filter(e => favoriteEventIds.includes(e.id.toString()));
     return events.filter(e => e.kategori === activeTab);
   }, [events, activeTab, favoriteEventIds]);
 
-  // Event verisini UI'a uygun formata çevir
-  const formatEvent = useCallback((event: EventData): Event => ({
-    id: event.id.toString(),
-    title: event.baslik,
-    date: event.tarih,
-    location: event.konum,
-    category: (event.kategori as 'Konser' | 'Gezi' | 'Spor') || 'Gezi',
-    image: processImageUrl(event.resim_url, 'etkinlik_resimleri') || 'https://via.placeholder.com/400x300',
-  }), []);
+  const formatEvent = useCallback(
+    (event: EventData): Event => ({
+      id: event.id.toString(),
+      title: event.baslik,
+      date: event.tarih,
+      location: event.konum,
+      category: (event.kategori as 'Konser' | 'Gezi' | 'Spor') || 'Gezi',
+      image: processImageUrl(event.resim_url, 'etkinlik_resimleri') || 'https://via.placeholder.com/400x300',
+    }),
+    []
+  );
 
   const listData = useMemo(() => filteredEvents.map(formatEvent), [filteredEvents, formatEvent]);
-
   const onToggleFavorite = useCallback((eventId: string) => toggleFavorite('event', eventId), [toggleFavorite]);
+  const hasFavorites = favoriteEventIds.length > 0;
 
-  const renderEventItem = useCallback(({ item, index }: { item: Event; index: number }) => (
-    <AnimatedListItem index={index} delay={60}>
-    <TouchableOpacity style={styles.eventCard} onPress={() => navigation.navigate('EventDetail', { eventId: item.id })}>
-      <ImageBackground source={{ uri: item.image }} style={styles.eventImage} imageStyle={{ borderRadius: 20 }}>
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.8)']}
-          style={styles.gradientOverlay}
-        />
-        <View style={styles.badgeContainer}>
-          <Text style={styles.categoryBadge}>{item.category}</Text>
-        </View>
-        <TouchableOpacity style={styles.likeButton} onPress={() => onToggleFavorite(item.id)}>
-          <Heart color={Colors.white} size={24} fill={isFavoriteEvent(item.id) ? (isDark ? Colors.primary.violet : DribbbleColors.progressBlue) : "transparent"} />
+  const renderCategoryTab = useCallback(
+    ({ item }: { item: string }) => {
+      const active = activeTab === item;
+      return (
+        <TouchableOpacity
+          onPress={() => setActiveTab(item)}
+          activeOpacity={0.88}
+          style={[
+            styles.tabPill,
+            isDark && styles.tabPillDark,
+            !isDark && !active && styles.tabPillInactiveLight,
+            isDark && !active && styles.tabPillInactiveDark,
+          ]}
+        >
+          {!isDark && active && (
+            <LinearGradient
+              colors={[...EVENTS_LIGHT.tabActive]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+          )}
+          {isDark && active && (
+            <LinearGradient
+              colors={['#075985', '#0369a1', '#0ea5e9']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+          )}
+          {!isDark && !active && (
+            <>
+              {Platform.OS === 'ios' ? (
+                <BlurView intensity={50} tint="light" style={[StyleSheet.absoluteFill, { borderRadius: 22 }]} />
+              ) : null}
+              <View
+                style={[
+                  StyleSheet.absoluteFill,
+                  {
+                    backgroundColor: Platform.OS === 'ios' ? 'rgba(255,255,255,0.88)' : '#ffffff',
+                    borderRadius: 22,
+                  },
+                ]}
+              />
+            </>
+          )}
+          {isDark && !active && <View style={[StyleSheet.absoluteFill, { backgroundColor: '#1e293b', borderRadius: 22 }]} />}
+          <Text
+            style={[
+              styles.tabPillText,
+              !isDark && !active && { color: DribbbleColors.textSecondary },
+              isDark && !active && { color: '#94a3b8' },
+              active && { color: '#ffffff' },
+            ]}
+          >
+            {item}
+          </Text>
         </TouchableOpacity>
-        <View style={styles.eventInfo}>
-          <Text style={styles.eventTitle}>{item.title}</Text>
-          <Text style={styles.eventDate}>{`${item.date} · ${item.location}`}</Text>
-        </View>
-      </ImageBackground>
-    </TouchableOpacity>
-    </AnimatedListItem>
-  ), [isFavoriteEvent, navigation, onToggleFavorite, isDark]);
+      );
+    },
+    [activeTab, isDark]
+  );
+
+  const renderEventItem = useCallback(
+    ({ item, index }: { item: Event; index: number }) => (
+      <AnimatedListItem index={index} delay={60}>
+        <TouchableOpacity
+          style={[styles.eventCard, isDark && styles.eventCardDark]}
+          activeOpacity={0.92}
+          onPress={() => navigation.navigate('EventDetail', { eventId: item.id })}
+        >
+          <View style={[styles.imageSection, isDark && styles.imageSectionDark]}>
+            <Image source={{ uri: item.image }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+            <LinearGradient
+              colors={isDark ? ['rgba(245,158,11,0.22)', 'transparent'] : [...EVENTS_LIGHT.imageGlow]}
+              start={{ x: 1, y: 0 }}
+              end={{ x: 0.2, y: 0.45 }}
+              style={styles.amberGlow}
+              pointerEvents="none"
+            />
+            <View style={styles.categoryPill}>
+              <Text style={styles.categoryPillText}>{item.category}</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.heartFab}
+              onPress={() => onToggleFavorite(item.id)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              {Platform.OS === 'ios' ? (
+                <BlurView intensity={55} tint="light" style={StyleSheet.absoluteFill} />
+              ) : null}
+              <View
+                style={[
+                  StyleSheet.absoluteFill,
+                  { backgroundColor: Platform.OS === 'ios' ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.5)' },
+                ]}
+              />
+              <Heart
+                color={isDark ? '#f8fafc' : DribbbleColors.textPrimary}
+                size={18}
+                strokeWidth={2}
+                fill={
+                  isFavoriteEvent(item.id)
+                    ? isDark
+                      ? Colors.dark.accent
+                      : EVENTS_LIGHT.accent
+                    : 'transparent'
+                }
+              />
+            </TouchableOpacity>
+          </View>
+
+          {isDark ? (
+            <View style={styles.infoSectionDark}>
+              <Text style={styles.eventTitleDark} numberOfLines={2}>
+                {item.title}
+              </Text>
+              <Text style={styles.eventMetaDark} numberOfLines={2}>
+                {`${item.date} · ${item.location}`}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.infoSectionLight}>
+              {Platform.OS === 'ios' ? (
+                <BlurView intensity={65} tint="light" style={StyleSheet.absoluteFill} />
+              ) : null}
+              <View
+                style={[
+                  StyleSheet.absoluteFill,
+                  {
+                    backgroundColor: Platform.OS === 'ios' ? 'rgba(255,255,255,0.78)' : '#ffffff',
+                  },
+                ]}
+              />
+              <View style={styles.infoInner}>
+                <Text style={styles.eventTitleLight} numberOfLines={2}>
+                  {item.title}
+                </Text>
+                <Text style={styles.eventMetaLight} numberOfLines={2}>
+                  {`${item.date} · ${item.location}`}
+                </Text>
+              </View>
+            </View>
+          )}
+        </TouchableOpacity>
+      </AnimatedListItem>
+    ),
+    [isFavoriteEvent, isDark, navigation, onToggleFavorite]
+  );
 
   return (
     <SafeAreaView
-      style={[styles.container, isDark ? { backgroundColor: Colors.dark.background } : { backgroundColor: DribbbleColors.background }]}
+      style={[
+        styles.container,
+        isDark ? { backgroundColor: Colors.dark.background } : { backgroundColor: EVENTS_LIGHT.pageBg },
+      ]}
       edges={['top']}
     >
       <View style={styles.header}>
-        <Text style={[styles.headerTitle, isDark && { color: '#f8fafc' }, !isDark && { color: DribbbleColors.textPrimary }]}>Etkinlikler</Text>
-        <TouchableOpacity onPress={() => setActiveTab('Favorilerim')} style={styles.favoritesButton}>
-          <Heart color={isDark ? Colors.white : DribbbleColors.textPrimary} size={28} fill={activeTab === 'Favorilerim' ? (isDark ? Colors.primary.violet : DribbbleColors.progressBlue) : 'transparent'} />
+        <Text style={[styles.headerTitle, isDark && styles.headerTitleDark]}>Etkinlikler</Text>
+        <TouchableOpacity
+          onPress={() => setActiveTab('Favorilerim')}
+          activeOpacity={0.85}
+          style={[
+            styles.favBadgeOuter,
+            isDark && styles.favBadgeOuterDark,
+            !isDark && { borderColor: 'rgba(124,58,237,0.2)' },
+          ]}
+        >
+          {!isDark && Platform.OS === 'ios' ? (
+            <BlurView intensity={60} tint="light" style={StyleSheet.absoluteFill} />
+          ) : null}
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                backgroundColor:
+                  !isDark
+                    ? Platform.OS === 'ios'
+                      ? 'rgba(255,255,255,0.82)'
+                      : '#ffffff'
+                    : 'rgba(255,255,255,0.08)',
+                borderRadius: 22,
+              },
+            ]}
+          />
+          <Heart
+            color={isDark ? '#f8fafc' : DribbbleColors.textPrimary}
+            size={18}
+            strokeWidth={2}
+            fill={
+              activeTab === 'Favorilerim'
+                ? isDark
+                  ? Colors.dark.accent
+                  : EVENTS_LIGHT.accent
+                : 'transparent'
+            }
+          />
+          {(hasFavorites || activeTab === 'Favorilerim') && (
+            <View
+              style={[
+                styles.favDot,
+                !isDark && { backgroundColor: EVENTS_LIGHT.accent },
+                isDark && { backgroundColor: Colors.dark.accent },
+              ]}
+            />
+          )}
         </TouchableOpacity>
       </View>
-      
-      <View>
+
+      <View style={styles.pillsRowFixed}>
         <FlatList
-            horizontal
-            data={CATEGORIES}
-            renderItem={({ item }) => (
-            <TouchableOpacity 
-                style={[
-                    styles.tab, 
-                    isDark && { backgroundColor: '#1e293b', borderColor: '#334155' },
-                    !isDark && !(activeTab === item) && { backgroundColor: DribbbleColors.lavender, borderColor: DribbbleColors.borderLight },
-                    activeTab === item && (isDark ? { backgroundColor: Colors.primary.indigo, borderColor: Colors.primary.indigo } : { backgroundColor: DribbbleColors.progressBlue, borderWidth: 0 })
-                ]}
-                onPress={() => setActiveTab(item)}
-            >
-                <Text style={[
-                    styles.tabText, 
-                    isDark && !(activeTab === item) && { color: '#94a3b8' },
-                    !isDark && !(activeTab === item) && { color: DribbbleColors.textSecondary },
-                    activeTab === item && { color: Colors.white }
-                ]}>{item}</Text>
-            </TouchableOpacity>
-            )}
-            keyExtractor={(item) => item}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.pillsContainer}
+          horizontal
+          data={CATEGORIES}
+          renderItem={renderCategoryTab}
+          keyExtractor={item => item}
+          showsHorizontalScrollIndicator={false}
+          style={styles.pillsFlatList}
+          contentContainerStyle={styles.pillsContainer}
         />
       </View>
 
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            {[1, 2, 3].map((i) => (
-              <View key={i} style={[styles.eventCard, { overflow: 'hidden' }]}>
-                <Skeleton width="100%" height={280} borderRadius={20} isDark={isDark} />
-                <View style={{ padding: 16, gap: 8 }}>
-                  <Skeleton width="70%" height={18} borderRadius={6} isDark={isDark} />
-                  <Skeleton width="50%" height={14} borderRadius={6} isDark={isDark} />
-                </View>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          {[1, 2, 3].map(i => (
+            <View key={i} style={[styles.eventCard, styles.skeletonCard, isDark && styles.eventCardDark]}>
+              <Skeleton width="100%" height={200} borderRadius={0} isDark={isDark} />
+              <View style={{ padding: 16, gap: 8 }}>
+                <Skeleton width="72%" height={18} borderRadius={6} isDark={isDark} />
+                <Skeleton width="55%" height={14} borderRadius={6} isDark={isDark} />
               </View>
-            ))}
-          </View>
-        ) : filteredEvents.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={[styles.emptyText, isDark && { color: '#94a3b8' }]}>
-              {activeTab === 'Tümü' ? 'Henüz etkinlik bulunmuyor.' : 
-               activeTab === 'Favorilerim' ? 'Henüz favori etkinliğiniz bulunmuyor.' : 
-               `${activeTab} kategorisinde etkinlik bulunmuyor.`}
-            </Text>
-          </View>
-        ) : (
-          <FlatList
-            data={listData}
-            renderItem={renderEventItem}
-            keyExtractor={(item) => item.id}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContainer}
-            initialNumToRender={6}
-            maxToRenderPerBatch={4}
-            windowSize={6}
-            removeClippedSubviews
-          />
-        )}
+            </View>
+          ))}
+        </View>
+      ) : filteredEvents.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={[styles.emptyText, isDark && { color: '#94a3b8' }]}>
+            {activeTab === 'Tümü'
+              ? 'Henüz etkinlik bulunmuyor.'
+              : activeTab === 'Favorilerim'
+                ? 'Henüz favori etkinliğiniz bulunmuyor.'
+                : `${activeTab} kategorisinde etkinlik bulunmuyor.`}
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={listData}
+          renderItem={renderEventItem}
+          keyExtractor={item => item.id}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[styles.listContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}
+          initialNumToRender={6}
+          maxToRenderPerBatch={4}
+          windowSize={6}
+          removeClippedSubviews
+        />
+      )}
     </SafeAreaView>
   );
 };
 
-// Stiller önceki modern haliyle aynı kalıyor
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -191,119 +370,217 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 10,
+    paddingBottom: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontFamily: FontFamily.semiBold,
+    fontSize: 26,
+    letterSpacing: -0.4,
     color: DribbbleColors.textPrimary,
   },
-  favoritesButton: {
-    padding: 5,
+  headerTitleDark: {
+    color: '#f8fafc',
+    fontFamily: FontFamily.semiBold,
+  },
+  favBadgeOuter: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.06)',
+  },
+  favBadgeOuterDark: {
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  favDot: {
+    position: 'absolute',
+    top: 8,
+    right: 9,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#ffffff',
+  },
+  pillsRowFixed: {
+    height: 52,
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+  pillsFlatList: {
+    flexGrow: 0,
+    height: 52,
   },
   pillsContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingVertical: 4,
+    alignItems: 'center',
+    flexGrow: 0,
   },
-  tab: {
-      paddingHorizontal: 20,
-      paddingVertical: 10,
-      borderRadius: 20,
-      marginRight: 10,
-      backgroundColor: DribbbleColors.lavender,
-      borderWidth: 1,
-      borderColor: DribbbleColors.borderLight
+  tabPill: {
+    paddingHorizontal: 18,
+    height: 44,
+    borderRadius: 22,
+    marginRight: 10,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
   },
-  activeTab: {
-      backgroundColor: DribbbleColors.progressBlue,
-      borderWidth: 0,
+  tabPillDark: {
+    borderWidth: 1,
+    borderColor: '#334155',
   },
-  tabText: {
-      fontWeight: '600',
-      color: '#6b7280'
+  tabPillInactiveLight: {
+    borderWidth: 1,
+    borderColor: DribbbleColors.borderLight,
   },
-  activeTabText: {
-      color: Colors.white
+  tabPillInactiveDark: {
+    backgroundColor: 'transparent',
+  },
+  tabPillText: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 13,
+    zIndex: 1,
   },
   listContainer: {
     paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingTop: 6,
   },
   eventCard: {
-    height: 350,
     marginBottom: 20,
-    shadowColor: '#171717',
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
+    borderRadius: CARD_RADIUS,
+    overflow: 'hidden',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.06)',
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 6,
   },
-  eventImage: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    borderRadius: 20,
+  eventCardDark: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    shadowOpacity: 0.2,
   },
-  gradientOverlay: {
+  skeletonCard: {
+    overflow: 'hidden',
+  },
+  imageSection: {
+    width: '100%',
+    height: 220,
+    backgroundColor: '#e2e8f0',
+    position: 'relative',
+  },
+  imageSectionDark: {
+    backgroundColor: '#1e293b',
+  },
+  amberGlow: {
+    ...StyleSheet.absoluteFillObject,
+    borderTopRightRadius: CARD_RADIUS,
+  },
+  categoryPill: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '60%',
-    borderRadius: 20,
-  },
-  badgeContainer: {
-    position: 'absolute',
-    top: 15,
-    left: 15,
-  },
-  categoryBadge: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    color: Colors.white,
+    top: 14,
+    left: 14,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 20,
-    fontWeight: 'bold',
-    overflow: 'hidden',
-    borderColor: 'rgba(255,255,255,0.5)',
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.88)',
     borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.95)',
   },
-  likeButton: {
+  categoryPillText: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 11,
+    color: DribbbleColors.textPrimary,
+    letterSpacing: 0.3,
+  },
+  heartFab: {
     position: 'absolute',
-    top: 15,
-    right: 15,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    padding: 8,
+    top: 12,
+    right: 12,
+    width: 40,
+    height: 40,
     borderRadius: 20,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.45)',
   },
-  eventInfo: {
-    padding: 20,
+  infoSectionLight: {
+    minHeight: 112,
+    position: 'relative',
+    overflow: 'hidden',
+    borderBottomLeftRadius: CARD_RADIUS,
+    borderBottomRightRadius: CARD_RADIUS,
+    justifyContent: 'center',
   },
-  eventTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: Colors.white,
+  infoInner: {
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    zIndex: 1,
   },
-  eventDate: {
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: 5,
-    fontWeight: '600'
+  eventTitleLight: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 17,
+    letterSpacing: -0.2,
+    color: DribbbleColors.textPrimary,
+    lineHeight: 22,
+  },
+  eventMetaLight: {
+    fontFamily: FontFamily.medium,
+    fontSize: 13,
+    color: DribbbleColors.textSecondary,
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  infoSectionDark: {
+    minHeight: 112,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    backgroundColor: 'rgba(15,23,42,0.92)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    justifyContent: 'center',
+  },
+  eventTitleDark: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 17,
+    color: '#f8fafc',
+    lineHeight: 22,
+  },
+  eventMetaDark: {
+    fontFamily: FontFamily.medium,
+    fontSize: 13,
+    color: '#94a3b8',
+    marginTop: 6,
+    lineHeight: 18,
   },
   loadingContainer: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 100,
+    paddingTop: 12,
     gap: 20,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 100,
+    paddingTop: 80,
+    paddingHorizontal: 32,
   },
   emptyText: {
+    fontFamily: FontFamily.medium,
     fontSize: 16,
     color: '#64748b',
     textAlign: 'center',

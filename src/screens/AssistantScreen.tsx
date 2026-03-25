@@ -12,10 +12,12 @@ import {
   Animated,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SendHorizonal, Bot, MapPin, TicketPercent, Sparkles, Activity, Calendar, BookOpen, Navigation, HelpCircle, Coffee, Film } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, DribbbleColors } from '@/constants/Colors';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Colors, DribbbleColors, Gradients } from '@/constants/Colors';
+import { FontFamily } from '@/constants/Typography';
 import { MOCK_MESSAGES } from '@/api/mockData';
 import { ChatMessage } from '@/types';
 import { useThemeMode } from '@/context/ThemeContext';
@@ -97,7 +99,13 @@ const QUICK_ACTIONS = [
   },
 ];
 
+const TAB_BAR_HEIGHT = 72;
+const TAB_BAR_BOTTOM_MARGIN = 24;
+
 const TYPING_DELAY_MS = 900;
+const ASSISTANT_QUOTA_KEY = 'sanliasistan_quota_v1';
+const DAILY_LIMIT = 40;
+const PER_MINUTE_LIMIT = 8;
 
 type MessageBubbleProps = {
   item: ChatMessage;
@@ -138,13 +146,15 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ item }) => {
         ]}
       >
         {item.sender === 'bot' && (
-          <View style={[styles.botAvatar, isDark && styles.botAvatarDark, !isDark && { backgroundColor: '#d1fae5' }]}>
-            <Bot color={isDark ? '#5eead4' : '#10b981'} size={20} />
+          <View style={[styles.botAvatar, isDark && styles.botAvatarDark, !isDark && styles.botAvatarLight]}>
+            <Bot color={isDark ? '#5eead4' : Colors.primary.teal} size={20} />
           </View>
         )}
         {item.sender === 'user' ? (
           <LinearGradient
-            colors={isDark ? [Colors.primary.violet, Colors.primary.indigo] : ['#10b981', '#34d399']}
+            colors={isDark ? [...Gradients.assistantUserDark] : [...Gradients.assistantUserLight]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={[styles.bubble, styles.userBubble]}
           >
             <Text style={styles.userBubbleText}>
@@ -179,6 +189,9 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ item }) => {
 const AssistantScreen = () => {
   const { mode } = useThemeMode();
   const isDark = mode === 'dark';
+  const insets = useSafeAreaInsets();
+  const tabBarLift = Math.max(TAB_BAR_BOTTOM_MARGIN, insets.bottom + 8);
+  const pageBottomMargin = tabBarLift + TAB_BAR_HEIGHT + 14;
   const [messages, setMessages] = useState<ChatMessage[]>(MOCK_MESSAGES.slice().reverse());
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -186,6 +199,51 @@ const AssistantScreen = () => {
   
   const [activeModel, setActiveModel] = useState<string>('Model Aranıyor...');
   const flatListRef = useRef<FlatList>(null);
+
+  const addSystemBotMessage = (text: string) => {
+    const botMessage: ChatMessage = {
+      id: `${Date.now()}-bot-system`,
+      sender: 'bot',
+      text,
+      timestamp: '',
+    };
+    setMessages(prev => [botMessage, ...prev]);
+  };
+
+  const consumeQuota = async (): Promise<{ ok: true } | { ok: false; message: string }> => {
+    const now = Date.now();
+    const dayKey = new Date(now).toISOString().slice(0, 10);
+    const minuteSlot = Math.floor(now / 60000);
+
+    try {
+      const raw = await AsyncStorage.getItem(ASSISTANT_QUOTA_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      const day = parsed.day === dayKey ? parsed.day : dayKey;
+      const dailyCount = parsed.day === dayKey ? Number(parsed.dailyCount ?? 0) : 0;
+      const minuteCount = parsed.minuteSlot === minuteSlot ? Number(parsed.minuteCount ?? 0) : 0;
+
+      if (dailyCount >= DAILY_LIMIT) {
+        return { ok: false, message: 'Bugunluk mesaj limitine ulastin. Yarini bekleyelim.' };
+      }
+      if (minuteCount >= PER_MINUTE_LIMIT) {
+        return { ok: false, message: 'Cok hizli gidiyoruz. Lutfen 1 dakika sonra tekrar dene.' };
+      }
+
+      await AsyncStorage.setItem(
+        ASSISTANT_QUOTA_KEY,
+        JSON.stringify({
+          day,
+          dailyCount: dailyCount + 1,
+          minuteSlot,
+          minuteCount: minuteCount + 1,
+        })
+      );
+      return { ok: true };
+    } catch {
+      // Kota depolamasi hata verirse engelleme yapma
+      return { ok: true };
+    }
+  };
 
   // --- MODEL SEÇİCİ ---
   useEffect(() => {
@@ -272,9 +330,19 @@ const AssistantScreen = () => {
     }
   };
 
-  const sendUserMessage = (text: string) => {
+  const sendUserMessage = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || isTyping) return;
+    if (!API_KEY) {
+      addSystemBotMessage('Asistan su an hazir degil. API anahtari bulunamadi.');
+      return;
+    }
+
+    const quota = await consumeQuota();
+    if (!quota.ok) {
+      addSystemBotMessage(quota.message);
+      return;
+    }
 
     const userMessage: ChatMessage = {
       id: `${Date.now()}-user`,
@@ -323,11 +391,14 @@ const AssistantScreen = () => {
       style={[styles.container, isDark ? { backgroundColor: Colors.dark.background } : { backgroundColor: DribbbleColors.background }]}
       edges={['top']}
     >
-          <View
+          <LinearGradient
+            colors={isDark ? [...Gradients.assistantSheetDark] : [...Gradients.assistantSheetLight]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
             style={[
               styles.bubblePage,
-              isDark && { backgroundColor: Colors.dark.card, shadowOpacity: 0.25 },
-              !isDark && { backgroundColor: DribbbleColors.cardWhite },
+              { marginBottom: pageBottomMargin },
+              isDark && { shadowOpacity: 0.25 },
             ]}
           >
         <KeyboardAvoidingView
@@ -336,15 +407,20 @@ const AssistantScreen = () => {
           keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 25}
         >
           {/* Header */}
-          <View style={styles.header}>
+          <LinearGradient
+            colors={isDark ? ['rgba(13,148,136,0.35)', 'transparent'] : ['rgba(20,184,166,0.18)', 'transparent']}
+            style={styles.headerGradient}
+          >
+            <View style={styles.header}>
               <Text style={[styles.headerTitle, isDark && { color: '#f8fafc' }]}>ŞanlıAsistan</Text>
-              <View style={{flexDirection: 'row', alignItems: 'center', gap: 5}}>
-                 <Activity size={14} color="green" />
-                 <Text style={styles.headerSubtitle}>
-                    {activeModel === 'Model Aranıyor...' ? 'Aranıyor...' : `${activeModel}`}
-                 </Text>
+              <View style={styles.headerModelRow}>
+                <Activity size={14} color={Colors.primary.teal} />
+                <Text style={[styles.headerSubtitle, isDark && { color: '#94a3b8' }]} numberOfLines={1}>
+                  {activeModel === 'Model Aranıyor...' ? 'Model aranıyor…' : activeModel}
+                </Text>
               </View>
-          </View>
+            </View>
+          </LinearGradient>
           
           {/* Quick Start Suggestions */}
           <View>
@@ -356,12 +432,16 @@ const AssistantScreen = () => {
               {QUICK_ACTIONS.map((action) => (
                 <TouchableOpacity
                   key={action.id}
-                  style={[styles.quickStartChip, isDark && { backgroundColor: Colors.dark.card }, !isDark && { backgroundColor: '#d1fae5' }]}
-                  onPress={() => sendUserMessage(action.text)}
+                  style={[
+                    styles.quickStartChip,
+                    isDark && styles.quickStartChipDark,
+                    !isDark && styles.quickStartChipLight,
+                  ]}
+                  onPress={() => { void sendUserMessage(action.text); }}
                   activeOpacity={0.9}
                 >
                   <View style={styles.quickStartChipInner}>
-                    <action.icon size={18} color={isDark ? '#e2e8f0' : '#10b981'} />
+                    <action.icon size={18} color={isDark ? '#5eead4' : '#0f766e'} />
                     <Text style={[styles.quickStartText, isDark && { color: '#f8fafc' }]}>{action.label}</Text>
                   </View>
                 </TouchableOpacity>
@@ -375,7 +455,7 @@ const AssistantScreen = () => {
             data={messages}
             renderItem={renderMessageItem}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.chatContainer}
+            contentContainerStyle={[styles.chatContainer, { paddingTop: 12 }]}
             showsVerticalScrollIndicator={false}
             inverted
             style={{ flex: 1 }}
@@ -393,8 +473,8 @@ const AssistantScreen = () => {
                 { paddingHorizontal: 15 },
               ]}
             >
-              <View style={[styles.botAvatar, isDark && styles.botAvatarDark, !isDark && { backgroundColor: '#d1fae5' }]}>
-                <Bot color={isDark ? '#5eead4' : '#10b981'} size={20} />
+              <View style={[styles.botAvatar, isDark && styles.botAvatarDark, !isDark && styles.botAvatarLight]}>
+                <Bot color={isDark ? '#5eead4' : Colors.primary.teal} size={20} />
               </View>
               <View style={[styles.bubble, styles.botBubble, styles.typingBubble, isDark && { backgroundColor: Colors.dark.card }]}>
                 <Text style={[styles.typingText, isDark && { color: '#f8fafc' }]}>{typingDots}</Text>
@@ -403,28 +483,33 @@ const AssistantScreen = () => {
           )}
 
           {/* Input */}
-          <View style={[styles.inputContainer, isDark && { borderTopColor: Colors.dark.border }]}>
+          <View style={[styles.inputContainer, isDark && styles.inputContainerDark]}>
             <TextInput
               placeholder="Mesajını buraya yaz..."
-              style={[styles.input, isDark && { backgroundColor: Colors.dark.card, color: Colors.dark.text }]}
+              style={[styles.input, isDark && { backgroundColor: 'rgba(255,255,255,0.06)', color: Colors.dark.text }]}
               placeholderTextColor={isDark ? '#94a3b8' : '#9ca3af'}
               value={inputText}
               onChangeText={setInputText}
-              onSubmitEditing={() => sendUserMessage(inputText)}
+              onSubmitEditing={() => { void sendUserMessage(inputText); }}
               returnKeyType="send"
             />
             <TouchableOpacity
               style={styles.sendButton}
-              onPress={() => sendUserMessage(inputText)}
+              onPress={() => { void sendUserMessage(inputText); }}
               activeOpacity={0.9}
             >
-               <LinearGradient colors={isDark ? [Colors.primary.violet, Colors.primary.indigo] : ['#10b981', '#34d399']} style={styles.sendButtonGradient}>
+               <LinearGradient
+                 colors={isDark ? [...Gradients.assistantUserDark] : [...Gradients.assistantUserLight]}
+                 start={{ x: 0, y: 0 }}
+                 end={{ x: 1, y: 1 }}
+                 style={styles.sendButtonGradient}
+               >
                   <SendHorizonal color={Colors.white} size={24} />
                </LinearGradient>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
-      </View>
+      </LinearGradient>
     </SafeAreaView>
   );
 };
@@ -436,38 +521,46 @@ const styles = StyleSheet.create({
   },
   bubblePage: {
     flex: 1,
-    backgroundColor: DribbbleColors.background,
-    marginHorizontal: 10,
-    marginBottom: 95, 
-    borderRadius: 30,
-    overflow: 'hidden', 
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 5,
-    },
+    marginHorizontal: 14,
+    borderRadius: 26,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(20,184,166,0.2)',
+    shadowColor: '#0f766e',
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 10,
+    shadowRadius: 16,
+    elevation: 8,
   },
   keyboardAvoidingView: {
     flex: 1,
   },
+  headerGradient: {
+    paddingBottom: 4,
+  },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 15,
+    paddingTop: 18,
+    paddingBottom: 14,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: Colors.darkGray,
+    fontFamily: FontFamily.semiBold,
+    fontSize: 26,
+    letterSpacing: -0.4,
+    color: DribbbleColors.textPrimary,
+  },
+  headerModelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    flexWrap: 'wrap',
   },
   headerSubtitle: {
-      fontSize: 14,
-      color: '#6b7280',
-      marginTop: 2,
-      fontWeight: '600'
+    fontFamily: FontFamily.medium,
+    fontSize: 13,
+    color: DribbbleColors.textSecondary,
+    flex: 1,
   },
   quickStartContainer: {
     paddingHorizontal: 20,
@@ -475,10 +568,19 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   quickStartChip: {
-    backgroundColor: '#d1fae5',
-    paddingHorizontal: 15,
+    paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 20,
+  },
+  quickStartChipLight: {
+    backgroundColor: 'rgba(230,244,234,0.95)',
+    borderWidth: 1,
+    borderColor: 'rgba(16,185,129,0.28)',
+  },
+  quickStartChipDark: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(45,212,191,0.22)',
   },
   quickStartChipInner: {
     flexDirection: 'row',
@@ -486,8 +588,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   quickStartText: {
-    color: Colors.darkGray,
-    fontWeight: '500',
+    fontFamily: FontFamily.medium,
+    fontSize: 13,
+    color: DribbbleColors.textPrimary,
   },
   chatContainer: {
     paddingHorizontal: 15,
@@ -515,8 +618,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  botAvatarLight: {
+    backgroundColor: 'rgba(204,251,241,0.95)',
+    borderWidth: 1,
+    borderColor: 'rgba(20,184,166,0.35)',
+  },
   botAvatarDark: {
-    backgroundColor: Colors.primary.violet,
+    backgroundColor: 'rgba(13,148,136,0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(45,212,191,0.35)',
   },
   bubble: {
     padding: 15,
@@ -529,20 +639,25 @@ const styles = StyleSheet.create({
     backgroundColor: DribbbleColors.cardWhite,
     borderBottomLeftRadius: 5,
     borderWidth: 1,
-    borderColor: DribbbleColors.borderLight,
+    borderColor: 'rgba(20,184,166,0.14)',
   },
   userBubbleText: {
+    fontFamily: FontFamily.medium,
     color: Colors.white,
     fontSize: 16,
+    lineHeight: 22,
   },
   botBubbleText: {
-    color: Colors.darkGray,
+    fontFamily: FontFamily.regular,
+    color: DribbbleColors.textPrimary,
     fontSize: 16,
+    lineHeight: 22,
   },
   botBubbleTextDark: {
+    fontFamily: FontFamily.regular,
     color: '#f8fafc',
     fontSize: 16,
-    fontWeight: '400',
+    lineHeight: 22,
   },
   typingBubble: {
     minWidth: 50,
@@ -555,18 +670,26 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
+    borderTopColor: 'rgba(20,184,166,0.18)',
+    backgroundColor: 'rgba(236,253,245,0.45)',
+  },
+  inputContainerDark: {
+    borderTopColor: 'rgba(45,212,191,0.15)',
+    backgroundColor: 'rgba(0,0,0,0.15)',
   },
   input: {
     flex: 1,
     height: 50,
-    backgroundColor: DribbbleColors.background,
+    backgroundColor: '#f8fafc',
     borderRadius: 25,
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     fontSize: 16,
-    borderWidth: 0,
+    fontFamily: FontFamily.regular,
+    borderWidth: 1,
+    borderColor: 'rgba(20,184,166,0.18)',
     marginRight: 10,
   },
   sendButton: {

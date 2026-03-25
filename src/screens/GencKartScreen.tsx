@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useState, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowUpRight, MapPin, Wifi, Heart } from 'lucide-react-native';
-import { Colors, Gradients, DribbbleColors } from '@/constants/Colors';
+import { Colors, DribbbleColors } from '@/constants/Colors';
+import { FontFamily } from '@/constants/Typography';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import { MOCK_USER, MOCK_PARTNERS } from '@/api/mockData';
 import { DiscountPartner } from '@/types';
@@ -16,15 +17,19 @@ import { useFavorites } from '@/context/FavoritesContext';
 import { useUser } from '@/context/UserContext';
 import { BlurView } from 'expo-blur';
 
-
 type Nav = StackNavigationProp<RootStackParamList>;
 
 type Category = 'Tümü' | 'Kafe' | 'Sinema' | 'Giyim';
 
 const CATEGORIES: Category[] = ['Tümü', 'Kafe', 'Sinema', 'Giyim'];
 
+/** CustomTabBar ile aynı: yüzen tab yüksekliği + alt offset (içerik tabın altında kalmaması için) */
+const TAB_BAR_HEIGHT = 72;
+const TAB_BAR_BOTTOM_MARGIN = 24;
+
 const GencKartScreen = () => {
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
   const { mode } = useThemeMode();
   const isDark = mode === 'dark';
   const { isFavoritePartner, toggleFavorite } = useFavorites();
@@ -38,73 +43,120 @@ const GencKartScreen = () => {
     return MOCK_PARTNERS.filter(partner => partner.category === selectedCategory);
   }, [selectedCategory]);
 
+  const renderCategoryChip = useCallback(
+    (category: Category) => {
+      const active = selectedCategory === category;
+      return (
+        <TouchableOpacity
+          key={category}
+          onPress={() => setSelectedCategory(category)}
+          activeOpacity={0.88}
+          style={[
+            styles.filterChip,
+            isDark && styles.filterChipDarkOutline,
+            !isDark && !active && styles.filterChipInactiveLight,
+          ]}
+        >
+          {active && (
+            <LinearGradient
+              colors={['#f59e0b', '#fbbf24', '#f59e0b']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+          )}
+          {!active && isDark && <View style={[StyleSheet.absoluteFill, styles.filterChipInactiveDarkFill]} />}
+          {!active && !isDark && (
+            <>
+              {Platform.OS === 'ios' ? (
+                <BlurView intensity={45} tint="light" style={[StyleSheet.absoluteFill, { borderRadius: 22 }]} />
+              ) : null}
+              <View
+                style={[
+                  StyleSheet.absoluteFill,
+                  {
+                    backgroundColor: Platform.OS === 'ios' ? 'rgba(255,255,255,0.92)' : '#ffffff',
+                    borderRadius: 22,
+                  },
+                ]}
+              />
+            </>
+          )}
+          <Text
+            style={[
+              styles.filterChipText,
+              !active && !isDark && { color: DribbbleColors.textSecondary },
+              !active && isDark && { color: '#94a3b8' },
+              active && { color: '#ffffff' },
+            ]}
+          >
+            {category}
+          </Text>
+        </TouchableOpacity>
+      );
+    },
+    [isDark, selectedCategory]
+  );
+
   const renderPartnerItem = (item: DiscountPartner) => {
     const Icon = item.icon;
     const isFav = isFavoritePartner(item.id);
     return (
+      <TouchableOpacity
+        style={[styles.venueCard, isDark && styles.venueCardDark]}
+        activeOpacity={0.92}
+        onPress={() => navigation.navigate('PartnerDetail', { partnerId: item.id })}
+      >
         <TouchableOpacity
-            style={styles.partnerCard}
-            activeOpacity={0.88}
-            onPress={() => navigation.navigate('PartnerDetail', { partnerId: item.id })}
+          style={styles.venueHeartBtn}
+          onPress={() => toggleFavorite('partner', item.id)}
+          hitSlop={10}
         >
-            {/* Glass blur layer */}
-            <BlurView
-                intensity={isDark ? 55 : 40}
-                tint={isDark ? 'dark' : 'light'}
-                style={StyleSheet.absoluteFill}
-            />
-            {/* Glass tint overlay */}
-            <View style={[
-                StyleSheet.absoluteFill,
-                styles.partnerCardTint,
-                isDark ? styles.partnerCardTintDark : styles.partnerCardTintLight,
-            ]} />
-
-            <TouchableOpacity
-              style={styles.partnerHeartButton}
-              onPress={(e) => { e.stopPropagation(); toggleFavorite('partner', item.id); }}
-              activeOpacity={0.8}
-            >
-              <Heart
-                color={isFav ? '#f59e0b' : (isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.2)')}
-                size={20}
-                fill={isFav ? '#f59e0b' : 'transparent'}
-              />
-            </TouchableOpacity>
-
-            {/* Icon container — glass pill */}
-            <View style={[
-                styles.partnerIconContainer,
-                isDark ? styles.partnerIconContainerDark : styles.partnerIconContainerLight,
-            ]}>
-                <Icon
-                    color={isDark ? '#f1f5f9' : '#1e293b'}
-                    size={26}
-                    strokeWidth={1.8}
-                />
-            </View>
-
-            <View style={styles.partnerInfo}>
-                <Text style={[styles.partnerName, isDark && { color: '#f8fafc' }]}>{item.name}</Text>
-                <Text style={[styles.partnerOffer, isDark && { color: '#fbbf24' }]}>{item.offer}</Text>
-                <Text style={[styles.partnerDesc, isDark && { color: 'rgba(255,255,255,0.45)' }]}>{item.description}</Text>
-            </View>
-
-            <ArrowUpRight
-                color={isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)'}
-                size={22}
-                strokeWidth={2}
-            />
+          <Heart
+            color={isFav ? (isDark ? Colors.dark.accent : Colors.primaryHex) : isDark ? 'rgba(248,250,252,0.45)' : '#94a3b8'}
+            size={18}
+            strokeWidth={2}
+            fill={isFav ? (isDark ? Colors.dark.accent : Colors.primaryHex) : 'transparent'}
+          />
         </TouchableOpacity>
+
+        <View style={[styles.venueIconWrap, { backgroundColor: item.bgColor }]}>
+          <Icon color={item.iconColor} size={24} strokeWidth={2} />
+        </View>
+
+        <View style={styles.venueTextCol}>
+          <Text style={[styles.venueName, isDark && { color: '#f8fafc' }]} numberOfLines={1}>
+            {item.name}
+          </Text>
+          <View style={[styles.venueOfferPill, isDark && styles.venueOfferPillDark]}>
+            <Text style={[styles.venueOfferPillText, isDark && { color: Colors.dark.highlight }]}>{item.offer}</Text>
+          </View>
+          <Text style={[styles.venueDesc, isDark && { color: '#94a3b8' }]} numberOfLines={2}>
+            {item.description}
+          </Text>
+        </View>
+
+        <ArrowUpRight
+          color={isDark ? 'rgba(248,250,252,0.35)' : 'rgba(15,23,42,0.2)'}
+          size={20}
+          strokeWidth={2.2}
+        />
+      </TouchableOpacity>
     );
   };
+
+  const tabBarLift = Math.max(TAB_BAR_BOTTOM_MARGIN, insets.bottom + 8);
+  const scrollBottomPadding = tabBarLift + TAB_BAR_HEIGHT + 24;
 
   return (
     <SafeAreaView
       style={[styles.container, isDark ? { backgroundColor: Colors.dark.background } : { backgroundColor: DribbbleColors.background }]}
       edges={['top']}
     >
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: scrollBottomPadding }}
+        >
             <View style={styles.header}>
                 <Text style={[styles.headerTitle, isDark && { color: '#f8fafc' }]}>Şanlı Genç Kart</Text>
                 <Text style={[styles.headerSubtitle, isDark && { color: '#94a3b8' }]}>Şehrin anahtarı cebinde!</Text>
@@ -112,42 +164,42 @@ const GencKartScreen = () => {
 
             {/* Genç Kart */}
             <LinearGradient
-                colors={isDark ? Gradients.hero : ['#f59e0b', '#fbbf24']}
+                colors={['#f59e0b', '#fbbf24']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.gencKart}
             >
-                {/* Urfa Pattern Overlay */}
+                {/* Urfa Pattern Overlay — gece/gündüz aynı amber kart */}
                 <View style={styles.patternContainer}>
                     {/* Arka plan büyük elemanlar */}
-                    <UrfaIcon_Gobeklitepe color={isDark ? Colors.primaryHex : Colors.white} size={85} opacity={isDark ? 0.15 : 0.45} style={{ position: 'absolute', top: 50, right: 15, transform: [{ rotate: '-15deg' }] }} />
-                    <UrfaIcon_Harran color={isDark ? Colors.primaryHex : Colors.white} size={75} opacity={isDark ? 0.12 : 0.4} style={{ position: 'absolute', bottom: 5, left: 10, transform: [{ rotate: '10deg' }] }} />
+                    <UrfaIcon_Gobeklitepe color={Colors.white} size={85} opacity={0.45} style={{ position: 'absolute', top: 50, right: 15, transform: [{ rotate: '-15deg' }] }} />
+                    <UrfaIcon_Harran color={Colors.white} size={75} opacity={0.4} style={{ position: 'absolute', bottom: 5, left: 10, transform: [{ rotate: '10deg' }] }} />
 
                     {/* Orta katman elemanlar */}
-                    <UrfaIcon_Balik color={isDark ? Colors.primaryHex : Colors.white} size={60} opacity={isDark ? 0.2 : 0.5} style={{ position: 'absolute', top: 15, left: 20, transform: [{ rotate: '25deg' }] }} />
-                    <UrfaIcon_Balik color={isDark ? Colors.primaryHex : Colors.white} size={50} opacity={isDark ? 0.18 : 0.45} style={{ position: 'absolute', bottom: 25, right: -10, transform: [{ rotate: '-20deg' }] }} />
+                    <UrfaIcon_Balik color={Colors.white} size={60} opacity={0.5} style={{ position: 'absolute', top: 15, left: 20, transform: [{ rotate: '25deg' }] }} />
+                    <UrfaIcon_Balik color={Colors.white} size={50} opacity={0.45} style={{ position: 'absolute', bottom: 25, right: -10, transform: [{ rotate: '-20deg' }] }} />
 
                     {/* Küçük dolgu elemanları */}
-                    <UrfaIcon_Gobeklitepe color={isDark ? Colors.primaryHex : Colors.white} size={40} opacity={isDark ? 0.1 : 0.35} style={{ position: 'absolute', bottom: 85, left: 95, transform: [{ rotate: '20deg' }] }} />
-                    <UrfaIcon_Balik color={isDark ? Colors.primaryHex : Colors.white} size={35} opacity={isDark ? 0.15 : 0.4} style={{ position: 'absolute', top: 10, right: 100, transform: [{ rotate: '-5deg' }] }} />
-                    <UrfaIcon_Harran color={isDark ? Colors.primaryHex : Colors.white} size={45} opacity={isDark ? 0.12 : 0.38} style={{ position: 'absolute', bottom: 10, right: 130, transform: [{ rotate: '45deg' }] }} />
+                    <UrfaIcon_Gobeklitepe color={Colors.white} size={40} opacity={0.35} style={{ position: 'absolute', bottom: 85, left: 95, transform: [{ rotate: '20deg' }] }} />
+                    <UrfaIcon_Balik color={Colors.white} size={35} opacity={0.4} style={{ position: 'absolute', top: 10, right: 100, transform: [{ rotate: '-5deg' }] }} />
+                    <UrfaIcon_Harran color={Colors.white} size={45} opacity={0.38} style={{ position: 'absolute', bottom: 10, right: 130, transform: [{ rotate: '45deg' }] }} />
 
-                    <UrfaIcon_Harran color={isDark ? Colors.primaryHex : Colors.white} size={35} opacity={isDark ? 0.08 : 0.3} style={{ position: 'absolute', top: 90, left: 15, transform: [{ rotate: '-10deg' }] }} />
-                    <UrfaIcon_Balik color={isDark ? Colors.primaryHex : Colors.white} size={25} opacity={isDark ? 0.1 : 0.32} style={{ position: 'absolute', bottom: 60, right: 80, transform: [{ rotate: '30deg' }] }} />
-                    <UrfaIcon_Gobeklitepe color={isDark ? Colors.primaryHex : Colors.white} size={30} opacity={isDark ? 0.1 : 0.32} style={{ position: 'absolute', top: 5, left: 120, transform: [{ rotate: '15deg' }] }} />
-                    <UrfaIcon_Balik color={isDark ? Colors.primaryHex : Colors.white} size={30} opacity={isDark ? 0.07 : 0.28} style={{ position: 'absolute', top: 120, right: 100, transform: [{ rotate: '-30deg' }] }} />
-                    <UrfaIcon_Harran color={isDark ? Colors.primaryHex : Colors.white} size={25} opacity={isDark ? 0.09 : 0.3} style={{ position: 'absolute', top: 140, left: 50, transform: [{ rotate: '15deg' }] }} />
-                    <UrfaIcon_Gobeklitepe color={isDark ? Colors.primaryHex : Colors.white} size={20} opacity={isDark ? 0.12 : 0.35} style={{ position: 'absolute', bottom: 5, right: 70, transform: [{ rotate: '-5deg' }] }} />
+                    <UrfaIcon_Harran color={Colors.white} size={35} opacity={0.3} style={{ position: 'absolute', top: 90, left: 15, transform: [{ rotate: '-10deg' }] }} />
+                    <UrfaIcon_Balik color={Colors.white} size={25} opacity={0.32} style={{ position: 'absolute', bottom: 60, right: 80, transform: [{ rotate: '30deg' }] }} />
+                    <UrfaIcon_Gobeklitepe color={Colors.white} size={30} opacity={0.32} style={{ position: 'absolute', top: 5, left: 120, transform: [{ rotate: '15deg' }] }} />
+                    <UrfaIcon_Balik color={Colors.white} size={30} opacity={0.28} style={{ position: 'absolute', top: 120, right: 100, transform: [{ rotate: '-30deg' }] }} />
+                    <UrfaIcon_Harran color={Colors.white} size={25} opacity={0.3} style={{ position: 'absolute', top: 140, left: 50, transform: [{ rotate: '15deg' }] }} />
+                    <UrfaIcon_Gobeklitepe color={Colors.white} size={20} opacity={0.35} style={{ position: 'absolute', bottom: 5, right: 70, transform: [{ rotate: '-5deg' }] }} />
 
-                    <UrfaIcon_Balik color={isDark ? Colors.primaryHex : Colors.white} size={22} opacity={isDark ? 0.15 : 0.38} style={{ position: 'absolute', top: 80, right: 90, transform: [{ rotate: '180deg' }] }} />
-                    <UrfaIcon_Gobeklitepe color={isDark ? Colors.primaryHex : Colors.white} size={28} opacity={isDark ? 0.1 : 0.3} style={{ position: 'absolute', bottom: 60, left: 30, transform: [{ rotate: '-25deg' }] }} />
-                    <UrfaIcon_Harran color={isDark ? Colors.primaryHex : Colors.white} size={33} opacity={isDark ? 0.11 : 0.33} style={{ position: 'absolute', top: 40, left: 150, transform: [{ rotate: '35deg' }] }} />
+                    <UrfaIcon_Balik color={Colors.white} size={22} opacity={0.38} style={{ position: 'absolute', top: 80, right: 90, transform: [{ rotate: '180deg' }] }} />
+                    <UrfaIcon_Gobeklitepe color={Colors.white} size={28} opacity={0.3} style={{ position: 'absolute', bottom: 60, left: 30, transform: [{ rotate: '-25deg' }] }} />
+                    <UrfaIcon_Harran color={Colors.white} size={33} opacity={0.33} style={{ position: 'absolute', top: 40, left: 150, transform: [{ rotate: '35deg' }] }} />
 
-                    <UrfaIcon_Gobeklitepe color={isDark ? Colors.primaryHex : Colors.white} size={25} opacity={isDark ? 0.06 : 0.25} style={{ position: 'absolute', top: 130, left: 140, transform: [{ rotate: '-10deg' }] }} />
-                    <UrfaIcon_Balik color={isDark ? Colors.primaryHex : Colors.white} size={20} opacity={isDark ? 0.08 : 0.28} style={{ position: 'absolute', bottom: 45, left: 160, transform: [{ rotate: '10deg' }] }} />
-                    <UrfaIcon_Harran color={isDark ? Colors.primaryHex : Colors.white} size={20} opacity={isDark ? 0.1 : 0.3} style={{ position: 'absolute', top: 160, right: 40, transform: [{ rotate: '-40deg' }] }} />
-                    <UrfaIcon_Balik color={isDark ? Colors.primaryHex : Colors.white} size={28} opacity={isDark ? 0.12 : 0.35} style={{ position: 'absolute', top: 60, left: 60, transform: [{ rotate: '60deg' }] }} />
-                    <UrfaIcon_Gobeklitepe color={isDark ? Colors.primaryHex : Colors.white} size={26} opacity={isDark ? 0.09 : 0.28} style={{ position: 'absolute', bottom: 90, right: 140, transform: [{ rotate: '5deg' }] }} />
+                    <UrfaIcon_Gobeklitepe color={Colors.white} size={25} opacity={0.25} style={{ position: 'absolute', top: 130, left: 140, transform: [{ rotate: '-10deg' }] }} />
+                    <UrfaIcon_Balik color={Colors.white} size={20} opacity={0.28} style={{ position: 'absolute', bottom: 45, left: 160, transform: [{ rotate: '10deg' }] }} />
+                    <UrfaIcon_Harran color={Colors.white} size={20} opacity={0.3} style={{ position: 'absolute', top: 160, right: 40, transform: [{ rotate: '-40deg' }] }} />
+                    <UrfaIcon_Balik color={Colors.white} size={28} opacity={0.35} style={{ position: 'absolute', top: 60, left: 60, transform: [{ rotate: '60deg' }] }} />
+                    <UrfaIcon_Gobeklitepe color={Colors.white} size={26} opacity={0.28} style={{ position: 'absolute', bottom: 90, right: 140, transform: [{ rotate: '5deg' }] }} />
                 </View>
 
                 <View style={styles.cardTop}>
@@ -172,47 +224,36 @@ const GencKartScreen = () => {
                 </View>
             </LinearGradient>
 
-            {/* Partner List */}
-            <View style={styles.listHeader}>
-                <Text style={[styles.sectionTitle, isDark && { color: '#f8fafc' }]}>Anlaşmalı Mekanlar</Text>
-                <Text style={[styles.firsatCount, isDark && { color: '#94a3b8' }]}>{filteredPartners.length} Fırsat</Text>
+            {/* Anlaşmalı mekanlar — kartın altı (Genç Kart bloğu yukarıda aynı) */}
+            <View style={styles.venuesSection}>
+              <View style={styles.venuesSectionTop}>
+                <View style={styles.venuesTitleRow}>
+                  <Text style={[styles.venuesSectionTitle, isDark && { color: '#f8fafc' }]}>Anlaşmalı Mekanlar</Text>
+                  <View style={[styles.venuesAccent, isDark && styles.venuesAccentDark]} />
+                </View>
+                <View style={styles.venuesCountPill}>
+                  <Text style={[styles.venuesCountText, isDark && { color: '#fde68a' }]}>
+                    {filteredPartners.length} fırsat
+                  </Text>
+                </View>
+              </View>
+              <Text style={[styles.venuesSubtitle, isDark && { color: '#94a3b8' }]}>
+                Genç Kart ile indirim ve ayrıcalıklar
+              </Text>
             </View>
 
-            {/* Category Filter — Premium Glass Segmented Bar */}
-            <View style={styles.chipBarWrapper}>
-                <BlurView
-                    intensity={35}
-                    tint={isDark ? 'dark' : 'light'}
-                    style={styles.chipBar}
-                >
-                    <View style={[StyleSheet.absoluteFill, styles.chipBarTint, isDark ? styles.chipBarTintDark : styles.chipBarTintLight]} />
-                    {CATEGORIES.map((category) => {
-                        const isSelected = selectedCategory === category;
-                        return (
-                            <TouchableOpacity
-                                key={category}
-                                style={[
-                                    styles.chip,
-                                    isDark
-                                        ? (isSelected ? styles.chipActiveDark : styles.chipInactiveDark)
-                                        : (isSelected ? styles.chipActiveLight : styles.chipInactiveLight),
-                                ]}
-                                onPress={() => setSelectedCategory(category)}
-                                activeOpacity={0.75}
-                            >
-                                <Text style={[
-                                    styles.chipText,
-                                    isSelected ? styles.chipTextActive : (isDark ? { color: '#94a3b8' } : { color: '#78716c' }),
-                                ]}>
-                                    {category}
-                                </Text>
-                            </TouchableOpacity>
-                        );
-                    })}
-                </BlurView>
+            <View style={styles.filterRowFixed}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.filterScroll}
+                contentContainerStyle={styles.filterScrollContent}
+              >
+                {CATEGORIES.map((c) => renderCategoryChip(c))}
+              </ScrollView>
             </View>
 
-            <View style={styles.listContainer}>
+            <View style={styles.venuesList}>
                 {filteredPartners.map((item, index) => (
                     <AnimatedListItem key={item.id} index={index} delay={60}>
                         {renderPartnerItem(item)}
@@ -317,174 +358,179 @@ const styles = StyleSheet.create({
       fontSize: 12,
       marginTop: 2
   },
-  listHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: 20,
-      marginTop: 32,
-      marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#1c1917',
-    letterSpacing: -0.3,
-  },
-  firsatCount: {
-      color: '#92400e',
-      fontWeight: '700',
-      fontSize: 13,
-      backgroundColor: 'rgba(245,158,11,0.15)',
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: 12,
-  },
-  listContainer: {
+  venuesSection: {
     paddingHorizontal: 20,
+    marginTop: 28,
+    marginBottom: 6,
   },
-  partnerHeartButton: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
+  venuesSectionTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  venuesTitleRow: {
+    flex: 1,
+    minWidth: 0,
+  },
+  venuesSectionTitle: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 20,
+    letterSpacing: -0.35,
+    color: DribbbleColors.textPrimary,
+  },
+  venuesAccent: {
+    marginTop: 10,
+    width: 48,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: 'rgba(245,158,11,0.55)',
+  },
+  venuesAccentDark: {
+    backgroundColor: 'rgba(251,191,36,0.5)',
+  },
+  venuesCountPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 14,
+    backgroundColor: 'rgba(245,158,11,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.28)',
+  },
+  venuesCountText: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 12,
+    color: '#b45309',
+    letterSpacing: 0.2,
+  },
+  venuesSubtitle: {
+    fontFamily: FontFamily.medium,
+    fontSize: 13,
+    color: DribbbleColors.textSecondary,
+    marginTop: 8,
+    lineHeight: 18,
+  },
+  filterRowFixed: {
+    height: 52,
+    marginBottom: 8,
+    flexGrow: 0,
+  },
+  filterScroll: {
+    flexGrow: 0,
+    height: 52,
+  },
+  filterScrollContent: {
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    flexGrow: 0,
+    paddingVertical: 4,
+  },
+  filterChip: {
+    paddingHorizontal: 18,
+    height: 44,
+    borderRadius: 22,
+    marginRight: 10,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
+  },
+  filterChipDarkOutline: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  filterChipInactiveLight: {
+    borderWidth: 1,
+    borderColor: DribbbleColors.borderLight,
+  },
+  filterChipInactiveDarkFill: {
+    backgroundColor: 'rgba(30,41,59,0.95)',
+    borderRadius: 22,
+  },
+  filterChipText: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 13,
     zIndex: 1,
+  },
+  venuesList: {
+    paddingHorizontal: 20,
+    paddingTop: 6,
+  },
+  venueCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingRight: 14,
+    marginBottom: 12,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.14)',
+    shadowColor: '#92400e',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  venueCardDark: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(251,191,36,0.18)',
+    shadowOpacity: 0.15,
+  },
+  venueHeartBtn: {
+    position: 'absolute',
+    top: 10,
+    right: 44,
+    zIndex: 2,
     padding: 6,
   },
-  partnerCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 24,
-    padding: 18,
-    marginBottom: 14,
-    overflow: 'hidden',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.6)',
-    shadowColor: '#d97706',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.14,
-    shadowRadius: 22,
-    elevation: 6,
-  },
-  partnerCardTint: {
-    borderRadius: 24,
-  },
-  partnerCardTintLight: {
-    backgroundColor: 'rgba(255,255,255,0.6)',
-  },
-  partnerCardTintDark: {
-    backgroundColor: 'rgba(15,26,46,0.55)',
-  },
-  partnerIconContainer: {
-    width: 54,
-    height: 54,
-    borderRadius: 18,
+  venueIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  partnerIconContainerLight: {
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,1)',
-    shadowColor: '#f59e0b',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-  },
-  partnerIconContainerDark: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'rgba(255,255,255,0.65)',
   },
-  partnerInfo: {
+  venueTextCol: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: 14,
+    marginRight: 4,
+    paddingRight: 6,
   },
-  partnerName: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1c1917',
-    letterSpacing: -0.3,
+  venueName: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 16,
+    letterSpacing: -0.2,
+    color: DribbbleColors.textPrimary,
   },
-  partnerOffer: {
-    color: '#b45309',
-    fontWeight: '800',
-    fontSize: 15,
-    marginTop: 3,
+  venueOfferPill: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    backgroundColor: 'rgba(245,158,11,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.28)',
   },
-  partnerDesc: {
-    color: '#78716c',
+  venueOfferPillDark: {
+    backgroundColor: 'rgba(245,158,11,0.12)',
+    borderColor: 'rgba(251,191,36,0.25)',
+  },
+  venueOfferPillText: {
+    fontFamily: FontFamily.semiBold,
     fontSize: 12,
-    marginTop: 3,
-    fontWeight: '500',
+    color: '#b45309',
   },
-  // Glass Segmented Bar
-  chipBarWrapper: {
-    marginHorizontal: 20,
-    marginVertical: 10,
-    borderRadius: 28,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  chipBar: {
-    flexDirection: 'row',
-    padding: 5,
-    borderRadius: 28,
-    overflow: 'hidden',
-  },
-  chipBarTint: {
-    borderRadius: 28,
-  },
-  chipBarTintLight: {
-    backgroundColor: 'rgba(255,255,255,0.4)',
-  },
-  chipBarTintDark: {
-    backgroundColor: 'rgba(15,26,46,0.5)',
-  },
-  chip: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  chipActiveLight: {
-    backgroundColor: '#f59e0b',
-    shadowColor: '#f59e0b',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.45,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  chipInactiveLight: {
-    backgroundColor: 'transparent',
-  },
-  chipActiveDark: {
-    backgroundColor: Colors.primary.indigo,
-    shadowColor: Colors.primary.indigo,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  chipInactiveDark: {
-    backgroundColor: 'transparent',
-  },
-  chipText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.darkGray,
-    textAlign: 'center',
-  },
-  chipTextActive: {
-    color: Colors.white,
-    fontWeight: '700',
+  venueDesc: {
+    fontFamily: FontFamily.medium,
+    fontSize: 12,
+    color: DribbbleColors.textSecondary,
+    marginTop: 8,
+    lineHeight: 17,
   },
 });
 

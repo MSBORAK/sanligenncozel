@@ -30,7 +30,7 @@ const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
       <View
         style={[
           styles.bgOverlay,
-          isDark && { backgroundColor: 'rgba(15,23,42,0.85)' },
+          isDark && { backgroundColor: 'rgba(0,0,0,0.88)' },
         ]}
       />
 

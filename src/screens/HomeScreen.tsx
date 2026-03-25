@@ -17,12 +17,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { 
   Calendar, BookOpen, User, Megaphone, Palette, Bus, Users, Search,
   Flame, QrCode, X, ChevronLeft, ChevronRight, Sparkles,
   CloudRain, Sun, Cloud, CloudSnow, CloudLightning, CloudDrizzle,
-  Tag, Coffee, Shirt, Smartphone, Ticket, GraduationCap, Gift,
+  Tag, Coffee, Shirt, Smartphone, Ticket, GraduationCap, Gift, Bell,
   Pill, Library, Route, Radio
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -73,12 +72,53 @@ const DEFAULT_STORIES = [
   { name: 'Duyurular', icon: Megaphone, image: 'https://images.unsplash.com/photo-1551434678-e076c223a692?q=80&w=2670&auto=format&fit=crop' },
 ];
 
+/** surface* = ilgili liste sayfasıyla aynı pastel / gece tonu (düz renk, gradient yok) */
 const QUICK_ACCESS_NAV = [
-    { name: 'Etkinlik', icon: Calendar, color: '#fecaca', iconColor: '#b91c1c', screen: 'Events', type: 'stack' },
-    { name: 'Keşfet', icon: BookOpen, color: '#bfdbfe', iconColor: '#1d4ed8', screen: 'Magazine', type: 'stack' },
-    { name: 'Nöbetçi Eczane', icon: Pill, color: '#fbcfe8', iconColor: '#be185d', screen: 'PharmacyList', type: 'stack' },
-    { name: 'Kütüphaneler', icon: Library, color: '#bbf7d0', iconColor: '#15803d', screen: 'LibraryList', type: 'stack' },
-    { name: 'Gezi Rotası', icon: Route, color: '#ddd6fe', iconColor: '#6d28d9', screen: 'CulturalRoute', type: 'stack' },
+  {
+    name: 'Etkinlik',
+    icon: Calendar,
+    color: '#fecaca',
+    iconColor: '#b91c1c',
+    screen: 'Events',
+    surfaceLight: '#EDE7F6',
+    surfaceDark: 'rgba(167, 139, 250, 0.24)',
+  },
+  {
+    name: 'Keşfet',
+    icon: BookOpen,
+    color: '#bfdbfe',
+    iconColor: '#1d4ed8',
+    screen: 'Magazine',
+    surfaceLight: '#f0f9ff',
+    surfaceDark: 'rgba(59, 130, 246, 0.22)',
+  },
+  {
+    name: 'Nöbetçi Eczane',
+    icon: Pill,
+    color: '#fbcfe8',
+    iconColor: '#be185d',
+    screen: 'PharmacyList',
+    surfaceLight: '#fdf2f8',
+    surfaceDark: 'rgba(251, 113, 133, 0.2)',
+  },
+  {
+    name: 'Kütüphaneler',
+    icon: Library,
+    color: '#bbf7d0',
+    iconColor: '#15803d',
+    screen: 'LibraryList',
+    surfaceLight: '#f0fdf4',
+    surfaceDark: 'rgba(52, 211, 153, 0.2)',
+  },
+  {
+    name: 'Gezi Rotası',
+    icon: Route,
+    color: '#ddd6fe',
+    iconColor: '#6d28d9',
+    screen: 'CulturalRoute',
+    surfaceLight: '#f5f3ff',
+    surfaceDark: 'rgba(139, 92, 246, 0.22)',
+  },
 ];
 
 const QUOTES_OF_DAY = [
@@ -127,6 +167,8 @@ const HomeScreen = () => {
   const [stories, setStories] = useState<StoryData[]>([]);
   const [loadingStories, setLoadingStories] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { mode } = useThemeMode();
+  const isDark = mode === 'dark';
 
   // Lottie refs - tıklanınca .play() ile tekrar oynat
   const etkinlikLottieRef = useRef<LottieView>(null);
@@ -145,6 +187,10 @@ const HomeScreen = () => {
   }, []);
 
   useEffect(() => {
+    if (!isDark) {
+      radarPulse.setValue(0);
+      return;
+    }
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(radarPulse, { toValue: 1, duration: 1300, easing: Easing.out(Easing.quad), useNativeDriver: true }),
@@ -153,7 +199,7 @@ const HomeScreen = () => {
     );
     loop.start();
     return () => loop.stop();
-  }, [radarPulse]);
+  }, [radarPulse, isDark]);
   
   // Story detayları - Supabase'den gelen veriler varsa onları kullan
   const getStoryDetails = (storyName: string): { description: string } => {
@@ -366,11 +412,7 @@ const HomeScreen = () => {
   const activeStory = activeStoryIndex !== null ? headerNav[activeStoryIndex] : null;
 
   const handleNavigation = (item: typeof QUICK_ACCESS_NAV[0]) => {
-      if(item.type === 'tab') {
-          navigation.navigate('Main', { screen: item.screen as keyof MainTabParamList });
-      } else {
-          navigation.navigate(item.screen as 'Events' | 'Magazine' | 'PharmacyList' | 'LibraryList' | 'CulturalRoute');
-      }
+    navigation.navigate(item.screen as 'Events' | 'Magazine' | 'PharmacyList' | 'LibraryList' | 'CulturalRoute');
   };
 
   const handleBentoPress = (item: typeof QUICK_ACCESS_NAV[0]) => {
@@ -388,37 +430,36 @@ const HomeScreen = () => {
   // Kategori Temaları
   const getCategoryTheme = (kategori: string | null | undefined) => {
     if (!kategori) {
-      return { icon: Gift, color: '#FF6B35', bg: '#fff7ed' };
+      return { icon: Gift, color: '#fb923c', bg: '#ffedd5', bgDark: '#3a2a1c' };
     }
-    
+
     // Kategori değerini normalize et (trim, küçük harfe çevir, boşlukları normalize et)
     const normalizedKategori = kategori.trim().toLowerCase().replace(/\s+/g, ' ');
-    
-    // Kategori eşleştirmesi (case-insensitive ve esnek)
+
+    // Kategori eşleştirmesi (case-insensitive ve esnek) — bgDark: gece modunda gündüz pastelinin tok tonu
     if (normalizedKategori.includes('yiyecek') || normalizedKategori.includes('içecek')) {
-      return { icon: Coffee, color: '#e67e22', bg: '#fff7ed' };
+      return { icon: Coffee, color: '#fb923c', bg: '#ffedd5', bgDark: '#3a2a1c' };
     }
     if (normalizedKategori.includes('giyim')) {
-      return { icon: Shirt, color: '#9b59b6', bg: '#fbf7ff' };
+      return { icon: Shirt, color: '#a78bfa', bg: '#ede9fe', bgDark: '#2e2642' };
     }
     if (normalizedKategori.includes('teknoloji')) {
-      return { icon: Smartphone, color: '#3498db', bg: '#f0f9ff' };
+      return { icon: Smartphone, color: '#60a5fa', bg: '#dbeafe', bgDark: '#1e2f45' };
     }
     if (normalizedKategori.includes('etkinlik') || normalizedKategori.includes('bileti')) {
-      return { icon: Ticket, color: '#e74c3c', bg: '#fef2f2' };
+      return { icon: Ticket, color: '#f87171', bg: '#fee2e2', bgDark: '#3d2226' };
     }
     if (normalizedKategori.includes('öğrenci') || normalizedKategori.includes('özel')) {
-      return { icon: GraduationCap, color: '#2ecc71', bg: '#f0fdf4' };
+      return { icon: GraduationCap, color: '#4ade80', bg: '#dcfce7', bgDark: '#1c3328' };
     }
     if (normalizedKategori.includes('indirim')) {
-      return { icon: Tag, color: '#f43f5e', bg: '#fff1f2' };
+      return { icon: Tag, color: '#fb7185', bg: '#ffe4e6', bgDark: '#3a2428' };
     }
     if (normalizedKategori.includes('kampanya')) {
-      return { icon: Megaphone, color: '#f59e0b', bg: '#fffbeb' };
+      return { icon: Megaphone, color: '#fbbf24', bg: '#fef3c7', bgDark: '#3d3420' };
     }
-    
-    // Default tema
-    return { icon: Gift, color: '#FF6B35', bg: '#fff7ed' };
+
+    return { icon: Gift, color: '#fb923c', bg: '#ffedd5', bgDark: '#3a2a1c' };
   };
 
   const handleNextStory = () => {
@@ -503,25 +544,15 @@ const HomeScreen = () => {
     })
   ).current;
 
-  const { mode } = useThemeMode();
-  const isDark = mode === 'dark';
-
   return (
     <View style={styles.root}>
       <LinearGradient colors={isDark ? Gradients.background : Gradients.backgroundLight} style={StyleSheet.absoluteFill} />
-      {isDark ? (
-        <>
-          <LinearGradient colors={Gradients.meshMarigold} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.meshLayer]} pointerEvents="none" />
-          <LinearGradient colors={Gradients.meshNavy} start={{ x: 1, y: 1 }} end={{ x: 0, y: 0 }} style={[StyleSheet.absoluteFill, styles.meshLayer]} pointerEvents="none" />
-          <LinearGradient colors={Gradients.meshPearl} start={{ x: 1, y: 0 }} end={{ x: 0, y: 0.5 }} style={[StyleSheet.absoluteFill, styles.meshLayer]} pointerEvents="none" />
-          <LinearGradient colors={Gradients.meshBuff} start={{ x: 0.5, y: 1 }} end={{ x: 0.5, y: 0.3 }} style={[StyleSheet.absoluteFill, styles.meshLayer]} pointerEvents="none" />
-        </>
-      ) : (
+      {!isDark ? (
         <>
           <LinearGradient colors={['rgba(240,230,255,0.25)', 'transparent', 'transparent']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0.8 }} style={[StyleSheet.absoluteFill, { opacity: 0.9 }]} pointerEvents="none" />
           <LinearGradient colors={['transparent', 'rgba(225,240,255,0.2)', 'rgba(254,249,195,0.15)']} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={[StyleSheet.absoluteFill, { opacity: 0.9 }]} pointerEvents="none" />
         </>
-      )}
+      ) : null}
       <SafeAreaView style={[styles.statusBarArea, !isDark && { backgroundColor: '#ffffff' }]} edges={['top']} />
       <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
         <ScrollView 
@@ -532,7 +563,7 @@ const HomeScreen = () => {
               refreshing={refreshing}
               onRefresh={onRefresh}
               tintColor={isDark ? Colors.dark.accent : Colors.primary.indigo}
-              colors={[Colors.primary.indigo]}
+              colors={isDark ? [Colors.dark.accent] : [Colors.primary.indigo]}
             />
           }
         >
@@ -545,13 +576,22 @@ const HomeScreen = () => {
             <View style={[styles.badge, !isDark && { backgroundColor: DribbbleColors.cardWhite, borderWidth: 1, borderColor: DribbbleColors.borderLight }]}>
               <Text style={[styles.badgeText, !isDark && { color: DribbbleColors.textPrimary }]}>◎ ŞANLIURFA</Text>
             </View>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('GlobalSearch')}
-              style={styles.headerSearchBtn}
-              activeOpacity={0.8}
-            >
-              <Search color={isDark ? Colors.white : DribbbleColors.textPrimary} size={22} />
-            </TouchableOpacity>
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Notifications')}
+                style={styles.headerSearchBtn}
+                activeOpacity={0.8}
+              >
+                <Bell color={isDark ? Colors.white : DribbbleColors.textPrimary} size={22} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('GlobalSearch')}
+                style={styles.headerSearchBtn}
+                activeOpacity={0.8}
+              >
+                <Search color={isDark ? Colors.white : DribbbleColors.textPrimary} size={22} />
+              </TouchableOpacity>
+            </View>
           </View>
           <Text style={[styles.greeting, !isDark && { color: DribbbleColors.textPrimary }]}>Selam, {profile?.name || 'Şanlı Genç'}! 👋</Text>
           <Text style={[styles.greetingSub, !isDark && { color: DribbbleColors.textSecondary }]}>Bugün nasıl gidiyor?</Text>
@@ -588,7 +628,7 @@ const HomeScreen = () => {
               >
                   <Text style={[styles.statsTitleWhite, !isDark && { color: DribbbleColors.textSecondary }]}>HAVA DURUMU</Text>
                   <View style={styles.weatherStatsRow}>
-                    {getWeatherIcon(22, isDark ? Colors.buff : DribbbleColors.progressBlue)}
+                    {getWeatherIcon(22, isDark ? Colors.dark.accent : DribbbleColors.progressBlue)}
                     <Text style={[styles.statsValueWhite, { marginLeft: 6 }, !isDark && { color: DribbbleColors.textPrimary }]}>
                       {weatherData ? `${Math.round(weatherData.main.temp)}°` : '--'}
                     </Text>
@@ -604,7 +644,7 @@ const HomeScreen = () => {
               >
                   <Text style={[styles.statsTitleWhite, !isDark && { color: DribbbleColors.textSecondary }]}>TAKVİM</Text>
                   <View style={styles.calendarStatsRow}>
-                    <Calendar color={isDark ? Colors.primaryHex : DribbbleColors.progressBlue} size={22} />
+                    <Calendar color={isDark ? Colors.dark.accent : DribbbleColors.progressBlue} size={22} />
                     <Text style={[styles.statsValueWhite, { marginLeft: 6 }, !isDark && { color: DribbbleColors.textPrimary }]}>
                       {new Date().getDate()} {['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'][new Date().getMonth()]}
                     </Text>
@@ -620,54 +660,55 @@ const HomeScreen = () => {
                     styles.quoteCard,
                     { width: '100%', height: 152, paddingHorizontal: 14, paddingVertical: 11 },
                     !isDark && { borderColor: 'rgba(96,165,250,0.22)', shadowColor: '#60a5fa', shadowOpacity: 0.14, shadowRadius: 22 },
+                    isDark && {
+                      borderColor: 'rgba(96,165,250,0.35)',
+                      shadowColor: '#2563eb',
+                      shadowOpacity: 0.28,
+                      shadowRadius: 22,
+                    },
                   ]}
                   activeOpacity={0.9}
                   onPress={() => navigation.navigate('Sosyal')}
                 >
-                    <Animated.View
-                      pointerEvents="none"
-                      style={[
-                        StyleSheet.absoluteFill,
-                        styles.radarHeroPulse,
-                        {
-                          opacity: radarGlowOpacity,
-                          transform: [{ scale: radarGlowScale }],
-                        },
-                        !isDark && { borderColor: 'rgba(96,165,250,0.28)' },
-                      ]}
-                    />
+                    {isDark ? (
+                      <Animated.View
+                        pointerEvents="none"
+                        style={[
+                          StyleSheet.absoluteFill,
+                          styles.radarHeroPulse,
+                          {
+                            opacity: radarGlowOpacity,
+                            transform: [{ scale: radarGlowScale }],
+                          },
+                          { borderColor: 'rgba(147,197,253,0.35)' },
+                        ]}
+                      />
+                    ) : null}
                     <LinearGradient
-                      colors={isDark ? ['#060c1a', '#0f172a', '#1a0a00'] : ['#cbd5e1', '#bfdbfe', '#eef2ff']}
+                      colors={isDark ? ['#0f172a', '#1e3a8a', '#2563eb'] : ['#cbd5e1', '#bfdbfe', '#eef2ff']}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
                       style={StyleSheet.absoluteFill}
                     />
                     <View style={styles.radarHeroHeader}>
-                      <View style={[styles.radarHeroIcon, !isDark && { backgroundColor: 'rgba(59,130,246,0.14)', borderColor: 'rgba(59,130,246,0.22)' }]}>
-                        <Radio color={isDark ? '#f59e0b' : '#60a5fa'} size={20} strokeWidth={2} />
+                      <View style={[styles.radarHeroIcon, isDark && { backgroundColor: 'rgba(255,255,255,0.12)', borderColor: 'rgba(191,219,254,0.45)' }, !isDark && { backgroundColor: 'rgba(59,130,246,0.14)', borderColor: 'rgba(59,130,246,0.22)' }]}>
+                        <Radio color={isDark ? '#e0f2fe' : '#60a5fa'} size={20} strokeWidth={2} />
                       </View>
-                      <View style={[styles.radarHeroBadge, !isDark && { backgroundColor: 'rgba(96,165,250,0.10)', borderColor: 'rgba(96,165,250,0.18)' }]}>
+                      <View style={[styles.radarHeroBadge, !isDark && { backgroundColor: 'rgba(96,165,250,0.10)', borderColor: 'rgba(96,165,250,0.18)' }, isDark && { backgroundColor: 'rgba(255,255,255,0.12)', borderColor: 'rgba(191,219,254,0.35)' }]}>
                         <View style={styles.radarHeroLiveDot} />
-                        <Text style={[styles.radarHeroLiveText, !isDark && { color: '#2563eb' }]}>CANLI</Text>
+                        <Text style={[styles.radarHeroLiveText, !isDark && { color: '#2563eb' }, isDark && { color: '#bfdbfe' }]}>CANLI</Text>
                       </View>
                     </View>
-                    <Text style={[styles.radarHeroTitle, !isDark && { color: '#0f172a', fontSize: 22 }]}>ŞanlıSosyal</Text>
-                    <Text style={[styles.radarHeroSub, !isDark && { color: 'rgba(37,99,235,0.78)', fontSize: 14 }]}>Şehir radarı, akış ve kıvılcımlar · son 4 saat</Text>
-                    <View style={styles.radarHeroMiniMap}>
-                      <View style={[styles.radarHeroDot, { top: 4, left: 18, width: 10, height: 10, opacity: 0.28, backgroundColor: isDark ? '#f59e0b' : '#60a5fa' }]} />
-                      <View style={[styles.radarHeroDot, { top: 10, left: 88, width: 14, height: 14, opacity: 0.36, backgroundColor: isDark ? '#f59e0b' : '#3b82f6' }]} />
-                      <View style={[styles.radarHeroDot, { top: 2, left: 150, width: 8, height: 8, opacity: 0.22, backgroundColor: isDark ? '#f59e0b' : '#93c5fd' }]} />
-                      <View style={[styles.radarHeroDot, { top: 8, left: 132, width: 16, height: 16, opacity: 0.3, backgroundColor: isDark ? '#f59e0b' : '#818cf8' }]} />
-                    </View>
+                    <Text style={[styles.radarHeroTitle, isDark && { color: '#f8fafc', fontSize: 22 }, !isDark && { color: '#0f172a', fontSize: 22 }]}>ŞanlıSosyal</Text>
+                    <Text style={[styles.radarHeroSub, isDark && { color: 'rgba(224,242,254,0.88)', fontSize: 14 }, !isDark && { color: 'rgba(37,99,235,0.78)', fontSize: 14 }]}>Şehir radarı, akış ve kıvılcımlar · son 4 saat</Text>
                 </TouchableOpacity>
             </View>
 
-            <Text style={[styles.sectionTitle, styles.sectionTitleWithMargin, { color: isDark ? Colors.buff : DribbbleColors.textPremium }, !isDark && { opacity: 0.9 }]}>HIZLI ERİŞİM</Text>
+            <Text style={[styles.sectionTitle, styles.sectionTitleWithMargin, { color: isDark ? Colors.dark.highlight : DribbbleColors.textPremium }, !isDark && { opacity: 0.9 }]}>HIZLI ERİŞİM</Text>
             
-            {/* Bento Grid - Glassmorphism (Blur + Police Blue %15 + asimetrik border + inner shadow) */}
+            {/* Hızlı erişim — sayfa renkleriyle düz zemin */}
             <View style={styles.bentoGrid}>
-              {/* Row 1: Etkinlik (eski haline döndü) */}
-              <Animated.View style={[styles.bentoFullWidth, !isDark && { borderColor: 'rgba(255,255,255,0.4)', shadowColor: '#1e293b', shadowOpacity: 0.06, shadowRadius: 24 }, { opacity: bentoAnims[0], transform: [{ translateY: bentoAnims[0].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+              <Animated.View style={[styles.bentoFullWidth, !isDark && { borderColor: 'rgba(0,0,0,0.06)', shadowColor: '#1e293b', shadowOpacity: 0.08, shadowRadius: 20 }, { opacity: bentoAnims[0], transform: [{ translateY: bentoAnims[0].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
                 <AnimatedPressable
                   scaleTo={0.96}
                   style={styles.bentoGlassWrapper}
@@ -677,16 +718,13 @@ const HomeScreen = () => {
                     handleBentoPress(QUICK_ACCESS_NAV[0]);
                   }}
                 >
-                  {isDark ? (
-                    <>
-                      <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
-                      <View style={[StyleSheet.absoluteFill, styles.bentoPoliceOverlay]} />
-                      <LinearGradient colors={Gradients.innerShadow} style={[StyleSheet.absoluteFill, styles.bentoInnerShadow]} />
-                      <LinearGradient colors={Gradients.glassReflection} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.bentoGlassReflection]} pointerEvents="none" />
-                    </>
-                  ) : (
-                    <LinearGradient colors={Gradients.bentoLavender} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-                  )}
+                  <View
+                    style={[
+                      StyleSheet.absoluteFill,
+                      styles.bentoSurfaceFill,
+                      { backgroundColor: isDark ? QUICK_ACCESS_NAV[0].surfaceDark : QUICK_ACCESS_NAV[0].surfaceLight },
+                    ]}
+                  />
                   <View style={styles.bentoGlass}>
                     <View style={[styles.bentoIconGlow, styles.etkinlikLottieWrapper, !isDark && { shadowColor: DribbbleColors.iconGlowPurple, shadowOpacity: 0.4, shadowRadius: 12 }]}>
                       <LottieView
@@ -697,13 +735,13 @@ const HomeScreen = () => {
                         style={styles.etkinlikLottie}
                       />
                     </View>
-                    <Text style={[styles.bentoTitle, !isDark && { color: DribbbleColors.textPremium, opacity: 0.95 }]}>{QUICK_ACCESS_NAV[0].name}</Text>
+                    <Text style={[styles.bentoTitle, { color: isDark ? '#f8fafc' : DribbbleColors.textPremium, opacity: 0.95 }]}>{QUICK_ACCESS_NAV[0].name}</Text>
                   </View>
                 </AnimatedPressable>
               </Animated.View>
               {/* Row 2: Keşfet (2/3) + Eczane (1/3) yan yana */}
               <View style={styles.bentoRow2}>
-                <Animated.View style={[styles.bentoLarge, !isDark && { borderColor: 'rgba(255,255,255,0.4)', shadowColor: '#1e293b', shadowOpacity: 0.06, shadowRadius: 24 }, { opacity: bentoAnims[1], transform: [{ translateY: bentoAnims[1].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+                <Animated.View style={[styles.bentoLarge, !isDark && { borderColor: 'rgba(0,0,0,0.06)', shadowColor: '#1e293b', shadowOpacity: 0.08, shadowRadius: 20 }, { opacity: bentoAnims[1], transform: [{ translateY: bentoAnims[1].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
                   <AnimatedPressable
                     scaleTo={0.96}
                     style={styles.bentoGlassWrapper}
@@ -713,16 +751,13 @@ const HomeScreen = () => {
                       handleBentoPress(QUICK_ACCESS_NAV[1]);
                     }}
                   >
-                    {isDark ? (
-                      <>
-                        <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
-                        <View style={[StyleSheet.absoluteFill, styles.bentoPoliceOverlay]} />
-                        <LinearGradient colors={Gradients.innerShadow} style={[StyleSheet.absoluteFill, styles.bentoInnerShadow]} />
-                        <LinearGradient colors={Gradients.glassReflection} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.bentoGlassReflection]} pointerEvents="none" />
-                      </>
-                    ) : (
-                      <LinearGradient colors={Gradients.bentoLightBlue} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-                    )}
+                    <View
+                      style={[
+                        StyleSheet.absoluteFill,
+                        styles.bentoSurfaceFill,
+                        { backgroundColor: isDark ? QUICK_ACCESS_NAV[1].surfaceDark : QUICK_ACCESS_NAV[1].surfaceLight },
+                      ]}
+                    />
                     <View style={styles.bentoGlass}>
                       <View style={[styles.bentoIconGlow, styles.etkinlikLottieWrapper, !isDark && { shadowColor: DribbbleColors.iconGlowBlue, shadowOpacity: 0.4, shadowRadius: 12 }]}>
                         <LottieView
@@ -733,11 +768,11 @@ const HomeScreen = () => {
                           style={styles.etkinlikLottie}
                         />
                       </View>
-                      <Text style={[styles.bentoTitle, !isDark && { color: DribbbleColors.textPremium, opacity: 0.95 }]}>{QUICK_ACCESS_NAV[1].name}</Text>
+                      <Text style={[styles.bentoTitle, { color: isDark ? '#f8fafc' : DribbbleColors.textPremium, opacity: 0.95 }]}>{QUICK_ACCESS_NAV[1].name}</Text>
                     </View>
                   </AnimatedPressable>
                 </Animated.View>
-                <Animated.View style={[styles.bentoSmall, !isDark && { borderColor: 'rgba(255,255,255,0.4)', shadowColor: '#1e293b', shadowOpacity: 0.06, shadowRadius: 24 }, { opacity: bentoAnims[2], transform: [{ translateY: bentoAnims[2].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+                <Animated.View style={[styles.bentoSmall, !isDark && { borderColor: 'rgba(0,0,0,0.06)', shadowColor: '#1e293b', shadowOpacity: 0.08, shadowRadius: 20 }, { opacity: bentoAnims[2], transform: [{ translateY: bentoAnims[2].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
                   <AnimatedPressable
                     scaleTo={0.96}
                     style={styles.bentoGlassWrapper}
@@ -747,16 +782,13 @@ const HomeScreen = () => {
                       handleBentoPress(QUICK_ACCESS_NAV[2]);
                     }}
                   >
-                    {isDark ? (
-                      <>
-                        <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
-                        <View style={[StyleSheet.absoluteFill, styles.bentoPoliceOverlay]} />
-                        <LinearGradient colors={Gradients.innerShadow} style={[StyleSheet.absoluteFill, styles.bentoInnerShadow]} />
-                        <LinearGradient colors={Gradients.glassReflection} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.bentoGlassReflection]} pointerEvents="none" />
-                      </>
-                    ) : (
-                      <LinearGradient colors={Gradients.bentoPink} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-                    )}
+                    <View
+                      style={[
+                        StyleSheet.absoluteFill,
+                        styles.bentoSurfaceFill,
+                        { backgroundColor: isDark ? QUICK_ACCESS_NAV[2].surfaceDark : QUICK_ACCESS_NAV[2].surfaceLight },
+                      ]}
+                    />
                     <View style={styles.bentoGlass}>
                       <View style={[styles.bentoIconGlow, styles.bentoLottieSmallWrapper, !isDark && { shadowColor: DribbbleColors.iconGlowPink, shadowOpacity: 0.4, shadowRadius: 12 }]}>
                         <LottieView
@@ -767,14 +799,14 @@ const HomeScreen = () => {
                           style={styles.bentoLottieSmall}
                         />
                       </View>
-                      <Text style={[styles.bentoTitleSmall, !isDark && { color: DribbbleColors.textPremium, opacity: 0.85 }]}>{QUICK_ACCESS_NAV[2].name}</Text>
+                      <Text style={[styles.bentoTitleSmall, { color: isDark ? '#f8fafc' : DribbbleColors.textPremium, opacity: 0.9 }]}>{QUICK_ACCESS_NAV[2].name}</Text>
                     </View>
                   </AnimatedPressable>
                 </Animated.View>
               </View>
               {/* Row 3: Kütüphane (1/3) + Gezi (2/3) yan yana */}
               <View style={styles.bentoRow2}>
-                <Animated.View style={[styles.bentoSmall, !isDark && { borderColor: 'rgba(255,255,255,0.4)', shadowColor: '#1e293b', shadowOpacity: 0.06, shadowRadius: 24 }, { opacity: bentoAnims[3], transform: [{ translateY: bentoAnims[3].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+                <Animated.View style={[styles.bentoSmall, !isDark && { borderColor: 'rgba(0,0,0,0.06)', shadowColor: '#1e293b', shadowOpacity: 0.08, shadowRadius: 20 }, { opacity: bentoAnims[3], transform: [{ translateY: bentoAnims[3].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
                   <AnimatedPressable
                     scaleTo={0.96}
                     style={styles.bentoGlassWrapper}
@@ -784,16 +816,13 @@ const HomeScreen = () => {
                       handleBentoPress(QUICK_ACCESS_NAV[3]);
                     }}
                   >
-                    {isDark ? (
-                      <>
-                        <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
-                        <View style={[StyleSheet.absoluteFill, styles.bentoPoliceOverlay]} />
-                        <LinearGradient colors={Gradients.innerShadow} style={[StyleSheet.absoluteFill, styles.bentoInnerShadow]} />
-                        <LinearGradient colors={Gradients.glassReflection} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.bentoGlassReflection]} pointerEvents="none" />
-                      </>
-                    ) : (
-                      <LinearGradient colors={Gradients.bentoMint} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-                    )}
+                    <View
+                      style={[
+                        StyleSheet.absoluteFill,
+                        styles.bentoSurfaceFill,
+                        { backgroundColor: isDark ? QUICK_ACCESS_NAV[3].surfaceDark : QUICK_ACCESS_NAV[3].surfaceLight },
+                      ]}
+                    />
                     <View style={styles.bentoGlass}>
                       <View style={[styles.bentoIconGlow, styles.bentoLottieSmallWrapper, !isDark && { shadowColor: DribbbleColors.iconGlowMint, shadowOpacity: 0.4, shadowRadius: 12 }]}>
                         <LottieView
@@ -804,11 +833,11 @@ const HomeScreen = () => {
                           style={styles.bentoLottieSmall}
                         />
                       </View>
-                      <Text style={[styles.bentoTitleSmall, !isDark && { color: DribbbleColors.textPremium, opacity: 0.85 }]}>{QUICK_ACCESS_NAV[3].name}</Text>
+                      <Text style={[styles.bentoTitleSmall, { color: isDark ? '#f8fafc' : DribbbleColors.textPremium, opacity: 0.9 }]}>{QUICK_ACCESS_NAV[3].name}</Text>
                     </View>
                   </AnimatedPressable>
                 </Animated.View>
-                <Animated.View style={[styles.bentoLarge, !isDark && { borderColor: 'rgba(255,255,255,0.4)', shadowColor: '#1e293b', shadowOpacity: 0.06, shadowRadius: 24 }, { opacity: bentoAnims[4], transform: [{ translateY: bentoAnims[4].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+                <Animated.View style={[styles.bentoLarge, !isDark && { borderColor: 'rgba(0,0,0,0.06)', shadowColor: '#1e293b', shadowOpacity: 0.08, shadowRadius: 20 }, { opacity: bentoAnims[4], transform: [{ translateY: bentoAnims[4].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
                   <AnimatedPressable
                     scaleTo={0.96}
                     style={styles.bentoGlassWrapper}
@@ -818,18 +847,15 @@ const HomeScreen = () => {
                       handleBentoPress(QUICK_ACCESS_NAV[4]);
                     }}
                   >
-                    {isDark ? (
-                      <>
-                        <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
-                        <View style={[StyleSheet.absoluteFill, styles.bentoPoliceOverlay]} />
-                        <LinearGradient colors={Gradients.innerShadow} style={[StyleSheet.absoluteFill, styles.bentoInnerShadow]} />
-                        <LinearGradient colors={Gradients.glassReflection} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.bentoGlassReflection]} pointerEvents="none" />
-                      </>
-                    ) : (
-                      <LinearGradient colors={Gradients.bentoYellow} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-                    )}
+                    <View
+                      style={[
+                        StyleSheet.absoluteFill,
+                        styles.bentoSurfaceFill,
+                        { backgroundColor: isDark ? QUICK_ACCESS_NAV[4].surfaceDark : QUICK_ACCESS_NAV[4].surfaceLight },
+                      ]}
+                    />
                     <View style={styles.bentoGlass}>
-                      <View style={[styles.bentoIconGlow, styles.etkinlikLottieWrapper, !isDark ? { shadowColor: DribbbleColors.iconGlowYellow, shadowOpacity: 0.4, shadowRadius: 12 } : { shadowColor: Colors.cta }]}>
+                      <View style={[styles.bentoIconGlow, styles.etkinlikLottieWrapper, !isDark ? { shadowColor: '#8b5cf6', shadowOpacity: 0.35, shadowRadius: 12 } : { shadowColor: 'rgba(139, 92, 246, 0.45)', shadowOpacity: 0.5, shadowRadius: 14 }]}>
                         <LottieView
                           ref={geziLottieRef}
                           source={require('@/assets/images/Travel is fun.json')}
@@ -838,7 +864,7 @@ const HomeScreen = () => {
                           style={[styles.etkinlikLottie, { backgroundColor: 'transparent' }]}
                         />
                       </View>
-                      <Text style={[styles.bentoTitle, !isDark && { color: DribbbleColors.textPremium, opacity: 0.95 }]}>{QUICK_ACCESS_NAV[4].name}</Text>
+                      <Text style={[styles.bentoTitle, { color: isDark ? '#f8fafc' : DribbbleColors.textPremium, opacity: 0.95 }]}>{QUICK_ACCESS_NAV[4].name}</Text>
                     </View>
                   </AnimatedPressable>
                 </Animated.View>
@@ -846,14 +872,14 @@ const HomeScreen = () => {
             </View>
 
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitleInHeader, { color: isDark ? Colors.buff : DribbbleColors.textPremium }, !isDark && { opacity: 0.9 }]}>Genç Kart Fırsatları</Text>
+              <Text style={[styles.sectionTitleInHeader, { color: isDark ? Colors.dark.highlight : DribbbleColors.textPremium }, !isDark && { opacity: 0.9 }]}>Genç Kart Fırsatları</Text>
               <TouchableOpacity 
                 onPress={() => navigation.navigate('Main', { screen: 'GencKart' as keyof MainTabParamList })}
                 style={styles.seeAllButton}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.seeAllText, { color: isDark ? Colors.primaryHex : DribbbleColors.progressBlue }]}>Tümünü Gör</Text>
-                <ChevronRight color={isDark ? Colors.primaryHex : DribbbleColors.progressBlue} size={16} />
+                <Text style={[styles.seeAllText, { color: isDark ? Colors.dark.accent : DribbbleColors.progressBlue }]}>Tümünü Gör</Text>
+                <ChevronRight color={isDark ? Colors.dark.accent : DribbbleColors.progressBlue} size={16} />
               </TouchableOpacity>
             </View>
             
@@ -884,7 +910,7 @@ const HomeScreen = () => {
                       style={[styles.emptyFirsatCta, isDark && { backgroundColor: '#334155' }]}
                     >
                       <Sparkles color={Colors.cta} size={18} />
-                      <Text style={[styles.emptyFirsatCtaText, isDark && { color: '#e2e8f0' }]}>Genç Kart'ı Keşfet</Text>
+                      <Text style={[styles.emptyFirsatCtaText, isDark && { color: Colors.dark.highlight }]}>Genç Kart'ı Keşfet</Text>
                     </AnimatedPressable>
                   </View>
               ) : (
@@ -905,14 +931,19 @@ const HomeScreen = () => {
                                 <AnimatedListItem key={partner.id} index={index} delay={80}>
                                 <TouchableOpacity
                                 style={[
-                                    styles.partnerCard, 
-                                    { backgroundColor: theme.bg || '#fff7ed' }, 
-                                    isDark && { backgroundColor: '#1e293b', borderWidth: 1, borderColor: '#334155' }
+                                    styles.partnerCard,
+                                    !isDark && { backgroundColor: theme.bg || '#ffedd5' },
+                                    isDark && {
+                                      backgroundColor: theme.bgDark,
+                                      borderWidth: 1,
+                                      borderColor: 'rgba(255,255,255,0.1)',
+                                    },
+                                    !isDark && { shadowOpacity: 0, shadowRadius: 0, elevation: 0, shadowOffset: { width: 0, height: 0 } },
                                 ]}
                                 activeOpacity={0.9}
                                 onPress={() => navigation.navigate('PartnerDetail', { partnerId: partner.id.toString() })}
                                 >
-                                <View style={[styles.partnerIconWrapper, { backgroundColor: isDark ? '#334155' : 'rgba(255,255,255,0.8)' }]}>
+                                <View style={[styles.partnerIconWrapper, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.65)' }]}>
                                     <Icon color={theme.color} size={22} />
                                 </View>
                                 <Text style={[styles.partnerName, isDark && { color: '#f8fafc' }]} numberOfLines={1}>{partner.baslik}</Text>
@@ -993,13 +1024,21 @@ const HomeScreen = () => {
                 {/* View Toggle */}
                 <View style={[styles.calendarToggle, isDark && { backgroundColor: '#0f172a' }]}>
                   <TouchableOpacity
-                    style={[styles.calendarToggleBtn, calendarView === 'month' && styles.calendarToggleBtnActive]}
+                    style={[
+                      styles.calendarToggleBtn,
+                      calendarView === 'month' && styles.calendarToggleBtnActive,
+                      calendarView === 'month' && isDark && { backgroundColor: Colors.dark.accent },
+                    ]}
                     onPress={() => setCalendarView('month')}
                   >
                     <Text style={[styles.calendarToggleText, calendarView === 'month' && styles.calendarToggleTextActive, isDark && calendarView !== 'month' && { color: '#94a3b8' }]}>Aylık</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.calendarToggleBtn, calendarView === 'year' && styles.calendarToggleBtnActive]}
+                    style={[
+                      styles.calendarToggleBtn,
+                      calendarView === 'year' && styles.calendarToggleBtnActive,
+                      calendarView === 'year' && isDark && { backgroundColor: Colors.dark.accent },
+                    ]}
                     onPress={() => setCalendarView('year')}
                   >
                     <Text style={[styles.calendarToggleText, calendarView === 'year' && styles.calendarToggleTextActive, isDark && calendarView !== 'year' && { color: '#94a3b8' }]}>Yıllık</Text>
@@ -1047,21 +1086,29 @@ const HomeScreen = () => {
                               <View style={[
                                 styles.calendarDay, 
                                 isToday && styles.calendarDayToday,
+                                isToday && isDark && { backgroundColor: Colors.dark.accent },
                                 specialDay && !isToday && { backgroundColor: specialDay.color + '20', borderWidth: 1.5, borderColor: specialDay.color },
-                                !specialDay && dailyEvents.length > 0 && !isToday && { backgroundColor: Colors.primary.indigo + '15', borderWidth: 1, borderColor: Colors.primary.indigo, borderStyle: 'dashed' }
+                                !specialDay && dailyEvents.length > 0 && !isToday && {
+                                  backgroundColor: (isDark ? Colors.dark.accent : Colors.primary.indigo) + '22',
+                                  borderWidth: 1,
+                                  borderColor: isDark ? Colors.dark.accent : Colors.primary.indigo,
+                                  borderStyle: 'dashed',
+                                }
                               ]}>
                                 <Text style={[
                                   styles.calendarDayText, 
                                   isToday && styles.calendarDayTextToday, 
                                   isDark && !isToday && { color: '#f8fafc' },
                                   specialDay && !isToday && { color: specialDay.color, fontWeight: 'bold' },
-                                  !specialDay && dailyEvents.length > 0 && !isToday && { color: Colors.primary.indigo }
+                                  !specialDay && dailyEvents.length > 0 && !isToday && { color: isDark ? Colors.dark.highlight : Colors.primary.indigo }
                                 ]}>
                                   {day}
                                 </Text>
                                 <View style={styles.indicatorContainer}>
                                   {specialDay && <Text style={styles.specialDayEmojiMini}>{specialDay.emoji}</Text>}
-                                  {dailyEvents.length > 0 && <View style={styles.eventDot} />}
+                                  {dailyEvents.length > 0 && (
+                                    <View style={[styles.eventDot, isDark && { backgroundColor: Colors.dark.accent }]} />
+                                  )}
                                 </View>
                               </View>
                             )}
@@ -1103,7 +1150,7 @@ const HomeScreen = () => {
                             }}
                           >
                             <View style={styles.eventDetailIcon}>
-                                <Calendar color={Colors.primary.indigo} size={20} />
+                                <Calendar color={isDark ? Colors.dark.accent : Colors.primary.indigo} size={20} />
                             </View>
                             <View style={{ flex: 1 }}>
                                 <Text style={[styles.eventDetailTitle, isDark && { color: '#f8fafc' }]}>{event.title}</Text>
@@ -1180,9 +1227,10 @@ const HomeScreen = () => {
                           <TouchableOpacity
                             key={month}
                             style={[
-                              styles.calendarMonthCell, 
+                              styles.calendarMonthCell,
                               isCurrentMonth && styles.calendarMonthCellActive,
-                              isDark && !isCurrentMonth && { backgroundColor: '#334155' }
+                              isCurrentMonth && isDark && { backgroundColor: Colors.dark.accent },
+                              isDark && !isCurrentMonth && { backgroundColor: '#334155' },
                             ]}
                             onPress={() => {
                               const newDate = new Date(selectedDate);
@@ -1207,7 +1255,7 @@ const HomeScreen = () => {
 
                 {/* Go to Events Button */}
                 <TouchableOpacity
-                  style={styles.calendarEventsBtn}
+                  style={[styles.calendarEventsBtn, isDark && { backgroundColor: Colors.dark.accent }]}
                   onPress={() => {
                     setCalendarVisible(false);
                     navigation.navigate('Events');
@@ -1227,7 +1275,6 @@ const HomeScreen = () => {
 
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: 'transparent' },
-    meshLayer: { opacity: 1 },
     ambientOrbsContainer: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
     ambientOrb: {
       position: 'absolute',
@@ -1243,6 +1290,7 @@ const styles = StyleSheet.create({
     dashboardInner: { paddingBottom: 24 },
     header: { borderBottomLeftRadius: 30, borderBottomRightRadius: 30, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 60 },
     headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     headerSearchBtn: { padding: 8 },
     badge: { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 24 },
     badgeText: { fontFamily: 'PlusJakartaSans_700Bold', color: Colors.white },
@@ -1295,7 +1343,7 @@ const styles = StyleSheet.create({
     bentoGrid: { paddingHorizontal: 20, marginTop: 12, gap: 12 },
     bentoRow1: { flexDirection: 'row', gap: 12, marginBottom: 12 },
     bentoRow2: { flexDirection: 'row', gap: 12, marginBottom: 12 },
-    bentoGlassReflection: { borderRadius: 30, pointerEvents: 'none' },
+    bentoSurfaceFill: { borderRadius: 30 },
     bentoFullWidth: {
       width: '100%', minHeight: 100, borderRadius: 30, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin, marginBottom: 12,
       shadowColor: '#0f1a2e', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.18, shadowRadius: 24, elevation: 10,
@@ -1312,8 +1360,6 @@ const styles = StyleSheet.create({
     bentoSquare: { flex: 1, aspectRatio: 1, minHeight: 90, borderRadius: 30, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin, shadowColor: '#0f1a2e', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 8 },
     bentoWide: { minHeight: 80, borderRadius: 30, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin, shadowColor: '#0f1a2e', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 8 },
     bentoGlassWrapper: { position: 'relative', flex: 1 },
-    bentoPoliceOverlay: { backgroundColor: Colors.glassOverlay, borderRadius: 30 },
-    bentoInnerShadow: { borderRadius: 30, pointerEvents: 'none' },
     bentoOverlay: { borderRadius: 30 },
     bentoGlass: { flex: 1, padding: 16, justifyContent: 'center', alignItems: 'center' },
     bentoIconGlow: {
@@ -1335,14 +1381,14 @@ const styles = StyleSheet.create({
       width: 200,
       height: 200,
       borderRadius: 100,
-      backgroundColor: 'rgba(245,158,11,0.12)',
+      backgroundColor: 'rgba(56,189,248,0.1)',
       top: -60,
       right: -40,
     },
     radarDot: {
       position: 'absolute',
       borderRadius: 50,
-      backgroundColor: '#f59e0b',
+      backgroundColor: '#38bdf8',
     },
     radarIconRow: {
       flexDirection: 'row',
@@ -1354,9 +1400,9 @@ const styles = StyleSheet.create({
       width: 38,
       height: 38,
       borderRadius: 19,
-      backgroundColor: 'rgba(245,158,11,0.15)',
+      backgroundColor: 'rgba(56,189,248,0.14)',
       borderWidth: 1,
-      borderColor: 'rgba(245,158,11,0.35)',
+      borderColor: 'rgba(56,189,248,0.32)',
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -1386,12 +1432,12 @@ const styles = StyleSheet.create({
     radarBentoTitle: {
       fontSize: 20,
       fontWeight: '700',
-      color: '#fcd34d',
+      color: '#7dd3fc',
       letterSpacing: -0.3,
     },
     radarBentoSub: {
       fontSize: 12,
-      color: 'rgba(252,211,77,0.6)',
+      color: 'rgba(125,211,252,0.65)',
       marginTop: 3,
       fontWeight: '500',
     },
@@ -1436,7 +1482,7 @@ const styles = StyleSheet.create({
     emptyFirsatSub: { fontSize: 14, color: '#64748b', marginBottom: 16 },
     emptyFirsatCta: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: 'rgba(13,148,136,0.12)', borderRadius: 12 },
     emptyFirsatCtaText: { fontSize: 14, fontWeight: '600', color: Colors.primary.indigo },
-    partnerCard: { width: 170, borderRadius: 24, paddingHorizontal: 14, paddingVertical: 14, marginRight: 12, justifyContent: 'space-between', backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', shadowColor: '#0f1a2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 6 },
+    partnerCard: { width: 170, borderRadius: 24, paddingHorizontal: 14, paddingVertical: 14, marginRight: 12, justifyContent: 'space-between', backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', shadowColor: '#0f1a2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 6 },
     partnerIconWrapper: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
     partnerName: { fontSize: 14, fontWeight: '600', color: Colors.darkGray, marginBottom: 4 },
     partnerOffer: { fontSize: 13, fontWeight: '500', color: '#4b5563' },
@@ -1464,9 +1510,9 @@ const styles = StyleSheet.create({
       borderRadius: 17,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: 'rgba(245,158,11,0.14)',
+      backgroundColor: 'rgba(56,189,248,0.14)',
       borderWidth: 1,
-      borderColor: 'rgba(245,158,11,0.3)',
+      borderColor: 'rgba(56,189,248,0.28)',
     },
     radarHeroBadge: {
       flexDirection: 'row',
@@ -1494,7 +1540,7 @@ const styles = StyleSheet.create({
     radarHeroTitle: {
       fontSize: 21,
       fontWeight: '800',
-      color: '#fcd34d',
+      color: '#7dd3fc',
       letterSpacing: -0.4,
     },
     radarHeroSub: {
@@ -1502,21 +1548,8 @@ const styles = StyleSheet.create({
       fontSize: 14,
       lineHeight: 19,
       fontWeight: '600',
-      color: 'rgba(252,211,77,0.82)',
+      color: 'rgba(125,211,252,0.82)',
       maxWidth: '100%',
-    },
-    radarHeroMiniMap: {
-      height: 24,
-      marginTop: 5,
-      position: 'relative',
-      overflow: 'hidden',
-      borderRadius: 18,
-      backgroundColor: 'rgba(255,255,255,0.03)',
-    },
-    radarHeroDot: {
-      position: 'absolute',
-      borderRadius: 999,
-      backgroundColor: '#f59e0b',
     },
     radarHeroPulse: {
       borderRadius: 26,

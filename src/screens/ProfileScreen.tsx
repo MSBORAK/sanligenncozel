@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, ScrollView,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronRight, Bell, ShieldCheck, LogOut, User as UserIcon, X, Settings, HelpCircle, Info, Edit3, ArrowLeft, Moon, MessageSquare, Send, AlertCircle, Lightbulb, Heart, Users } from 'lucide-react-native';
+import { ChevronRight, Bell, ShieldCheck, User as UserIcon, X, Settings, HelpCircle, Info, Moon, MessageSquare, Send, AlertCircle, Lightbulb, Heart, Users } from 'lucide-react-native';
 import { Colors, Gradients, DribbbleColors } from '@/constants/Colors';
 import { MOCK_USER } from '@/api/mockData';
 import { useThemeMode } from '@/context/ThemeContext';
@@ -61,22 +61,105 @@ const ProfileScreen = () => {
     });
   };
 
-  const MenuItem = ({ label, icon, onPress, isLast, isDestructive }: { label: string, icon: React.ReactNode, onPress?: () => void, isLast?: boolean, isDestructive?: boolean }) => (
-    <TouchableOpacity 
-      style={[styles.menuItem, isLast && styles.menuItemLast, isDark && { borderBottomColor: Colors.dark.border }]} 
+  const MenuItem = ({
+    label,
+    subtitle,
+    icon,
+    iconBgLight,
+    iconBgDark,
+    onPress,
+    isLast,
+    isDestructive,
+  }: {
+    label: string;
+    subtitle?: string;
+    icon: React.ReactNode;
+    iconBgLight: string;
+    iconBgDark: string;
+    onPress?: () => void;
+    isLast?: boolean;
+    isDestructive?: boolean;
+  }) => (
+    <TouchableOpacity
+      style={[
+        styles.menuItem,
+        isLast && styles.menuItemLast,
+        isDark && { borderBottomColor: 'rgba(255,255,255,0.06)' },
+      ]}
       onPress={onPress}
-      activeOpacity={0.7}
+      activeOpacity={0.72}
     >
       <View style={styles.menuItemLeft}>
-        <View style={styles.menuIconContainer}>
+        <View
+          style={[
+            styles.menuIconWrap,
+            { backgroundColor: isDark ? iconBgDark : iconBgLight },
+          ]}
+        >
           {icon}
         </View>
-        <Text style={[styles.menuItemText, isDark && { color: Colors.dark.text }, isDestructive && { color: Colors.accent }]}>
-          {label}
-        </Text>
+        <View style={styles.menuItemTextCol}>
+          <Text
+            style={[
+              styles.menuItemText,
+              isDark && { color: Colors.dark.text },
+              isDestructive && { color: '#f87171' },
+            ]}
+          >
+            {label}
+          </Text>
+          {subtitle ? (
+            <Text style={[styles.menuItemSubtitle, isDark && { color: Colors.dark.textMuted }]} numberOfLines={2}>
+              {subtitle}
+            </Text>
+          ) : null}
+        </View>
       </View>
-      <ChevronRight color={isDark ? Colors.dark.textMuted : DribbbleColors.textSecondary} size={20} />
+      <ChevronRight color={isDark ? 'rgba(248,250,252,0.35)' : '#cbd5e1'} size={18} strokeWidth={2.2} />
     </TouchableOpacity>
+  );
+
+  const ToggleRow = ({
+    icon,
+    iconBgLight,
+    iconBgDark,
+    title,
+    subtitle,
+    value,
+    onValueChange,
+    trackActive,
+    isLast,
+  }: {
+    icon: React.ReactNode;
+    iconBgLight: string;
+    iconBgDark: string;
+    title: string;
+    subtitle: string;
+    value: boolean;
+    onValueChange: (v: boolean) => void;
+    trackActive: string;
+    isLast?: boolean;
+  }) => (
+    <View
+      style={[
+        styles.toggleRow,
+        isDark && { borderBottomColor: 'rgba(255,255,255,0.06)' },
+        isLast && styles.toggleRowLast,
+      ]}
+    >
+      <View style={[styles.menuIconWrap, { backgroundColor: isDark ? iconBgDark : iconBgLight }]}>{icon}</View>
+      <View style={styles.toggleTextCol}>
+        <Text style={[styles.switchLabel, isDark && { color: Colors.dark.text }]}>{title}</Text>
+        <Text style={[styles.toggleSubtitle, isDark && { color: Colors.dark.textMuted }]}>{subtitle}</Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        thumbColor="#fff"
+        trackColor={{ false: '#d1d5db', true: trackActive }}
+        ios_backgroundColor="#d1d5db"
+      />
+    </View>
   );
 
   return (
@@ -116,8 +199,8 @@ const ProfileScreen = () => {
                 <Text style={[styles.userStatus, isDark && { color: Colors.dark.textMuted }]}>{MOCK_USER.status}</Text>
               )}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
-                <Users size={14} color={isDark ? '#f59e0b' : DribbbleColors.progressBlue} strokeWidth={2} />
-                <Text style={{ fontSize: 13, fontWeight: '600', color: isDark ? '#f59e0b' : DribbbleColors.progressBlue }}>
+                <Users size={14} color={isDark ? Colors.dark.accent : DribbbleColors.progressBlue} strokeWidth={2} />
+                <Text style={{ fontSize: 13, fontWeight: '600', color: isDark ? Colors.dark.accent : DribbbleColors.progressBlue }}>
                   {friendCount} arkadaş
                 </Text>
               </View>
@@ -133,11 +216,11 @@ const ProfileScreen = () => {
             >
               <View style={styles.verificationContent}>
                 <View style={styles.verificationIcon}>
-                  <ShieldCheck color="#f59e0b" size={20} />
+                  <ShieldCheck color={isDark ? Colors.dark.accent : Colors.primaryHex} size={20} />
                 </View>
                 <View style={styles.verificationTextContainer}>
-                  <Text style={[styles.verificationTitle, isDark && { color: '#fbbf24' }]}>Hesabını Doğrula</Text>
-                  <Text style={[styles.verificationSubtitle, isDark && { color: '#d4a574' }]}>
+                  <Text style={[styles.verificationTitle, isDark && { color: Colors.dark.highlight }]}>Hesabını Doğrula</Text>
+                  <Text style={[styles.verificationSubtitle, isDark && { color: Colors.dark.textMuted }]}>
                     Tüm avantajlardan yararlan
                   </Text>
                 </View>
@@ -145,19 +228,45 @@ const ProfileScreen = () => {
             </TouchableOpacity>
           )}
 
-          {/* Kullanıcı Bilgileri */}
-
-          {/* Settings Menu Items */}
+          {/* Ayarlar */}
           <View style={styles.menuSection}>
-            <View style={[styles.menuCard, isDark && { backgroundColor: Colors.dark.card }, !isDark && { backgroundColor: DribbbleColors.cardWhite }]}>
-              <MenuItem 
-                label={favoritesCount > 0 ? `Favorilerim (${favoritesCount})` : 'Favorilerim'} 
-                icon={<Heart color={isDark ? Colors.dark.accent : DribbbleColors.progressBlue} size={22} fill={favoritesCount > 0 ? (isDark ? Colors.dark.accent : DribbbleColors.progressBlue) : 'transparent'} />}
+            <View style={[styles.settingsHero, isDark && styles.settingsHeroDark]}>
+              <View style={[styles.settingsHeroIcon, isDark && styles.settingsHeroIconDark]}>
+                <Settings color={isDark ? Colors.dark.accent : DribbbleColors.progressBlue} size={22} strokeWidth={2.2} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.settingsHeroTitle, isDark && { color: Colors.dark.text }]}>Ayarlar</Text>
+                <Text style={[styles.settingsHeroSub, isDark && { color: Colors.dark.textMuted }]}>
+                  Hesabın, bildirimler ve görünüm
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.menuSection}>
+            <Text style={[styles.groupLabel, isDark && { color: Colors.dark.textMuted }]}>Genel</Text>
+            <View style={[styles.menuCard, isDark && styles.menuCardDark, !isDark && styles.menuCardLight]}>
+              <MenuItem
+                label={favoritesCount > 0 ? `Favorilerim (${favoritesCount})` : 'Favorilerim'}
+                subtitle="Etkinlikler, mekânlar ve duraklar"
+                icon={
+                  <Heart
+                    color={isDark ? '#fda4af' : '#e11d48'}
+                    size={20}
+                    strokeWidth={2.2}
+                    fill={favoritesCount > 0 ? (isDark ? '#fda4af' : '#e11d48') : 'transparent'}
+                  />
+                }
+                iconBgLight="rgba(244,63,94,0.12)"
+                iconBgDark="rgba(244,63,94,0.2)"
                 onPress={() => navigation.navigate('Events', { initialTab: 'Favorilerim' })}
               />
-              <MenuItem 
-                label="Hesap Ayarları" 
-                icon={<UserIcon color={isDark ? '#fff' : DribbbleColors.textPrimary} size={22} />}
+              <MenuItem
+                label="Hesap Ayarları"
+                subtitle="Ad ve iletişim bilgileri"
+                icon={<UserIcon color={isDark ? '#a5b4fc' : '#4f46e5'} size={20} strokeWidth={2.2} />}
+                iconBgLight="rgba(99,102,241,0.12)"
+                iconBgDark="rgba(99,102,241,0.22)"
                 onPress={() => {
                   setEditName(userName);
                   setEditEmail(userEmail);
@@ -166,67 +275,91 @@ const ProfileScreen = () => {
               />
               <MenuItem
                 label="Gizlilik ve Güvenlik"
-                icon={<ShieldCheck color={isDark ? '#fff' : DribbbleColors.textPrimary} size={22} />}
+                subtitle="Verilerin ve güvenliğin"
+                icon={<ShieldCheck color={isDark ? '#6ee7b7' : '#059669'} size={20} strokeWidth={2.2} />}
+                iconBgLight="rgba(16,185,129,0.12)"
+                iconBgDark="rgba(16,185,129,0.2)"
                 onPress={() => setPrivacyModalVisible(true)}
               />
               <MenuItem
                 label="Geri Bildirim"
-                icon={<MessageSquare color={isDark ? '#fff' : DribbbleColors.textPrimary} size={22} />}
+                subtitle="Şikâyet, hata veya özellik isteği"
+                icon={<MessageSquare color={isDark ? '#fcd34d' : '#d97706'} size={20} strokeWidth={2.2} />}
+                iconBgLight="rgba(245,158,11,0.14)"
+                iconBgDark="rgba(245,158,11,0.2)"
                 onPress={() => setFeedbackModalVisible(true)}
                 isLast
               />
             </View>
           </View>
 
-          {/* Notification Toggle */}
           <View style={styles.menuSection}>
-            <View style={[styles.menuCard, isDark && { backgroundColor: Colors.dark.card }, !isDark && { backgroundColor: DribbbleColors.cardWhite }]}>
-              <View style={styles.switchRow}>
-                <View style={styles.switchIconContainer}>
-                  <Bell color={isDark ? '#fff' : DribbbleColors.textPrimary} size={22} />
-                </View>
-                <Text style={[styles.switchLabel, isDark && { color: Colors.dark.text }]}>Bildirimler</Text>
-                <Switch
-                  value={eventNotificationsEnabled}
-                  onValueChange={setEventNotificationsEnabled}
-                  thumbColor="#fff"
-                  trackColor={{ false: '#d1d5db', true: isDark ? '#10b981' : DribbbleColors.progressBlue }}
-                  ios_backgroundColor="#d1d5db"
-                />
-              </View>
+            <Text style={[styles.groupLabel, isDark && { color: Colors.dark.textMuted }]}>Tercihler</Text>
+            <View style={[styles.menuCard, isDark && styles.menuCardDark, !isDark && styles.menuCardLight]}>
+              <ToggleRow
+                icon={<Bell color={isDark ? '#93c5fd' : DribbbleColors.progressBlue} size={20} strokeWidth={2.2} />}
+                iconBgLight="rgba(59,130,246,0.12)"
+                iconBgDark="rgba(59,130,246,0.22)"
+                title="Bildirimler"
+                subtitle="Etkinlik ve duyuru bildirimleri"
+                value={eventNotificationsEnabled}
+                onValueChange={setEventNotificationsEnabled}
+                trackActive={isDark ? '#38bdf8' : DribbbleColors.progressBlue}
+              />
+              <ToggleRow
+                icon={<Moon color={isDark ? '#c4b5fd' : '#7c3aed'} size={20} strokeWidth={2.2} />}
+                iconBgLight="rgba(139,92,246,0.12)"
+                iconBgDark="rgba(139,92,246,0.22)"
+                title="Görünüm"
+                subtitle={`Şu an: ${modeLabel.toLowerCase()} tema`}
+                value={isDark}
+                onValueChange={toggleTheme}
+                trackActive={isDark ? Colors.dark.accent : '#8b5cf6'}
+                isLast
+              />
             </View>
           </View>
 
-          {/* Dark Mode Toggle */}
           <View style={styles.menuSection}>
-            <View style={[styles.menuCard, isDark && { backgroundColor: Colors.dark.card }, !isDark && { backgroundColor: DribbbleColors.cardWhite }]}>
-              <View style={styles.switchRow}>
-                <View style={styles.switchIconContainer}>
-                  <Moon color={isDark ? '#fff' : DribbbleColors.textPrimary} size={22} />
-                </View>
-                <Text style={[styles.switchLabel, isDark && { color: Colors.dark.text }]}>
-                  {modeLabel}
-                </Text>
-                <Switch
-                  value={isDark}
-                  onValueChange={toggleTheme}
-                  thumbColor="#fff"
-                  trackColor={{ false: '#d1d5db', true: isDark ? '#3b82f6' : '#10b981' }}
-                  ios_backgroundColor="#d1d5db"
-                />
-              </View>
+            <Text style={[styles.groupLabel, isDark && { color: Colors.dark.textMuted }]}>Yardım</Text>
+            <View style={[styles.menuCard, isDark && styles.menuCardDark, !isDark && styles.menuCardLight]}>
+              <MenuItem
+                label="Yardım"
+                subtitle="Sık sorulanlar ve ipuçları"
+                icon={<HelpCircle color={isDark ? '#7dd3fc' : '#0284c7'} size={20} strokeWidth={2.2} />}
+                iconBgLight="rgba(14,165,233,0.12)"
+                iconBgDark="rgba(14,165,233,0.2)"
+                onPress={() =>
+                  Alert.alert(
+                    'Yardım',
+                    'Yakında burada SSS ve destek bağlantıları olacak. Şimdilik geri bildirimden bize yazabilirsin.',
+                    [{ text: 'Tamam' }]
+                  )
+                }
+              />
+              <MenuItem
+                label="Hakkında"
+                subtitle="ŞanlıGenç sürüm bilgisi"
+                icon={<Info color={isDark ? '#94a3b8' : '#64748b'} size={20} strokeWidth={2.2} />}
+                iconBgLight="rgba(100,116,139,0.12)"
+                iconBgDark="rgba(148,163,184,0.15)"
+                onPress={() => Alert.alert('ŞanlıGenç', 'Şanlıurfa gençlik uygulaması.\nSürüm: 1.0.0', [{ text: 'Tamam' }])}
+                isLast
+              />
             </View>
           </View>
 
-          {/* Logout Button */}
           <View style={styles.menuSection}>
-            <TouchableOpacity 
-              style={styles.logoutButton}
+            <TouchableOpacity
+              style={[styles.logoutButton, isDark && styles.logoutButtonDark]}
               onPress={handleLogout}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
             >
               <Text style={styles.logoutText}>Çıkış Yap</Text>
             </TouchableOpacity>
+            <Text style={[styles.logoutHint, isDark && { color: Colors.dark.textMuted }]}>
+              Oturumun kapatılır; tekrar giriş yapman gerekir.
+            </Text>
           </View>
 
           {/* Verification Modal */}
@@ -609,23 +742,72 @@ const styles = StyleSheet.create({
   },
   menuSection: {
     paddingHorizontal: 20,
-    marginTop: 16,
+    marginTop: 18,
+  },
+  settingsHero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 4,
+  },
+  settingsHeroDark: {},
+  settingsHeroIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: 'rgba(59,130,246,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  settingsHeroIconDark: {
+    backgroundColor: 'rgba(56,189,248,0.15)',
+  },
+  settingsHeroTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+    color: DribbbleColors.textPrimary,
+  },
+  settingsHeroSub: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: DribbbleColors.textSecondary,
+    marginTop: 4,
+    lineHeight: 20,
+  },
+  groupLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: '#94a3b8',
+    marginBottom: 10,
+    marginLeft: 2,
   },
   menuCard: {
     backgroundColor: DribbbleColors.cardWhite,
-    borderRadius: 12,
+    borderRadius: 20,
     overflow: 'hidden',
+  },
+  menuCardLight: {
+    borderWidth: 1,
+    borderColor: 'rgba(15,23,42,0.06)',
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.08,
-        shadowRadius: 4,
+        shadowColor: '#0f172a',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.06,
+        shadowRadius: 20,
       },
       android: {
-        elevation: 2,
+        elevation: 3,
       },
     }),
+  },
+  menuCardDark: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   infoRow: {
     flexDirection: 'row',
@@ -652,10 +834,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e2e8f0',
   },
   menuItemLast: {
     borderBottomWidth: 0,
@@ -663,54 +845,100 @@ const styles = StyleSheet.create({
   menuItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 14,
     flex: 1,
+    paddingRight: 8,
   },
-  menuIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  menuIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  menuItemTextCol: {
+    flex: 1,
+    gap: 2,
   },
   menuItemText: {
     fontSize: 16,
     color: Colors.darkGray,
-    fontWeight: '500',
+    fontWeight: '600',
+    letterSpacing: -0.2,
   },
-  switchRow: {
+  menuItemSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#94a3b8',
+    lineHeight: 18,
+  },
+  toggleRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e2e8f0',
+    gap: 12,
   },
-  switchIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+  toggleRowLast: {
+    borderBottomWidth: 0,
+  },
+  toggleTextCol: {
+    flex: 1,
+    gap: 3,
+    paddingRight: 4,
+  },
+  toggleSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#94a3b8',
+    lineHeight: 18,
   },
   switchLabel: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     color: Colors.darkGray,
-    flex: 1,
+    letterSpacing: -0.2,
   },
   logoutButton: {
     backgroundColor: '#ef4444',
-    borderRadius: 12,
+    borderRadius: 16,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
+    marginTop: 4,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#ef4444',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  logoutButtonDark: {
+    backgroundColor: '#dc2626',
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
   },
   logoutText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#fff',
+    letterSpacing: 0.2,
+  },
+  logoutHint: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#94a3b8',
+    textAlign: 'center',
+    marginTop: 10,
+    paddingHorizontal: 12,
+    lineHeight: 17,
   },
   modalBackdrop: {
     flex: 1,
