@@ -1,6 +1,8 @@
 /**
  * ŞanlıSosyal — Push Notification Servisi
  *
+ * ⚠️ ŞU ANDA DEVRE DIŞI - Development için geçici olarak kapatıldı
+ *
  * Kullanım alanları:
  *  - Arkadaşlık isteği gönderildi
  *  - Arkadaşlık isteği kabul edildi
@@ -15,6 +17,8 @@ import { Platform } from 'react-native';
 import { supabase } from './supabase';
 
 // Bildirim geldiğinde uygulama açıkken nasıl davransın
+// ⚠️ Geçici olarak devre dışı
+/*
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -22,66 +26,23 @@ Notifications.setNotificationHandler({
     shouldSetBadge: true,
   }),
 });
+*/
 
 /**
  * Kullanıcının Expo push token'ını al ve Supabase'e kaydet.
  * Uygulama açılışında (UserContext veya AppNavigator'da) çağrılmalı.
+ * 
+ * ⚠️ ŞU ANDA DEVRE DIŞI - Development için kapatıldı
  */
 export async function registerForPushNotificationsAsync(userId: string): Promise<string | null> {
-  if (!Device.isDevice) {
-    // Simülatörde push token alınamaz
-    return null;
-  }
-
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
-
-  if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
-
-  if (finalStatus !== 'granted') {
-    return null;
-  }
-
-  // Android için bildirim kanalı oluştur
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('sosyal', {
-      name: 'ŞanlıSosyal',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#F59E0B',
-    });
-  }
-
-  try {
-    const projectId =
-      Constants.expoConfig?.extra?.eas?.projectId ??
-      Constants.easConfig?.projectId ??
-      undefined;
-    if (!projectId) return null;
-
-    const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId,
-    });
-    const token = tokenData.data;
-
-    // Token'ı Supabase'e kaydet
-    await supabase
-      .from('user_profiles')
-      .update({ push_token: token })
-      .eq('user_id', userId);
-
-    return token;
-  } catch {
-    return null;
-  }
+  console.log('Push notifications: Geçici olarak devre dışı');
+  return null;
 }
 
 /**
  * Expo Push API üzerinden bildirim gönder.
- * Supabase Edge Function veya doğrudan Expo API kullanılır.
+ * 
+ * ⚠️ ŞU ANDA DEVRE DIŞI - Development için kapatıldı
  *
  * @param recipientUserId - Bildirimi alacak kullanıcının Supabase user_id'si
  * @param title - Bildirim başlığı
@@ -94,44 +55,9 @@ export async function sendPushNotification(
   body: string,
   data: Record<string, string> = {}
 ): Promise<void> {
-  try {
-    // Alıcının push token'ını al
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('push_token')
-      .eq('user_id', recipientUserId)
-      .single();
-
-    const token = profile?.push_token;
-    if (!token || !token.startsWith('ExponentPushToken')) return;
-
-    // Production'da mümkünse sunucu proxy'si kullanın (token gizliliği / güvenlik).
-    const proxyUrl = process.env.EXPO_PUBLIC_PUSH_PROXY_URL;
-    const endpoint = proxyUrl && proxyUrl.trim() !== '' ? proxyUrl : 'https://exp.host/--/api/v2/push/send';
-
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Accept-encoding': 'gzip, deflate',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        to: token,
-        sound: 'default',
-        title,
-        body,
-        data,
-        channelId: 'sosyal',
-      }),
-    });
-    if (!res.ok) {
-      // Sessiz devam: bildirim kritik akışı bloklamasın
-      return;
-    }
-  } catch {
-    // Bildirim gönderilemezse sessizce geç — kritik değil
-  }
+  console.log('Push notification devre dışı:', title, body);
+  // Geçici olarak devre dışı
+  return;
 }
 
 // ─── Hazır bildirim şablonları ───────────────────────────────────────────────

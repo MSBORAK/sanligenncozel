@@ -14,13 +14,15 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Send, Camera, X } from 'lucide-react-native';
+import { ArrowLeft, Send, Camera, X, RefreshCw } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
 import { supabase, processImageUrl } from '@/lib/supabase';
 import { notify } from '@/lib/notifications';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImageManipulator from 'expo-image-manipulator';
+import { useThemeMode } from '@/context/ThemeContext';
 
 // Snapchat Renk Paleti
 const SnapColors = {
@@ -31,6 +33,12 @@ const SnapColors = {
   lightGray: '#F2F2F7',
   blue: '#0FADFF',
   red: '#FF2D55',
+  // Dark mode colors
+  darkBg: '#000000',
+  darkCard: '#1C1C1E',
+  darkBorder: '#38383A',
+  darkText: '#FFFFFF',
+  darkSecondary: '#8E8E93',
 };
 
 interface Message {
@@ -57,6 +65,8 @@ const ChatScreen = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const route = useRoute();
   const params = route.params as RouteParams;
+  const { mode } = useThemeMode();
+  const isDark = mode === 'dark';
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -65,6 +75,7 @@ const ChatScreen = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [cameraVisible, setCameraVisible] = useState(false);
+  const [cameraFacing, setCameraFacing] = useState<'front' | 'back'>('back');
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [cameraBusy, setCameraBusy] = useState(false);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -183,7 +194,13 @@ const ChatScreen = () => {
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      if (data) setMessages(data);
+      if (data) {
+        setMessages(data);
+        // Mesajlar yüklendikten sonra en alta scroll
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: false });
+        }, 100);
+      }
 
       // Mesajları okundu olarak işaretle
       if (currentUserId) {
@@ -253,15 +270,36 @@ const ChatScreen = () => {
       return;
     }
     setCapturedPhoto(null);
+    setCameraFacing('back');
     setCameraVisible(true);
+  };
+
+  const toggleCameraFacing = () => {
+    setCameraFacing(prev => prev === 'back' ? 'front' : 'back');
   };
 
   const handleTakePhoto = async () => {
     if (!cameraRef.current || cameraBusy) return;
     try {
       setCameraBusy(true);
-      const photo = await cameraRef.current.takePictureAsync({ quality: 0.8, skipProcessing: true });
-      if (photo?.uri) setCapturedPhoto(photo.uri);
+      const photo = await cameraRef.current.takePictureAsync({ 
+        quality: 0.8, 
+        skipProcessing: true,
+      });
+      
+      if (photo?.uri) {
+        // Ön kameradaysa fotoğrafı yatay flip et
+        if (cameraFacing === 'front') {
+          const flipped = await ImageManipulator.manipulateAsync(
+            photo.uri,
+            [{ flip: ImageManipulator.FlipType.Horizontal }],
+            { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+          );
+          setCapturedPhoto(flipped.uri);
+        } else {
+          setCapturedPhoto(photo.uri);
+        }
+      }
     } catch (e) {
       Alert.alert('Hata', 'Fotoğraf çekilemedi');
     } finally {
@@ -371,7 +409,10 @@ const ChatScreen = () => {
             />
           )}
           <TouchableOpacity
-            style={[styles.snapBubble, isMe ? styles.mySnapBubble : styles.theirSnapBubble]}
+            style={[
+              styles.snapBubble, 
+              isMe ? styles.mySnapBubble : (isDark ? styles.theirSnapBubbleDark : styles.theirSnapBubble)
+            ]}
             onPress={() => handleSnapPress(item)}
             onLongPress={() => handleDeleteMessage(item)}
             delayLongPress={400}
@@ -383,6 +424,11 @@ const ChatScreen = () => {
                 {isExpired ? '🔒 Süre doldu' : isOpened && !isMe ? '👁 Açıldı' : 'Kıvılcım'}
               </Text>
             </View>
+            {item.content && item.content !== '📷 Snap' && (
+              <Text style={[styles.snapCaption, isMe ? styles.mySnapCaption : styles.theirSnapCaption]}>
+                {item.content}
+              </Text>
+            )}
             <Text style={[styles.messageTime, isMe ? styles.myMessageTime : styles.theirMessageTime]}>
               {formatTime(item.created_at)}
             </Text>
@@ -409,7 +455,7 @@ const ChatScreen = () => {
             style={[
               styles.messageBubble,
               styles.kivilcimReplyBubble,
-              isMe ? styles.myBubble : styles.theirBubble,
+              isMe ? styles.myBubble : (isDark ? styles.theirBubbleDark : styles.theirBubble),
             ]}
           >
             <TouchableOpacity
@@ -426,10 +472,10 @@ const ChatScreen = () => {
                 <Text style={styles.kivilcimReplyThumbLabelText}>Kıvılcım</Text>
               </View>
             </TouchableOpacity>
-            <Text style={[styles.messageText, isMe ? styles.myMessageText : styles.theirMessageText]}>
+            <Text style={[styles.messageText, isMe ? styles.myMessageText : (isDark ? styles.theirMessageTextDark : styles.theirMessageText)]}>
               {item.content}
             </Text>
-            <Text style={[styles.messageTime, isMe ? styles.myMessageTime : styles.theirMessageTime]}>
+            <Text style={[styles.messageTime, isMe ? styles.myMessageTime : (isDark ? styles.theirMessageTimeDark : styles.theirMessageTime)]}>
               {formatTime(item.created_at)}
             </Text>
           </TouchableOpacity>
@@ -450,12 +496,12 @@ const ChatScreen = () => {
           activeOpacity={0.85}
           onLongPress={() => handleDeleteMessage(item)}
           delayLongPress={400}
-          style={[styles.messageBubble, isMe ? styles.myBubble : styles.theirBubble]}
+          style={[styles.messageBubble, isMe ? styles.myBubble : (isDark ? styles.theirBubbleDark : styles.theirBubble)]}
         >
-          <Text style={[styles.messageText, isMe ? styles.myMessageText : styles.theirMessageText]}>
+          <Text style={[styles.messageText, isMe ? styles.myMessageText : (isDark ? styles.theirMessageTextDark : styles.theirMessageText)]}>
             {item.content}
           </Text>
-          <Text style={[styles.messageTime, isMe ? styles.myMessageTime : styles.theirMessageTime]}>
+          <Text style={[styles.messageTime, isMe ? styles.myMessageTime : (isDark ? styles.theirMessageTimeDark : styles.theirMessageTime)]}>
             {formatTime(item.created_at)}
           </Text>
         </TouchableOpacity>
@@ -464,25 +510,31 @@ const ChatScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.root} edges={['top']}>
+    <SafeAreaView style={[styles.root, isDark && styles.rootDark]} edges={['top']}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, isDark && styles.headerDark]}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <ArrowLeft color={SnapColors.black} size={24} />
+            <ArrowLeft color={isDark ? SnapColors.darkText : SnapColors.black} size={24} />
           </TouchableOpacity>
-          <Image
-            source={{ uri: params.userAvatar || 'https://i.pravatar.cc/150' }}
-            style={styles.headerAvatar}
-          />
-          <View style={styles.headerInfo}>
-            <Text style={styles.headerName}>{params.userName}</Text>
-            <Text style={styles.headerUsername}>@{params.username}</Text>
-          </View>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('SosyalProfile', { userId: params.userId })}
+            style={styles.headerUserInfo}
+          >
+            <Image
+              source={{ uri: params.userAvatar || 'https://i.pravatar.cc/150' }}
+              style={styles.headerAvatar}
+            />
+            <View style={styles.headerInfo}>
+              <Text style={[styles.headerName, isDark && styles.headerNameDark]}>{params.userName}</Text>
+              <Text style={[styles.headerUsername, isDark && styles.headerUsernameDark]}>@{params.username}</Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Messages */}
@@ -502,7 +554,7 @@ const ChatScreen = () => {
             onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
             ListEmptyComponent={
               <View style={styles.emptyState}>
-                <Text style={styles.emptyStateText}>
+                <Text style={[styles.emptyStateText, isDark && styles.emptyStateTextDark]}>
                   {params.userName} ile sohbete başla! 👋
                 </Text>
               </View>
@@ -511,7 +563,7 @@ const ChatScreen = () => {
         )}
 
         {/* Input */}
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer, isDark && styles.inputContainerDark]}>
           <TouchableOpacity
             style={styles.cameraButton}
             onPress={handleCameraPress}
@@ -519,9 +571,9 @@ const ChatScreen = () => {
             <Camera color={SnapColors.blue} size={24} />
           </TouchableOpacity>
           <TextInput
-            style={styles.input}
+            style={[styles.input, isDark && styles.inputDark]}
             placeholder="Mesaj yaz..."
-            placeholderTextColor={SnapColors.gray}
+            placeholderTextColor={isDark ? SnapColors.darkSecondary : SnapColors.gray}
             value={newMessage}
             onChangeText={setNewMessage}
             multiline
@@ -546,7 +598,22 @@ const ChatScreen = () => {
         <View style={{ flex: 1, backgroundColor: '#000' }}>
           {!capturedPhoto ? (
             <>
-              <CameraView ref={cameraRef} style={{ flex: 1 }} facing="back" />
+              <CameraView 
+                ref={cameraRef} 
+                style={{ flex: 1 }} 
+                facing={cameraFacing}
+                mirror={false}
+              />
+              <SafeAreaView edges={['top']} style={{ position: 'absolute', top: 0, right: 0, left: 0 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingTop: 16 }}>
+                  <TouchableOpacity
+                    onPress={toggleCameraFacing}
+                    style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <RefreshCw color="#fff" size={20} strokeWidth={2} />
+                  </TouchableOpacity>
+                </View>
+              </SafeAreaView>
               <SafeAreaView edges={['bottom']} style={{ backgroundColor: '#000' }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 32, paddingVertical: 20 }}>
                   <TouchableOpacity onPress={() => setCameraVisible(false)}>
@@ -621,6 +688,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: SnapColors.white,
   },
+  rootDark: {
+    backgroundColor: SnapColors.darkBg,
+  },
   container: {
     flex: 1,
   },
@@ -633,8 +703,17 @@ const styles = StyleSheet.create({
     borderBottomColor: SnapColors.lightGray,
     backgroundColor: SnapColors.white,
   },
+  headerDark: {
+    backgroundColor: SnapColors.darkCard,
+    borderBottomColor: SnapColors.darkBorder,
+  },
   backButton: {
     marginRight: 12,
+  },
+  headerUserInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   headerAvatar: {
     width: 40,
@@ -650,10 +729,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: SnapColors.black,
   },
+  headerNameDark: {
+    color: SnapColors.darkText,
+  },
   headerUsername: {
     fontSize: 13,
     color: SnapColors.gray,
     marginTop: 2,
+  },
+  headerUsernameDark: {
+    color: SnapColors.darkSecondary,
   },
   loadingContainer: {
     flex: 1,
@@ -750,6 +835,10 @@ const styles = StyleSheet.create({
     backgroundColor: SnapColors.lightGray,
     borderBottomLeftRadius: 4,
   },
+  theirBubbleDark: {
+    backgroundColor: SnapColors.darkCard,
+    borderBottomLeftRadius: 4,
+  },
   messageText: {
     fontSize: 15,
     lineHeight: 20,
@@ -759,6 +848,9 @@ const styles = StyleSheet.create({
   },
   theirMessageText: {
     color: SnapColors.black,
+  },
+  theirMessageTextDark: {
+    color: SnapColors.darkText,
   },
   messageTime: {
     fontSize: 11,
@@ -770,6 +862,9 @@ const styles = StyleSheet.create({
   },
   theirMessageTime: {
     color: SnapColors.gray,
+  },
+  theirMessageTimeDark: {
+    color: SnapColors.darkSecondary,
   },
   snapBubble: {
     maxWidth: '70%',
@@ -783,6 +878,10 @@ const styles = StyleSheet.create({
   },
   theirSnapBubble: {
     backgroundColor: SnapColors.lightGray,
+    borderBottomLeftRadius: 4,
+  },
+  theirSnapBubbleDark: {
+    backgroundColor: SnapColors.darkCard,
     borderBottomLeftRadius: 4,
   },
   snapContent: {
@@ -800,6 +899,17 @@ const styles = StyleSheet.create({
   theirSnapText: {
     color: SnapColors.blue,
   },
+  snapCaption: {
+    fontSize: 14,
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  mySnapCaption: {
+    color: 'rgba(255,255,255,0.9)',
+  },
+  theirSnapCaption: {
+    color: SnapColors.black,
+  },
   emptyState: {
     flex: 1,
     justifyContent: 'center',
@@ -811,6 +921,9 @@ const styles = StyleSheet.create({
     color: SnapColors.gray,
     textAlign: 'center',
   },
+  emptyStateTextDark: {
+    color: SnapColors.darkSecondary,
+  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -820,6 +933,10 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: SnapColors.lightGray,
     backgroundColor: SnapColors.white,
+  },
+  inputContainerDark: {
+    backgroundColor: SnapColors.darkCard,
+    borderTopColor: SnapColors.darkBorder,
   },
   cameraButton: {
     width: 40,
@@ -837,6 +954,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     maxHeight: 100,
     color: SnapColors.black,
+  },
+  inputDark: {
+    backgroundColor: SnapColors.darkBorder,
+    color: SnapColors.darkText,
   },
   sendButton: {
     width: 40,

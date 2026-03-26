@@ -4,7 +4,7 @@
     "slug": "sanligenc",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./src/assets/SanliGencLogo.jpeg",
     "userInterfaceStyle": "automatic",
     "splash": {
       "resizeMode": "contain",
@@ -33,7 +33,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
+          "icon": "./src/assets/SanliGencLogo.jpeg",
           "color": "#F59E0B",
           "sounds": []
         }

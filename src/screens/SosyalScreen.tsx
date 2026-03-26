@@ -34,6 +34,7 @@ import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo
 import { Video, ResizeMode } from 'expo-av';
 import * as Location from 'expo-location';
 import * as FileSystem from 'expo-file-system';
+import * as ImageManipulator from 'expo-image-manipulator';
 import {
   Camera,
   Radio,
@@ -49,6 +50,8 @@ import {
   Check,
   X as XIcon,
   QrCode,
+  RefreshCw,
+  ArrowLeft,
 } from 'lucide-react-native';
 import MapView, { PROVIDER_DEFAULT, PROVIDER_GOOGLE, Heatmap, Marker } from 'react-native-maps';
 import { PinchGestureHandler, State } from 'react-native-gesture-handler';
@@ -66,11 +69,13 @@ import { notify } from '@/lib/notifications';
 
 export interface SnapPost {
   id: string;
+  userId: string; // Snap sahibinin user_id'si
   user: {
     id: string;
     name: string;
     username: string;
     avatarColor: string; // Renk kodu — gerçek avatar yokken kullanılır
+    avatarUrl?: string; // Profil resmi URL'i
   };
   imageUri: string; // Foto veya video dosyasının URI / public URL
   /** true ise imageUri bir videoyu gösterir */
@@ -83,6 +88,8 @@ export interface SnapPost {
   created_at: Date;
   expires_at: Date; // created_at + 4 saat — kesin kural
   seen: boolean;
+  viewedBy?: string[]; // Görüntüleyen kullanıcı ID'leri
+  isPublic?: boolean; // Gizlilik ayarı: true = herkese açık, false = sadece arkadaşlar
 }
 
 export interface HeatPoint {
@@ -436,7 +443,13 @@ function SnapCard({ snap, onPress, isDark }: SnapCardProps) {
 // Aynı kullanıcının tüm snap'leri tek kart içinde
 // ─────────────────────────────────────────────
 
-function SnapGroupCard({ group, onPress, isDark }: { group: SnapGroup; onPress: (snap: SnapPost) => void; isDark: boolean }) {
+function SnapGroupCard({ group, onPress, isDark, currentUserId, onAvatarPress }: { 
+  group: SnapGroup; 
+  onPress: (snap: SnapPost) => void; 
+  isDark: boolean; 
+  currentUserId?: string;
+  onAvatarPress?: (userId: string) => void;
+}) {
   const theme = isDark ? DARK : LIGHT;
   const accentColor = isDark ? NIGHT.warm : LIGHT.accent;
   const [activeIdx, setActiveIdx] = useState(0);
@@ -445,6 +458,9 @@ function SnapGroupCard({ group, onPress, isDark }: { group: SnapGroup; onPress: 
   const activeSnap = group.snaps[activeIdx];
   const progress = getExpiryProgress(activeSnap);
   const timeLeft = formatTimeLeft(activeSnap);
+  
+  // Kart genişliği - 2 kolon için
+  const cardWidth = (SCREEN_W - 48) / 2; // 48 = padding (16*2) + gap (16)
 
   return (
     <View style={[
@@ -452,14 +468,16 @@ function SnapGroupCard({ group, onPress, isDark }: { group: SnapGroup; onPress: 
       { borderColor: group.hasUnseen ? accentColor : theme.border, borderWidth: 1.5 },
     ]}>
       {/* Fotoğraf alanı — yatay kaydırılabilir */}
-      <View style={styles.snapImageContainer}>
+      <View style={[styles.snapImageContainer, { width: cardWidth, height: cardWidth * 1.2 }]}>
         <ScrollView
           ref={scrollRef}
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
+          snapToInterval={cardWidth}
+          decelerationRate="fast"
           onMomentumScrollEnd={(e) => {
-            const idx = Math.round(e.nativeEvent.contentOffset.x / (SCREEN_W - 32));
+            const idx = Math.round(e.nativeEvent.contentOffset.x / cardWidth);
             setActiveIdx(idx);
           }}
         >
@@ -468,12 +486,13 @@ function SnapGroupCard({ group, onPress, isDark }: { group: SnapGroup; onPress: 
               key={snap.id}
               activeOpacity={0.92}
               onPress={() => onPress(snap)}
-              style={{ width: SCREEN_W - 32 }}
+              style={{ width: cardWidth, height: cardWidth * 1.2 }}
             >
               <SnapMediaThumb
                 uri={snap.imageUri}
                 isVideo={snap.isVideo}
-                style={{ width: SCREEN_W - 32, height: SCREEN_W * 0.75 }}
+                style={{ width: cardWidth, height: cardWidth * 1.2 }}
+                imageResizeMode="cover"
               />
             </TouchableOpacity>
           ))}
@@ -484,6 +503,13 @@ function SnapGroupCard({ group, onPress, isDark }: { group: SnapGroup; onPress: 
           <Clock color={isDark ? NIGHT.warm : LIGHT.accent} size={10} strokeWidth={2.5} />
           <Text style={[styles.snapTimeText, { color: isDark ? NIGHT.warm : LIGHT.accent }]}>{timeLeft}</Text>
         </View>
+
+        {/* Görüldü işareti */}
+        {group.snaps[activeIdx]?.viewedBy?.includes(currentUserId || '') && (
+          <View style={[styles.viewedBadge, { backgroundColor: isDark ? 'rgba(34,197,94,0.9)' : 'rgba(34,197,94,0.85)' }]}>
+            <Text style={styles.viewedBadgeText}>✓ Görüldü</Text>
+          </View>
+        )}
 
         {/* Birden fazla snap varsa üstte nokta göstergesi */}
         {group.snaps.length > 1 && (
@@ -509,18 +535,28 @@ function SnapGroupCard({ group, onPress, isDark }: { group: SnapGroup; onPress: 
 
       {/* Footer */}
       <View style={[styles.snapFooter, { backgroundColor: theme.surface }]}>
-        <View style={styles.snapAvatarWrapper}>
-          <CountdownRing progress={progress} size={46} seen={!group.hasUnseen} isDark={isDark} />
-          <View style={[styles.snapAvatar, { backgroundColor: group.avatarColor + '33' }]}>
-            <Text style={[styles.snapAvatarText, { color: group.avatarColor }]}>
-              {group.userName.charAt(0)}
-            </Text>
+        <TouchableOpacity 
+          style={styles.snapAvatarWrapper}
+          onPress={() => onAvatarPress?.(group.userId)}
+        >
+          <CountdownRing progress={progress} size={38} seen={!group.hasUnseen} isDark={isDark} />
+          <View style={[styles.snapAvatar, { width: 32, height: 32, borderRadius: 16, backgroundColor: group.avatarColor + '33' }]}>
+            {group.snaps[0]?.user?.avatarUrl ? (
+              <Image
+                source={{ uri: processImageUrl(group.snaps[0].user.avatarUrl) || undefined }}
+                style={{ width: '100%', height: '100%', borderRadius: 16 }}
+              />
+            ) : (
+              <Text style={[styles.snapAvatarText, { color: group.avatarColor, fontSize: 14 }]}>
+                {group.userName.charAt(0)}
+              </Text>
+            )}
           </View>
-        </View>
+        </TouchableOpacity>
         <View style={styles.snapUserInfo}>
-          <Text style={[styles.snapUserName, { color: theme.text }]}>{group.userName}</Text>
-          <Text style={[styles.snapLocationText, { color: theme.textSub }]}>
-            {group.snaps.length > 1 ? `${activeIdx + 1}/${group.snaps.length} kıvılcım` : '@' + group.username}
+          <Text style={[styles.snapUserName, { color: theme.text, fontSize: 13 }]} numberOfLines={1}>{group.userName}</Text>
+          <Text style={[styles.snapLocationText, { color: theme.textSub, fontSize: 10 }]} numberOfLines={1}>
+            {group.snaps.length > 1 ? `${activeIdx + 1}/${group.snaps.length}` : '@' + group.username}
           </Text>
         </View>
       </View>
@@ -685,9 +721,16 @@ function StoryBar({
               justifyContent: 'center',
               overflow: 'hidden',
             }}>
-              <Text style={{ color: g.avatarColor, fontSize: 22, fontWeight: '800' }}>
-                {g.userName.charAt(0).toUpperCase()}
-              </Text>
+              {g.snaps[0]?.user?.avatarUrl ? (
+                <Image
+                  source={{ uri: processImageUrl(g.snaps[0].user.avatarUrl) || undefined }}
+                  style={{ width: '100%', height: '100%' }}
+                />
+              ) : (
+                <Text style={{ color: g.avatarColor, fontSize: 22, fontWeight: '800' }}>
+                  {g.userName.charAt(0).toUpperCase()}
+                </Text>
+              )}
             </View>
           </View>
           {/* Snap sayısı badge */}
@@ -731,11 +774,12 @@ function FeedView({
   buddyMutual,
   onOpenStreakBuddy,
   streakLoggedIn,
+  currentUserId,
+  navigation,
 }: {
   snaps: SnapPost[];
   isDark: boolean;
   refreshTick: number;
-  onSnapPress: (snap: SnapPost) => void;
   onAddFriendPress: () => void;
   friends: UserProfile[];
   onOpenRadar: () => void;
@@ -746,14 +790,71 @@ function FeedView({
   buddyMutual: number;
   onOpenStreakBuddy: () => void;
   streakLoggedIn: boolean;
+  currentUserId?: string;
+  navigation: any;
 }) {
   const theme = isDark ? DARK : LIGHT;
   const accentColor = isDark ? NIGHT.warm : LIGHT.accent;
-  const groups = useMemo(() => groupSnapsByUser(snaps), [snaps]);
+  const [feedFilter, setFeedFilter] = useState<'everyone' | 'friends'>('friends');
+  
+  const friendIds = useMemo(() => new Set(friends.map(f => f.user_id)), [friends]);
+  
+  const filteredSnaps = useMemo(() => {
+    if (feedFilter === 'everyone') {
+      // Herkes sekmesi: Sadece herkese açık snap'ler (isPublic: true)
+      return snaps.filter(snap => snap.isPublic !== false);
+    }
+    // Arkadaşlar sekmesi: Arkadaşların snap'leri + kendi snap'lerin
+    return snaps.filter(snap => 
+      friendIds.has(snap.userId) || snap.userId === currentUserId
+    );
+  }, [snaps, feedFilter, friendIds, currentUserId]);
+  
+  const getFilteredSnaps = useCallback(() => {
+    if (feedFilter === 'everyone') {
+      return snaps.filter(snap => snap.isPublic !== false);
+    }
+    return snaps.filter(snap => 
+      friendIds.has(snap.userId) || snap.userId === currentUserId
+    );
+  }, [snaps, feedFilter, friendIds, currentUserId]);
+  
+  const handleSnapPress = useCallback((snap: SnapPost) => {
+    // Filtrelenmiş snap listesini hazırla
+    const filteredSnapsList = getFilteredSnaps();
+    const snapList = filteredSnapsList.map(s => ({
+      id: s.id,
+      imageUrl: s.imageUri,
+      canView: true,
+    }));
+    
+    // Tıklanan snap'in index'ini bul
+    const initialIndex = filteredSnapsList.findIndex(s => s.id === snap.id);
+    
+    // SnapView ekranına git
+    navigation.navigate('SnapView', {
+      imageUrl: snap.imageUri,
+      canView: true,
+      snapList,
+      initialIndex: initialIndex >= 0 ? initialIndex : 0,
+    });
+  }, [getFilteredSnaps, navigation]);
+  
+  const groups = useMemo(() => groupSnapsByUser(filteredSnaps), [filteredSnaps]);
 
   const renderGroup = useCallback(({ item }: { item: SnapGroup }) => (
-    <SnapGroupCard group={item} onPress={onSnapPress} isDark={isDark} />
-  ), [onSnapPress, isDark]);
+    <View style={{ width: '48%' }}>
+      <SnapGroupCard 
+        group={item} 
+        onPress={handleSnapPress} 
+        isDark={isDark} 
+        currentUserId={currentUserId}
+        onAvatarPress={(userId) => {
+          navigation.navigate('SosyalProfile', { userId });
+        }}
+      />
+    </View>
+  ), [handleSnapPress, isDark, currentUserId, navigation]);
 
   return (
     <FlatList
@@ -761,11 +862,19 @@ function FeedView({
       renderItem={renderGroup}
       keyExtractor={(item) => item.userId}
       extraData={refreshTick}
+      numColumns={2}
+      columnWrapperStyle={{ justifyContent: 'space-between', paddingHorizontal: 16 }}
       contentContainerStyle={styles.feedContent}
       showsVerticalScrollIndicator={false}
       ListHeaderComponent={
         <>
-          <FeedHeader isDark={isDark} friends={friends} onAddFriendPress={onAddFriendPress} />
+          <FeedHeader 
+            isDark={isDark} 
+            friends={friends} 
+            onAddFriendPress={onAddFriendPress}
+            feedFilter={feedFilter}
+            onFilterChange={setFeedFilter}
+          />
           <RadarCompactCard isDark={isDark} onPress={onOpenRadar} />
           <StreakStrip
             isDark={isDark}
@@ -791,35 +900,71 @@ function FeedView({
   );
 }
 
-function FeedHeader({ isDark, friends, onAddFriendPress }: { isDark: boolean; friends: UserProfile[]; onAddFriendPress: () => void }) {
+function FeedHeader({ 
+  isDark, 
+  friends, 
+  onAddFriendPress, 
+  feedFilter, 
+  onFilterChange 
+}: { 
+  isDark: boolean; 
+  friends: UserProfile[]; 
+  onAddFriendPress: () => void;
+  feedFilter: 'everyone' | 'friends';
+  onFilterChange: (filter: 'everyone' | 'friends') => void;
+}) {
   const theme = isDark ? DARK : LIGHT;
   const accentColor = isDark ? NIGHT.warm : LIGHT.accent;
+  
   return (
     <View style={styles.feedHeaderContainer}>
       <Text style={[styles.feedHeaderTitle, { color: theme.text }]}>Akış</Text>
       <Text style={[styles.feedHeaderSub, { color: theme.textSub }]}>
-        Arkadaşlarının son 4 saati
+        {feedFilter === 'friends' ? 'Arkadaşlarının son 4 saati' : 'Herkesten son 4 saat'}
       </Text>
-      {friends.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12, marginBottom: 4 }}>
-          <View style={{ flexDirection: 'row', gap: 12, paddingRight: 8 }}>
-            {friends.map((f) => (
-              <View key={f.user_id} style={{ alignItems: 'center', gap: 4 }}>
-                <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: isDark ? 'rgba(14,165,233,0.16)' : 'rgba(96,165,250,0.15)', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: accentColor }}>
-                  {f.avatar_url ? (
-                    <Image source={{ uri: f.avatar_url }} style={{ width: 48, height: 48, borderRadius: 24 }} />
-                  ) : (
-                    <Text style={{ color: accentColor, fontSize: 18, fontWeight: '700' }}>{f.name.charAt(0).toUpperCase()}</Text>
-                  )}
-                </View>
-                <Text style={{ color: theme.textSub, fontSize: 11, fontWeight: '500', maxWidth: 52 }} numberOfLines={1}>
-                  {f.username || f.name}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </ScrollView>
-      )}
+      
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false} 
+        style={{ marginTop: 12 }}
+        contentContainerStyle={{ gap: 8 }}
+      >
+        <TouchableOpacity
+          onPress={() => onFilterChange('everyone')}
+          style={{
+            paddingHorizontal: 20,
+            paddingVertical: 8,
+            borderRadius: 20,
+            backgroundColor: feedFilter === 'everyone' ? accentColor : (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'),
+          }}
+        >
+          <Text style={{
+            color: feedFilter === 'everyone' ? '#fff' : theme.textSub,
+            fontSize: 14,
+            fontWeight: '600',
+          }}>
+            Herkes
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          onPress={() => onFilterChange('friends')}
+          style={{
+            paddingHorizontal: 20,
+            paddingVertical: 8,
+            borderRadius: 20,
+            backgroundColor: feedFilter === 'friends' ? accentColor : (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'),
+          }}
+        >
+          <Text style={{
+            color: feedFilter === 'friends' ? '#fff' : theme.textSub,
+            fontSize: 14,
+            fontWeight: '600',
+          }}>
+            Arkadaşlar
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 }
@@ -1110,11 +1255,20 @@ function MessagesView({
 
 // ─────────────────────────────────────────────
 
+interface UserSnapMarker {
+  latitude: number;
+  longitude: number;
+  avatarUrl: string | null;
+  username: string;
+  userId: string;
+}
+
 function RadarView() {
   const { mode } = useThemeMode();
   const isDark = mode === 'dark';
   const theme = isDark ? DARK : LIGHT;
   const [heatPoints, setHeatPoints] = useState<HeatPoint[]>([]);
+  const [userMarkers, setUserMarkers] = useState<UserSnapMarker[]>([]);
   const [activeCount, setActiveCount] = useState(0);
   const [districtSummary, setDistrictSummary] = useState('');
   const [loading, setLoading] = useState(true);
@@ -1146,7 +1300,7 @@ function RadarView() {
           // Anonim tablo yoksa/yoksa social_posts ile devam et
           const { data: postRows, error: postErr } = await supabase
             .from('social_posts')
-            .select('latitude, longitude, created_at, content')
+            .select('latitude, longitude, created_at, content, user_id')
             .gte('created_at', since)
             .not('latitude', 'is', null)
             .not('longitude', 'is', null);
@@ -1154,6 +1308,7 @@ function RadarView() {
           if (postErr || !postRows || postRows.length === 0) {
             setActiveCount(0);
             setDistrictSummary('');
+            setUserMarkers([]);
             return;
           }
           radarRows = postRows.map((r: any) => ({
@@ -1161,6 +1316,29 @@ function RadarView() {
             district: typeof r.content === 'string' ? String(r.content).split(',')[0] : undefined,
           }));
         }
+
+        // Kullanıcı profil resimlerini çek
+        const userIds = [...new Set(radarRows.map(r => r.user_id).filter(Boolean))];
+        const { data: profiles } = await supabase
+          .from('user_profiles')
+          .select('user_id, avatar_url, username')
+          .in('user_id', userIds);
+
+        const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+
+        // Kullanıcı marker'larını oluştur
+        const markers: UserSnapMarker[] = radarRows
+          .filter(r => r.user_id && profileMap.has(r.user_id))
+          .map(r => {
+            const profile = profileMap.get(r.user_id)!;
+            return {
+              latitude: r.latitude,
+              longitude: r.longitude,
+              avatarUrl: profile.avatar_url,
+              username: profile.username,
+              userId: r.user_id,
+            };
+          });
 
         // Her noktanın ağırlığını hesapla — yakın zamanlı = daha yüksek ağırlık
         const now = Date.now();
@@ -1187,6 +1365,7 @@ function RadarView() {
           .map(([name, count]) => `${name} (${count})`);
 
         setHeatPoints(points);
+        setUserMarkers(markers);
         setActiveCount(points.length);
         setDistrictSummary(topDistricts.join(', '));
       } catch {
@@ -1226,10 +1405,57 @@ function RadarView() {
           />
         )}
 
-        {/* iOS: gerçek noktalara marker */}
+        {/* Kullanıcı profil resimleri marker'ları */}
+        {userMarkers.map((marker, i) => (
+          <Marker
+            key={`user-${marker.userId}-${i}`}
+            coordinate={{ latitude: marker.latitude, longitude: marker.longitude }}
+            anchor={{ x: 0.5, y: 0.5 }}
+          >
+            <View style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              borderWidth: 3,
+              borderColor: isDark ? '#0ea5e9' : '#f59e0b',
+              backgroundColor: isDark ? '#1e293b' : '#fff',
+              overflow: 'hidden',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.3,
+              shadowRadius: 4,
+              elevation: 5,
+            }}>
+              {marker.avatarUrl ? (
+                <Image
+                  source={{ uri: processImageUrl(marker.avatarUrl) || undefined }}
+                  style={{ width: '100%', height: '100%' }}
+                />
+              ) : (
+                <View style={{
+                  width: '100%',
+                  height: '100%',
+                  backgroundColor: isDark ? '#334155' : '#e2e8f0',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <Text style={{
+                    color: isDark ? '#94a3b8' : '#64748b',
+                    fontSize: 16,
+                    fontWeight: '600',
+                  }}>
+                    {marker.username.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </Marker>
+        ))}
+
+        {/* iOS: gerçek noktalara marker (heatmap için) */}
         {Platform.OS !== 'android' && heatPoints.map((pt, i) => (
           <Marker
-            key={i}
+            key={`heat-${i}`}
             coordinate={{ latitude: pt.latitude, longitude: pt.longitude }}
             anchor={{ x: 0.5, y: 0.5 }}
           >
@@ -1331,6 +1557,8 @@ export default function SosyalScreen() {
   const [activeTab, setActiveTab] = useState<Tab>('feed');
   const [cameraVisible, setCameraVisible] = useState(false);
   const [friendModalVisible, setFriendModalVisible] = useState(false);
+  const [friendSearchResults, setFriendSearchResults] = useState<UserProfile[]>([]);
+  const [friendSearching, setFriendSearching] = useState(false);
   const [qrModalVisible, setQrModalVisible] = useState(false);
   const [qrScanVisible, setQrScanVisible] = useState(false);
   const [qrScanned, setQrScanned] = useState(false);
@@ -1340,6 +1568,7 @@ export default function SosyalScreen() {
   const [capturedPhotoUri, setCapturedPhotoUri] = useState<string | null>(null);
   const [capturedIsVideo, setCapturedIsVideo] = useState(false);
   const [cameraCaptureMode, setCameraCaptureMode] = useState<'photo' | 'video'>('photo');
+  const [cameraFacing, setCameraFacing] = useState<'front' | 'back'>('back');
   const [isRecordingVideo, setIsRecordingVideo] = useState(false);
   const [friendPhone, setFriendPhone] = useState('');
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -1581,6 +1810,7 @@ export default function SosyalScreen() {
 
   const fetchFriendSnaps = async (userIds: string[]) => {
     setSnapsLoading(true);
+    const userId = profile?.userId;
     try {
       const expiryThreshold = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
 
@@ -1602,14 +1832,18 @@ export default function SosyalScreen() {
         const hasImg = post.image_url && String(post.image_url).trim() !== '';
         const hasVid = post.video_url && String(post.video_url).trim() !== '';
         if (!hasImg && !hasVid) return false;
-        // Kendi kıvılcımlarımız listede kalabilir; arkadaş kıvılcımları ise bir kez görünür.
-        if (post.user_id === currentUserId) return true;
+        
+        // Kendi kıvılcımlarımız listede kalabilir
+        if (post.user_id === userId) return true;
+        
+        // Recipient kontrolü
         const rec = post.recipient_user_ids;
         if (Array.isArray(rec) && rec.length > 0) {
-          if (!currentUserId || !rec.includes(currentUserId)) return false;
+          if (!userId || !rec.includes(userId)) return false;
         }
-        const viewedBy: string[] = Array.isArray(post.viewed_by) ? post.viewed_by : [];
-        return !currentUserId || !viewedBy.includes(currentUserId);
+        
+        // Tüm snap'leri göster (görülmüş olanlar dahil) - filtreleme yok
+        return true;
       });
 
       if (visiblePosts.length === 0) {
@@ -1619,11 +1853,11 @@ export default function SosyalScreen() {
         return;
       }
 
-      // Benzersiz user_id'leri topla, profilleri tek sorguda çek
+      // Benzersiz user_id'leri topla, profilleri tek sorguda çek (is_public dahil)
       const uniqueUserIds = [...new Set(visiblePosts.map((p: any) => p.user_id))];
       const { data: profiles } = await supabase
         .from('user_profiles')
-        .select('user_id, name, username, avatar_url')
+        .select('user_id, name, username, avatar_url, is_public')
         .in('user_id', uniqueUserIds);
 
       const profileMap: Record<string, any> = {};
@@ -1637,11 +1871,13 @@ export default function SosyalScreen() {
         const isVid = !!vUrl;
         return {
           id: post.id,
+          userId: post.user_id,
           user: {
             id: post.user_id,
             name: prof?.name ?? 'Kullanıcı',
             username: prof?.username ?? '',
             avatarColor: '#f59e0b',
+            avatarUrl: prof?.avatar_url,
           },
           imageUri: isVid ? vUrl : (post.image_url ?? ''),
           ...(isVid ? { isVideo: true } : {}),
@@ -1653,6 +1889,8 @@ export default function SosyalScreen() {
           created_at: createdAt,
           expires_at: expiresAt,
           seen: false,
+          viewedBy: Array.isArray(post.viewed_by) ? post.viewed_by : [],
+          isPublic: prof?.is_public ?? true, // Gizlilik ayarı
         };
       });
       setSnaps(mapped);
@@ -1664,7 +1902,8 @@ export default function SosyalScreen() {
   };
 
   const handleAcceptRequest = async (requestId: string, senderId: string) => {
-    if (!currentUserId) return;
+    const userId = profile?.userId;
+    if (!userId) return;
     try {
       await supabase
         .from('friendships')
@@ -1681,9 +1920,9 @@ export default function SosyalScreen() {
       const myName = profile?.name || profile?.username || 'Biri';
       notify.friendAccepted(senderId, myName).catch(() => {});
 
-      await fetchIncomingRequests(currentUserId);
-      await fetchConversations(currentUserId);
-      await fetchFriends(currentUserId);
+      await fetchIncomingRequests(userId);
+      await fetchConversations(userId);
+      await fetchFriends(userId);
       Alert.alert('Arkadaş Eklendi! 🎉', 'Artık mesajlaşabilir ve anlık görüntü atabilirsiniz.');
     } catch (e: any) {
       Alert.alert('Hata', e.message);
@@ -1691,41 +1930,36 @@ export default function SosyalScreen() {
   };
 
   const handleRejectRequest = async (requestId: string) => {
-    if (!currentUserId) return;
+    const userId = profile?.userId;
+    if (!userId) return;
     try {
       await supabase
         .from('friendships')
         .update({ status: 'rejected', updated_at: new Date().toISOString() })
         .eq('id', requestId);
-      await fetchIncomingRequests(currentUserId);
+      await fetchIncomingRequests(userId);
     } catch (e: any) {
       Alert.alert('Hata', e.message);
     }
   };
 
   const handleDeleteConversation = useCallback(async (conversationId: string) => {
-    if (!currentUserId) return;
+    const userId = profile?.userId;
+    if (!userId) return;
     try {
-      // Tüm mesajları sil
-      await supabase.from('messages').delete().eq('conversation_id', conversationId);
-      // Katılımcı kaydını sil
-      await supabase.from('conversation_participants').delete()
-        .eq('conversation_id', conversationId)
-        .eq('user_id', currentUserId);
-      // Conversation'ı sil (diğer katılımcı yoksa)
-      const { data: remaining } = await supabase
+      // Sadece bu kullanıcı için gizle (veritabanından silme)
+      await supabase
         .from('conversation_participants')
-        .select('id')
-        .eq('conversation_id', conversationId);
-      if (!remaining || remaining.length === 0) {
-        await supabase.from('conversations').delete().eq('id', conversationId);
-      }
+        .update({ hidden: true })
+        .eq('conversation_id', conversationId)
+        .eq('user_id', userId);
+      
       // Listeden kaldır
       setConversations(prev => prev.filter(c => c.conversation_id !== conversationId));
     } catch {
-      Alert.alert('Hata', 'Sohbet silinemedi.');
+      Alert.alert('Hata', 'Sohbet gizlenemedi.');
     }
-  }, [currentUserId]);
+  }, [profile?.userId]);
 
   const fetchConversations = async (userId: string) => {
     setMessagesLoading(true);
@@ -1733,7 +1967,8 @@ export default function SosyalScreen() {
       const { data: participantData, error } = await supabase
         .from('conversation_participants')
         .select('conversation_id')
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .or('hidden.is.null,hidden.eq.false'); // null veya false olanları getir
       if (error || !participantData) { setMessagesLoading(false); return; }
 
       const convIds = participantData.map((p: any) => p.conversation_id);
@@ -1818,11 +2053,13 @@ export default function SosyalScreen() {
 
   const createLocalSnap = useCallback((uri: string, isVideo = false): SnapPost => ({
     id: `local-${Date.now()}`,
+    userId: profile?.userId ?? 'me',
     user: {
       id: profile?.userId ?? 'me',
       name: profile?.name ?? 'Sen',
       username: profile?.username ?? 'me',
       avatarColor: isDark ? '#38bdf8' : '#60a5fa',
+      avatarUrl: profile?.avatarUrl,
     },
     imageUri: uri,
     ...(isVideo ? { isVideo: true } : {}),
@@ -1830,6 +2067,7 @@ export default function SosyalScreen() {
     created_at: new Date(),
     expires_at: new Date(Date.now() + SNAP_EXPIRES_MS),
     seen: false,
+    isPublic: true, // Local snap'ler için varsayılan
   }), [isDark, profile]);
 
   const handleCameraPress = useCallback(async () => {
@@ -1863,14 +2101,26 @@ export default function SosyalScreen() {
         imageType: 'jpg',
         shutterSound: false,
       });
+      
       if (photo?.uri) {
-        setCapturedIsVideo(false);
-        setCapturedPhotoUri(photo.uri);
+        // Ön kameradaysa fotoğrafı yatay flip et
+        if (cameraFacing === 'front') {
+          const flipped = await ImageManipulator.manipulateAsync(
+            photo.uri,
+            [{ flip: ImageManipulator.FlipType.Horizontal }],
+            { compress: 1, format: ImageManipulator.SaveFormat.JPEG }
+          );
+          setCapturedIsVideo(false);
+          setCapturedPhotoUri(flipped.uri);
+        } else {
+          setCapturedIsVideo(false);
+          setCapturedPhotoUri(photo.uri);
+        }
       }
     } finally {
       setCameraBusy(false);
     }
-  }, [cameraBusy, cameraCaptureMode]);
+  }, [cameraBusy, cameraCaptureMode, cameraFacing]);
 
   const handleVideoRecordToggle = useCallback(async () => {
     if (cameraCaptureMode !== 'video' || !cameraRef.current || cameraBusy) return;
@@ -1911,17 +2161,19 @@ export default function SosyalScreen() {
     } catch (e: any) {
       recordingPromiseRef.current = null;
       setIsRecordingVideo(false);
-      Alert.alert('Video', e?.message ?? 'Kayıt bitirilemedi.');
     } finally {
       setCameraBusy(false);
     }
-  }, [
-    cameraBusy,
-    cameraCaptureMode,
-    isRecordingVideo,
-    microphonePermission,
-    requestMicrophonePermission,
-  ]);
+  }, [cameraCaptureMode, isRecordingVideo]);
+
+  const toggleCameraFacing = useCallback(() => {
+    setCameraFacing(prev => prev === 'back' ? 'front' : 'back');
+  }, []);
+
+  const handleDiscardPhoto = useCallback(() => {
+    setCapturedPhotoUri(null);
+    setCapturedIsVideo(false);
+  }, []);
 
   const uploadSnapToSupabase = useCallback(async (
     mediaUri: string,
@@ -2136,79 +2388,84 @@ export default function SosyalScreen() {
   // Snap'in Supabase ID'sini tutmak için ref (kapanışta silmek için)
   const viewingSnapDbId = useRef<string | null>(null);
 
-  const handleSnapPress = useCallback((snap: SnapPost) => {
-    setSnaps(prev => prev.map(item => (item.id === snap.id ? { ...item, seen: true } : item)));
-    setSelectedSnap(snap);
-    // Snap'in gerçek DB id'sini sakla (kendi snap'lerimizi silmiyoruz)
-    if (snap.user.id !== currentUserId) {
-      viewingSnapDbId.current = snap.id;
-    }
-  }, [currentUserId]);
-
   const handleAddFriendPress = useCallback(() => {
+    setFriendPhone('');
+    setFriendSearchResults([]);
     setFriendModalVisible(true);
   }, []);
 
-  const handleSubmitFriend = useCallback(async () => {
-    if (friendPhone.trim().length === 0) return;
+  const handleSearchFriend = useCallback(async (query: string) => {
+    setFriendPhone(query);
+    
+    if (query.trim().length < 2) {
+      setFriendSearchResults([]);
+      return;
+    }
+
+    setFriendSearching(true);
     try {
-      const cleanInput = friendPhone.trim().toLowerCase().replace('@', '');
+      const cleanInput = query.trim().toLowerCase().replace('@', '');
 
       const { data, error } = await supabase
         .from('user_profiles')
-        .select('user_id, name, username')
-        .ilike('username', `%${cleanInput}%`)
-        .limit(1)
-        .single();
+        .select('user_id, name, username, avatar_url')
+        .or(`username.ilike.%${cleanInput}%,name.ilike.%${cleanInput}%`)
+        .limit(10);
 
-      if (error || !data) {
-        Alert.alert('Bulunamadı', `"${cleanInput}" kullanıcı adıyla kayıtlı kimse bulunamadı.`);
-        return;
+      if (!error && data) {
+        // Kendini filtrele
+        const filtered = data.filter((u: any) => u.user_id !== currentUserId);
+        setFriendSearchResults(filtered);
+      } else {
+        setFriendSearchResults([]);
       }
+    } catch {
+      setFriendSearchResults([]);
+    } finally {
+      setFriendSearching(false);
+    }
+  }, [currentUserId]);
 
-      if (!currentUserId) return;
-
-      if (data.user_id === currentUserId) {
-        Alert.alert('Hata', 'Kendine istek gönderemezsin.');
-        return;
-      }
+  const handleSelectFriendFromSearch = useCallback(async (selectedUser: UserProfile) => {
+    try {
+      const userId = profile?.userId;
+      if (!userId) return;
 
       // Zaten arkadaş veya istek var mı kontrol et
       const { data: existing } = await supabase
         .from('friendships')
         .select('id, status')
-        .or(`and(sender_id.eq.${currentUserId},receiver_id.eq.${data.user_id}),and(sender_id.eq.${data.user_id},receiver_id.eq.${currentUserId})`)
+        .or(`and(sender_id.eq.${userId},receiver_id.eq.${selectedUser.user_id}),and(sender_id.eq.${selectedUser.user_id},receiver_id.eq.${userId})`)
         .single();
 
       if (existing) {
         if (existing.status === 'accepted') {
-          Alert.alert('Zaten Arkadaşsınız', `@${data.username} ile zaten arkadaşsınız.`);
+          Alert.alert('Zaten Arkadaşsınız', `${selectedUser.name || selectedUser.username} ile zaten arkadaşsınız.`);
         } else if (existing.status === 'pending') {
-          Alert.alert('İstek Gönderildi', `@${data.username} kullanıcısına zaten istek gönderilmiş, onay bekleniyor.`);
+          Alert.alert('İstek Gönderildi', `${selectedUser.name || selectedUser.username} kullanıcısına zaten istek gönderilmiş, onay bekleniyor.`);
         }
-        setFriendPhone('');
-        setFriendModalVisible(false);
         return;
       }
 
       // Arkadaşlık isteği gönder
       const { error: insertError } = await supabase
         .from('friendships')
-        .insert({ sender_id: currentUserId, receiver_id: data.user_id, status: 'pending' });
+        .insert({ sender_id: userId, receiver_id: selectedUser.user_id, status: 'pending' });
 
       if (insertError) throw insertError;
 
       // Alıcıya bildirim gönder
       const myName = profile?.name || profile?.username || 'Biri';
-      notify.friendRequest(data.user_id, myName).catch(() => {});
+      notify.friendRequest(selectedUser.user_id, myName).catch(() => {});
 
       setFriendPhone('');
+      setFriendSearchResults([]);
       setFriendModalVisible(false);
-      Alert.alert('İstek Gönderildi! 🎉', `@${data.username} kullanıcısına arkadaşlık isteği gönderildi. Kabul edince mesajlaşabilirsiniz.`);
+      Alert.alert('İstek Gönderildi! 🎉', `${selectedUser.name || selectedUser.username} kullanıcısına arkadaşlık isteği gönderildi. Kabul edince mesajlaşabilirsiniz.`);
     } catch (e: any) {
       Alert.alert('Hata', e.message || 'Bir hata oluştu.');
     }
-  }, [friendPhone, currentUserId]);
+  }, [profile, currentUserId]);
 
   const handleQrScanned = useCallback(async ({ data: qrData }: { data: string }) => {
     if (qrScanned) return;
@@ -2240,8 +2497,9 @@ export default function SosyalScreen() {
         return;
       }
 
-      if (!currentUserId) { setQrScanned(false); return; }
-      if (data.user_id === currentUserId) {
+      const userId = profile?.userId;
+      if (!userId) { setQrScanned(false); return; }
+      if (data.user_id === userId) {
         Alert.alert('Bu senin QR kodun!', 'Kendi QR kodunu okutamazsın.');
         setQrScanned(false);
         return;
@@ -2290,15 +2548,16 @@ export default function SosyalScreen() {
   }, []);
 
   const saveStreakBuddy = useCallback(async () => {
-    if (!currentUserId) return;
+    const userId = profile?.userId;
+    if (!userId) return;
     try {
       const { error } = await supabase
         .from('user_profiles')
         .update({ streak_buddy_user_id: streakBuddyPickId })
-        .eq('user_id', currentUserId);
+        .eq('user_id', userId);
       if (error) throw error;
       setStreakBuddyModalVisible(false);
-      await loadStreakData(currentUserId);
+      await loadStreakData(userId);
     } catch (e: any) {
       const msg = e?.message ?? '';
       const schemaHint =
@@ -2307,32 +2566,33 @@ export default function SosyalScreen() {
           : '';
       Alert.alert('Hata', (msg || 'Kaydedilemedi.') + schemaHint);
     }
-  }, [currentUserId, streakBuddyPickId, loadStreakData]);
+  }, [profile?.userId, streakBuddyPickId, loadStreakData]);
 
   const handleCloseSnapViewer = useCallback(() => {
     const snapId = viewingSnapDbId.current;
     viewingSnapDbId.current = null;
     setSelectedSnap(null);
 
-    if (snapId && currentUserId) {
+    if (snapId && profile?.userId) {
       // Görüntülendi olarak işaretle ve feed'den kaldır
       (async () => {
         try {
           await supabase.rpc('mark_snap_viewed', {
             snap_id: snapId,
-            viewer_id: currentUserId,
+            viewer_id: profile.userId,
           });
         } catch { /* sessiz */ }
         // Her durumda feed'den kaldır
         setSnaps(prev => prev.filter(s => s.id !== snapId));
       })();
     }
-  }, [currentUserId]);
+  }, [profile?.userId]);
 
   const handleSnapReply = useCallback(async (text: string) => {
-    if (!selectedSnap || !currentUserId || !text.trim()) return;
+    const userId = profile?.userId;
+    if (!selectedSnap || !userId || !text.trim()) return;
     const recipientId = selectedSnap.user.id;
-    if (recipientId === currentUserId) return; // Kendi snap'ine yanıt yok
+    if (recipientId === userId) return; // Kendi snap'ine yanıt yok
 
     setSnapReplySending(true);
     try {
@@ -2390,7 +2650,7 @@ export default function SosyalScreen() {
     } finally {
       setSnapReplySending(false);
     }
-  }, [selectedSnap, currentUserId, handleCloseSnapViewer]);
+  }, [selectedSnap, profile?.userId, handleCloseSnapViewer]);
 
   // Tab gösterge pill'inin konumu (2 tab: feed=0, messages=1)
   const tabWidth = (SCREEN_W - 48) / 2;
@@ -2413,6 +2673,15 @@ export default function SosyalScreen() {
       {/* ── SafeArea + Header ── */}
       <SafeAreaView edges={['top']} style={styles.safeTop}>
         <View style={styles.header}>
+          {/* Geri butonu */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => navigation.goBack()}
+            style={[styles.headerBtn, { backgroundColor: theme.surface, borderColor: theme.border, marginRight: 8 }]}
+          >
+            <ArrowLeft color={isDark ? NIGHT.warm : LIGHT.accent} size={20} strokeWidth={2} />
+          </TouchableOpacity>
+          
           {/* Sol: Profil butonu — tıklanınca SosyalProfile açılır */}
           <TouchableOpacity
             activeOpacity={0.8}
@@ -2420,9 +2689,16 @@ export default function SosyalScreen() {
             style={styles.headerProfileBtn}
           >
             <View style={[styles.headerAvatarCircle, { backgroundColor: isDark ? NIGHT.glow : 'rgba(96,165,250,0.15)', borderColor: isDark ? NIGHT.border : 'rgba(96,165,250,0.3)' }]}>
-              <Text style={[styles.headerAvatarInitial, { color: isDark ? NIGHT.warm : LIGHT.accent }]}>
-                {profile?.name?.charAt(0).toUpperCase() ?? 'S'}
-              </Text>
+              {profile?.avatarUrl ? (
+                <Image
+                  source={{ uri: processImageUrl(profile.avatarUrl) || undefined }}
+                  style={{ width: '100%', height: '100%', borderRadius: 18 }}
+                />
+              ) : (
+                <Text style={[styles.headerAvatarInitial, { color: isDark ? NIGHT.warm : LIGHT.accent }]}>
+                  {profile?.name?.charAt(0).toUpperCase() ?? 'S'}
+                </Text>
+              )}
             </View>
             <View>
               <Text style={[styles.headerTitle, { color: theme.text }]}>ŞanlıSosyal</Text>
@@ -2463,7 +2739,6 @@ export default function SosyalScreen() {
             snaps={snaps}
             isDark={isDark}
             refreshTick={clockTick}
-            onSnapPress={handleSnapPress}
             onAddFriendPress={handleAddFriendPress}
             friends={friends}
             onOpenRadar={() => setRadarModalVisible(true)}
@@ -2473,6 +2748,8 @@ export default function SosyalScreen() {
             streakBuddyLabel={streakBuddyLabel}
             buddyMutual={buddyMutual}
             streakLoggedIn={!!currentUserId}
+            currentUserId={profile?.userId}
+            navigation={navigation}
             onOpenStreakBuddy={() => {
               setStreakBuddyPickId(streakBuddyUserId);
               setStreakBuddyModalVisible(true);
@@ -2494,7 +2771,7 @@ export default function SosyalScreen() {
             onShowRequests={() => setRequestsModalVisible(true)}
             onDeleteConversation={handleDeleteConversation}
             onNavigateChat={(userId, userName, userAvatar, username) =>
-              navigation.navigate('Chat', { userId, userName })
+              navigation.navigate('Chat', { userId, userName, userAvatar, username })
             }
           />
         )}
@@ -2752,12 +3029,13 @@ export default function SosyalScreen() {
                   <CameraView
                     ref={cameraRef}
                     style={StyleSheet.absoluteFill}
-                    facing="back"
+                    facing={cameraFacing}
                     mode={cameraCaptureMode === 'video' ? 'video' : 'picture'}
                     ratio={Platform.OS === 'android' ? '16:9' : undefined}
                     zoom={cameraZoom}
                     enableTorch={false}
                     autofocus="on"
+                    mirror={false}
                   />
                 </View>
               </PinchGestureHandler>
@@ -2794,7 +3072,20 @@ export default function SosyalScreen() {
                   <XIcon color="#fff" size={28} strokeWidth={2} />
                 </TouchableOpacity>
                 <Text style={styles.snapCameraTopTitle}>ŞanlıSosyal</Text>
-                <View style={{ width: 44 }} />
+                <TouchableOpacity
+                  onPress={toggleCameraFacing}
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 22,
+                    backgroundColor: 'rgba(0,0,0,0.4)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <RefreshCw size={20} color="#fff" strokeWidth={2.5} />
+                </TouchableOpacity>
               </View>
 
               {/* Foto / Video seçimi */}
@@ -3156,19 +3447,52 @@ export default function SosyalScreen() {
             </View>
             <TextInput
               value={friendPhone}
-              onChangeText={setFriendPhone}
-              placeholder="Kullanıcı adı gir (örn: mervesude)"
+              onChangeText={handleSearchFriend}
+              placeholder="İsim veya kullanıcı adı ara..."
               placeholderTextColor={theme.textSub}
               keyboardType="default"
               autoCapitalize="none"
               autoCorrect={false}
               style={[styles.friendInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface }]}
             />
-            <TouchableOpacity activeOpacity={0.9} style={styles.friendActionBtn} onPress={handleSubmitFriend}>
-              <LinearGradient colors={isDark ? ['#0369a1', '#0ea5e9'] : ['#60a5fa', '#a78bfa']} style={styles.friendActionGradient}>
-                <Text style={styles.friendActionText}>Eklemeyi Gönder</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+            
+            {/* Arama Sonuçları */}
+            {friendSearching && (
+              <View style={{ paddingVertical: 20 }}>
+                <ActivityIndicator color={isDark ? NIGHT.warm : LIGHT.accent} />
+              </View>
+            )}
+            {!friendSearching && friendSearchResults.length > 0 && (
+              <ScrollView style={{ maxHeight: 300, width: '100%' }} showsVerticalScrollIndicator={false}>
+                {friendSearchResults.map((user) => (
+                  <TouchableOpacity
+                    key={user.user_id}
+                    onPress={() => handleSelectFriendFromSearch(user)}
+                    style={[styles.searchResultItem, { borderBottomColor: theme.border }]}
+                  >
+                    <View style={[styles.msgAvatar, { backgroundColor: isDark ? NIGHT.glow : 'rgba(96,165,250,0.15)' }]}>
+                      {user.avatar_url ? (
+                        <Image source={{ uri: processImageUrl(user.avatar_url) ?? undefined }} style={{ width: '100%', height: '100%', borderRadius: 20 }} />
+                      ) : (
+                        <Text style={[styles.msgAvatarText, { color: isDark ? NIGHT.warm : LIGHT.accent }]}>
+                          {(user.name || '?').charAt(0).toUpperCase()}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.msgName, { color: theme.text }]}>{user.name}</Text>
+                      <Text style={[styles.msgSub, { color: theme.textSub }]}>@{user.username}</Text>
+                    </View>
+                    <UserPlus size={20} color={isDark ? NIGHT.warm : LIGHT.accent} strokeWidth={2} />
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+            {!friendSearching && friendPhone.trim().length >= 2 && friendSearchResults.length === 0 && (
+              <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                <Text style={[styles.msgsEmptyText, { color: theme.textSub }]}>Kullanıcı bulunamadı</Text>
+              </View>
+            )}
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -3592,7 +3916,6 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   snapImageContainer: {
-    height: SCREEN_W * 0.75,
     backgroundColor: '#1a1f2e',
     overflow: 'hidden',
   },
@@ -3609,14 +3932,14 @@ const styles = StyleSheet.create({
   },
   snapTimeTag: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 6,
+    right: 20,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
     backgroundColor: 'rgba(6,12,26,0.7)',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2.5,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: NIGHT.border,
@@ -3625,6 +3948,22 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: NIGHT.warm,
     fontWeight: '600',
+  },
+  viewedBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(34,197,94,0.9)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  viewedBadgeText: {
+    fontSize: 10,
+    color: '#fff',
+    fontWeight: '700',
   },
   snapFooter: {
     flexDirection: 'row',
@@ -4282,6 +4621,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderWidth: 1,
     fontSize: 14,
+  },
+  searchResultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 12,
   },
   friendActionBtn: {
     borderRadius: 16,
