@@ -809,27 +809,24 @@ function FeedView({
       friendIds.has(snap.userId) || snap.userId === currentUserId
     );
   }, [snaps, feedFilter, friendIds, currentUserId]);
-  
-  const getFilteredSnaps = useCallback(() => {
-    if (feedFilter === 'everyone') {
-      return snaps.filter(snap => snap.isPublic !== false);
-    }
-    return snaps.filter(snap => 
-      friendIds.has(snap.userId) || snap.userId === currentUserId
-    );
-  }, [snaps, feedFilter, friendIds, currentUserId]);
+
+  // Kullanıcı başına tek kart, kart içinde kullanıcının tüm snap'leri
+  const groups = useMemo(() => groupSnapsByUser(filteredSnaps), [filteredSnaps]);
   
   const handleSnapPress = useCallback((snap: SnapPost) => {
-    // Filtrelenmiş snap listesini hazırla
-    const filteredSnapsList = getFilteredSnaps();
-    const snapList = filteredSnapsList.map(s => ({
+    // Tıklanan kart sahibinin tüm snap'lerini sırayla aç
+    const userSnaps = filteredSnaps
+      .filter(s => s.userId === snap.userId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    const snapList = userSnaps.map(s => ({
       id: s.id,
       imageUrl: s.imageUri,
       canView: true,
     }));
     
     // Tıklanan snap'in index'ini bul
-    const initialIndex = filteredSnapsList.findIndex(s => s.id === snap.id);
+    const initialIndex = userSnaps.findIndex(s => s.id === snap.id);
     
     // SnapView ekranına git
     navigation.navigate('SnapView', {
@@ -838,16 +835,14 @@ function FeedView({
       snapList,
       initialIndex: initialIndex >= 0 ? initialIndex : 0,
     });
-  }, [getFilteredSnaps, navigation]);
+  }, [filteredSnaps, navigation]);
   
-  const groups = useMemo(() => groupSnapsByUser(filteredSnaps), [filteredSnaps]);
-
   const renderGroup = useCallback(({ item }: { item: SnapGroup }) => (
     <View style={{ width: '48%' }}>
-      <SnapGroupCard 
-        group={item} 
-        onPress={handleSnapPress} 
-        isDark={isDark} 
+      <SnapGroupCard
+        group={item}
+        onPress={handleSnapPress}
+        isDark={isDark}
         currentUserId={currentUserId}
         onAvatarPress={(userId) => {
           navigation.navigate('SosyalProfile', { userId });
@@ -3916,6 +3911,8 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   snapImageContainer: {
+    width: '100%',
+    aspectRatio: 1,
     backgroundColor: '#1a1f2e',
     overflow: 'hidden',
   },

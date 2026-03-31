@@ -338,59 +338,60 @@ export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
   {
     id: '1',
     title: 'Göbeklitepe + Balıklıgöl Turu',
-    description: 'Tarihin sıfır noktasını keşfedip, şehir merkezinde kültürel bir gün geçirin',
+    description: 'UNESCO Dünya Mirası Göbeklitepe ile Balıklıgöl çevresini birleştiren klasik Urfa rotası',
     activities: [
-      'Sabah Göbeklitepe ziyareti (2-3 saat)',
+      'Göbeklitepe ziyaret alanı',
       'Öğle yemeği molası',
-      'Balıklıgöl ve çevresindeki tarihi çarşılar',
-      'Akşam Balıklıgöl\'de çay keyfi'
+      'Balıklıgöl ve çevresindeki tarihi alanlar',
+      'Çarşı bölgesinde yürüyüş'
     ],
     duration: 'Tam Gün',
     category: 'tam-gün',
-    tips: 'Göbeklitepe için erken saatlerde gitmenizi öneririz. Balıklıgöl\'de gün batımını izlemeyi unutmayın!',
+    tips: 'Yoğun saatlerden kaçınmak için sabah erken başlamanız önerilir.',
   },
   {
     id: '2',
     title: 'Müze Gezisi + Kafe Molası',
-    description: 'Şanlıurfa\'nın zengin tarihini keşfedip, modern kafelerde mola verin',
+    description: 'Şanlıurfa müzeleri ve şehir merkezi odaklı yarım günlük kültür planı',
     activities: [
-      'Arkeoloji Müzesi ziyareti',
-      'Mozaik Müzesi turu',
-      'Haleplibahçe kompleksi',
-      'Mırra Kahve Evi\'nde mola'
+      'Şanlıurfa Arkeoloji Müzesi',
+      'Haleplibahçe Mozaik Müzesi',
+      'Müze çevresinde kısa yürüyüş',
+      'Şehir merkezinde mola'
     ],
     duration: 'Yarım Gün',
     category: 'yarım-gün',
-    tips: 'Müze kartı ile giriş yapabilirsiniz. Genç Kart ile kafede indirim var!',
+    tips: 'Müzelerin güncel ziyaret saatlerini gitmeden önce kontrol etmeniz faydalı olur.',
   },
   {
     id: '3',
-    title: 'Harran Evleri + Fırat Kıyısı',
-    description: 'Geleneksel mimariyi görüp, doğayla iç içe bir gün geçirin',
+    title: 'Harran Kültür Rotası',
+    description: 'Harran\'ın tarihi dokusunu ve geleneksel mimarisini keşfetmeye odaklanan tam günlük plan',
     activities: [
-      'Harran\'a yolculuk (45 dk)',
-      'Harran Evleri ve antik kent kalıntıları',
+      'Harran\'a ulaşım',
+      'Kümbet evler ve ören alanı',
+      'Ulu Cami kalıntıları çevresi',
       'Öğle yemeği',
-      'Fırat Nehri kıyısında yürüyüş ve piknik'
+      'İlçe merkezinde serbest zaman'
     ],
     duration: 'Tam Gün',
     category: 'tam-gün',
-    tips: 'Harran\'da güneş koruyucu ve şapka almayı unutmayın. Fırat kıyısında gün batımı muhteşem!',
+    tips: 'Yaz aylarında sıcaklık yüksek olabildiği için su ve şapka bulundurmanız önerilir.',
   },
   {
     id: '4',
     title: 'Şehir Merkezi Keşif Turu',
-    description: 'Urfa\'nın kalbinde tarihi yerleri ve modern mekanları keşfedin',
+    description: 'Merkezde yürüyerek gezilebilen tarihi noktaları bir araya getiren rota',
     activities: [
       'Balıklıgöl ve çevresi',
       'Tarihi çarşılar (Bakırcılar, Sipahi Pazarı)',
-      'Urfa Kalesi ziyareti',
-      'Karaali Parkı\'nda dinlenme',
-      'Akşam yemeği ve sıra gecesi'
+      'Urfa Kalesi çevresinde seyir noktaları',
+      'Yerel lezzet molası',
+      'Akşam kültür programı'
     ],
     duration: 'Yarım Gün',
     category: 'yarım-gün',
-    tips: 'Çarşılarda alışveriş yapabilir, yerel lezzetleri deneyebilirsiniz.',
+    tips: 'Merkez rotası için rahat yürüyüş ayakkabısı tercih etmeniz konfor sağlar.',
   },
   {
     id: '5',
@@ -398,27 +399,26 @@ export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
     description: 'Şehir merkezinde akşam saatlerinde yapılacaklar',
     activities: [
       'Balıklıgöl\'de akşam yürüyüşü',
-      'Tarihi çarşılar (akşam saatleri)',
+      'Çevrede açık olan mekanlarda kısa gezi',
       'Geleneksel Urfa yemekleri',
-      'Sıra gecesi veya canlı müzik'
+      'Sıra gecesi/yerel müzik programı'
     ],
     duration: 'Akşam',
     category: 'akşam',
-    tips: 'Akşam saatlerinde Balıklıgöl çok güzel aydınlatılıyor. Fotoğraf çekmeyi unutmayın!',
+    tips: 'Program ve mekan müsaitliği günlere göre değişebildiği için önceden kontrol etmeniz önerilir.',
   },
   {
     id: '6',
-    title: 'Doğa ve Tarih Kombinasyonu',
-    description: 'Hem doğayı hem tarihi bir arada keşfedin',
+    title: 'Halfeti Tekne + Merkez',
+    description: 'İlçe deneyimi ve şehir merkezi gezisini birleştiren tam günlük rota',
     activities: [
-      'Karaali Parkı sabah yürüyüşü',
-      'Arkeoloji Müzesi ziyareti',
+      'Halfeti tekne turu planı',
+      'Fotoğraf molaları',
       'Öğle yemeği',
-      'Fırat kıyısında öğleden sonra',
-      'Gün batımı izleme'
+      'Merkeze dönüşte Balıklıgöl çevresi'
     ],
     duration: 'Tam Gün',
     category: 'tam-gün',
-    tips: 'Hava durumuna göre plan yapın. Fırat kıyısında piknik için hazırlıklı gelin.',
+    tips: 'Tekne turu ve ulaşım saatlerini gitmeden önce doğrulamanız önerilir.',
   },
 ];

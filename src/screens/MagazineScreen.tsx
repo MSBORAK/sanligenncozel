@@ -27,10 +27,11 @@ import { useFavorites } from '@/context/FavoritesContext';
 import { supabase, processImageUrl } from '@/lib/supabase';
 
 type Nav = StackNavigationProp<RootStackParamList>;
-type CatKey = 'all' | 'historic' | 'museum' | 'nature';
+type CatKey = 'all' | 'favorites' | 'historic' | 'museum' | 'nature';
 
 const CATEGORIES: { key: CatKey; label: string }[] = [
   { key: 'all', label: 'Tümü' },
+  { key: 'favorites', label: 'Favorilerim' },
   { key: 'historic', label: 'Tarihi Yerler' },
   { key: 'museum', label: 'Müzeler' },
   { key: 'nature', label: 'Doğa & Parklar' },
@@ -79,7 +80,7 @@ const MagazineScreen = () => {
   const { mode } = useThemeMode();
   const isDark = mode === 'dark';
   const insets = useSafeAreaInsets();
-  const { isFavoriteHeritage, toggleFavorite } = useFavorites();
+  const { favoriteHeritageIds, isFavoriteHeritage, toggleFavorite } = useFavorites();
   const [selectedCategory, setSelectedCategory] = useState<CatKey>('all');
   const [magazines, setMagazines] = useState<MagazineData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,13 +113,14 @@ const MagazineScreen = () => {
     [magazines]
   );
 
-  const filteredMagazines = useMemo(
-    () =>
-      selectedCategory === 'all'
+  const filteredMagazines = useMemo(() => {
+    const baseList =
+      selectedCategory === 'all' || selectedCategory === 'favorites'
         ? formattedMagazines
-        : formattedMagazines.filter((item) => item.category === selectedCategory),
-    [selectedCategory, formattedMagazines]
-  );
+        : formattedMagazines.filter((item) => item.category === selectedCategory);
+    if (selectedCategory !== 'favorites') return baseList;
+    return baseList.filter((item) => favoriteHeritageIds.includes(item.id));
+  }, [selectedCategory, formattedMagazines, favoriteHeritageIds]);
 
   const renderChip = useCallback(
     (item: (typeof CATEGORIES)[number]) => {
@@ -194,7 +196,47 @@ const MagazineScreen = () => {
           end={{ x: 1, y: 1 }}
           style={[styles.heroHeader, { paddingTop: insets.top + 16 }]}
         >
-          <Text style={styles.heroTitle}>Keşfet</Text>
+          <View style={styles.heroTopRow}>
+            <Text style={styles.heroTitle}>Keşfet</Text>
+            <TouchableOpacity
+              onPress={() =>
+                setSelectedCategory((prev) => (prev === 'favorites' ? 'all' : 'favorites'))
+              }
+              activeOpacity={0.85}
+              style={[
+                styles.favBadgeOuter,
+                isDark && styles.favBadgeOuterDark,
+                !isDark && { borderColor: 'rgba(29,78,216,0.22)' },
+              ]}
+            >
+              {!isDark && Platform.OS === 'ios' ? (
+                <BlurView intensity={60} tint="light" style={StyleSheet.absoluteFill} />
+              ) : null}
+              <View
+                style={[
+                  StyleSheet.absoluteFill,
+                  {
+                    backgroundColor:
+                      !isDark
+                        ? Platform.OS === 'ios'
+                          ? 'rgba(255,255,255,0.82)'
+                          : '#ffffff'
+                        : 'rgba(255,255,255,0.08)',
+                    borderRadius: 22,
+                  },
+                ]}
+              />
+              <Heart
+                color={isDark ? '#f8fafc' : DribbbleColors.textPrimary}
+                size={18}
+                strokeWidth={2}
+                fill={selectedCategory === 'favorites' ? KESFET.blue500 : 'transparent'}
+              />
+              {(favoriteHeritageIds.length > 0 || selectedCategory === 'favorites') && (
+                <View style={[styles.favDot, { backgroundColor: isDark ? KESFET.iconDark : KESFET.blue500 }]} />
+              )}
+            </TouchableOpacity>
+          </View>
           <Text style={styles.heroSubtitle}>Şanlıurfa'nın tarihi ve kültürel hazineleri</Text>
         </LinearGradient>
 
@@ -218,7 +260,7 @@ const MagazineScreen = () => {
         </View>
       </>
     ),
-    [isDark, insets.top, renderChip]
+    [favoriteHeritageIds.length, insets.top, isDark, renderChip, selectedCategory]
   );
 
   const renderItem: ListRenderItem<FormattedMag> = useCallback(
@@ -332,7 +374,11 @@ const MagazineScreen = () => {
     return (
       <View style={styles.emptyWrap}>
         <Text style={[styles.emptyText, isDark && { color: '#94a3b8' }]}>
-          {selectedCategory === 'all' ? 'Henüz içerik bulunmuyor.' : 'Bu kategoride içerik bulunmuyor.'}
+          {selectedCategory === 'favorites'
+            ? 'Henüz favori keşfet içeriğiniz bulunmuyor.'
+            : selectedCategory === 'all'
+              ? 'Henüz içerik bulunmuyor.'
+              : 'Bu kategoride içerik bulunmuyor.'}
         </Text>
       </View>
     );
@@ -384,6 +430,32 @@ const styles = StyleSheet.create({
     fontSize: 28,
     letterSpacing: -0.5,
     color: '#ffffff',
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  favBadgeOuter: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  favBadgeOuterDark: {
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  favDot: {
+    position: 'absolute',
+    right: 8,
+    top: 8,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
   },
   heroSubtitle: {
     fontFamily: FontFamily.medium,
@@ -462,14 +534,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: 'rgba(37,99,235,0.12)',
-    shadowColor: KESFET.blue900,
+    shadowColor: Platform.OS === 'android' ? 'transparent' : KESFET.blue900,
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 6,
+    shadowOpacity: Platform.OS === 'android' ? 0 : 0.1,
+    shadowRadius: Platform.OS === 'android' ? 0 : 20,
+    elevation: Platform.OS === 'android' ? 0 : 6,
   },
   cardDark: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: Platform.OS === 'android' ? '#111827' : 'rgba(255,255,255,0.05)',
     borderColor: 'rgba(255,255,255,0.1)',
   },
   skeletonCard: {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,9 +12,11 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Send, Camera, X, RefreshCw } from 'lucide-react-native';
+import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
+import { ArrowLeft, Send, Camera, X, RefreshCw, Heart, Reply } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
@@ -52,6 +54,9 @@ interface Message {
   snap_opened_at?: string | null;
   snap_expires_at?: string | null;
   created_at: string;
+  reply_to_id?: string | null;
+  reply_snippet?: string | null;
+  heart_user_ids?: string[] | null;
 }
 
 interface RouteParams {
@@ -83,6 +88,16 @@ const ChatScreen = () => {
   const cameraRef = useRef<any>(null);
   /** Tepki mesajındaki kıvılcım önizlemesi — tam ekran */
   const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
+  const [otherTyping, setOtherTyping] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const typingHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingSendThrottleRef = useRef(0);
+  const messageChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const swipeableRefs = useRef<Map<string, React.ElementRef<typeof Swipeable> | null>>(new Map());
+  const { width: windowWidth } = useWindowDimensions();
+  /** Swipeable + yüzde maxWidth bazen ~0 genişlik hesaplanmasına yol açıyor; sabit üst sınır metni yatay sarar */
+  const maxBubbleWidth = Math.min(windowWidth * 0.78, 340);
 
   useEffect(() => {
     const init = async () => {
@@ -122,7 +137,7 @@ const ChatScreen = () => {
   useEffect(() => {
     if (conversationId && currentUserId) {
       fetchMessages();
-      
+
       const channel = supabase
         .channel(`messages:${conversationId}`, {
           config: { broadcast: { self: true } },
@@ -159,13 +174,81 @@ const ChatScreen = () => {
             }
           }
         )
+        .on('broadcast', { event: 'typing' }, ({ payload }) => {
+          const uid = (payload as { userId?: string })?.userId;
+          if (!uid || uid === currentUserId) return;
+          setOtherTyping(true);
+          if (typingHideTimerRef.current) clearTimeout(typingHideTimerRef.current);
+          typingHideTimerRef.current = setTimeout(() => setOtherTyping(false), 2800);
+        })
+        .on('broadcast', { event: 'typing_stop' }, ({ payload }) => {
+          const uid = (payload as { userId?: string })?.userId;
+          if (!uid || uid === currentUserId) return;
+          if (typingHideTimerRef.current) clearTimeout(typingHideTimerRef.current);
+          typingHideTimerRef.current = null;
+          setOtherTyping(false);
+        })
         .subscribe();
 
+      messageChannelRef.current = channel;
+
       return () => {
+        if (typingHideTimerRef.current) clearTimeout(typingHideTimerRef.current);
+        if (typingIdleTimerRef.current) clearTimeout(typingIdleTimerRef.current);
+        messageChannelRef.current = null;
         supabase.removeChannel(channel);
       };
     }
   }, [conversationId, currentUserId]);
+
+  const broadcastTyping = useCallback(() => {
+    const ch = messageChannelRef.current;
+    if (!ch || !currentUserId) return;
+    const now = Date.now();
+    if (now - typingSendThrottleRef.current < 450) return;
+    typingSendThrottleRef.current = now;
+    ch.send({ type: 'broadcast', event: 'typing', payload: { userId: currentUserId } });
+  }, [currentUserId]);
+
+  const broadcastTypingStop = useCallback(() => {
+    const ch = messageChannelRef.current;
+    if (!ch || !currentUserId) return;
+    ch.send({ type: 'broadcast', event: 'typing_stop', payload: { userId: currentUserId } });
+  }, [currentUserId]);
+
+  const handleMessageInputChange = useCallback(
+    (t: string) => {
+      setNewMessage(t);
+      if (t.length > 0) {
+        broadcastTyping();
+        if (typingIdleTimerRef.current) clearTimeout(typingIdleTimerRef.current);
+        typingIdleTimerRef.current = setTimeout(() => {
+          typingIdleTimerRef.current = null;
+          broadcastTypingStop();
+        }, 1600);
+      } else {
+        if (typingIdleTimerRef.current) {
+          clearTimeout(typingIdleTimerRef.current);
+          typingIdleTimerRef.current = null;
+        }
+        broadcastTypingStop();
+      }
+    },
+    [broadcastTyping, broadcastTypingStop]
+  );
+
+  const toggleMessageHeart = useCallback(
+    async (messageId: string) => {
+      try {
+        const { error } = await supabase.rpc('toggle_message_heart', { p_message_id: messageId });
+        if (error) throw error;
+      } catch (e: any) {
+        const msg = e?.message || 'Kalp güncellenemedi';
+        Alert.alert('Hata', msg);
+      }
+    },
+    []
+  );
 
   const getOrCreateConversation = async (user1Id: string, user2Id: string) => {
     try {
@@ -189,7 +272,9 @@ const ChatScreen = () => {
       setLoading(true);
       const { data, error } = await supabase
         .from('messages')
-        .select('id, conversation_id, sender_id, content, image_url, is_read, is_snap, snap_opened_at, snap_expires_at, created_at')
+        .select(
+          'id, conversation_id, sender_id, content, image_url, is_read, is_snap, snap_opened_at, snap_expires_at, created_at, reply_to_id, reply_snippet, heart_user_ids'
+        )
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true });
 
@@ -219,8 +304,22 @@ const ChatScreen = () => {
   const sendMessage = async () => {
     if (!newMessage.trim() || !conversationId || !currentUserId) return;
 
+    if (typingIdleTimerRef.current) {
+      clearTimeout(typingIdleTimerRef.current);
+      typingIdleTimerRef.current = null;
+    }
+    broadcastTypingStop();
+
     const messageContent = newMessage.trim();
-    setNewMessage(''); // Input'u hemen temizle
+    const replyTarget = replyingTo;
+    setNewMessage('');
+    setReplyingTo(null);
+
+    const replySnippet =
+      replyTarget != null
+        ? replyTarget.content?.trim()?.slice(0, 220) ||
+          (replyTarget.image_url ? (replyTarget.is_snap ? '📷 Kıvılcım' : '📷 Medya') : '')
+        : null;
 
     try {
       setSending(true);
@@ -230,6 +329,8 @@ const ChatScreen = () => {
           conversation_id: conversationId,
           sender_id: currentUserId,
           content: messageContent,
+          reply_to_id: replyTarget?.id ?? null,
+          reply_snippet: replySnippet || null,
         })
         .select()
         .single();
@@ -251,6 +352,7 @@ const ChatScreen = () => {
       const detail = err?.message || err?.details || JSON.stringify(err) || 'Bilinmeyen hata';
       Alert.alert('Mesaj Gönderilemedi', detail);
       setNewMessage(messageContent);
+      setReplyingTo(replyTarget);
     } finally {
       setSending(false);
     }
@@ -401,38 +503,60 @@ const ChatScreen = () => {
       const canView = isMe || (!isExpired);
 
       return (
-        <View style={[styles.messageContainer, isMe ? styles.myMessage : styles.theirMessage]}>
-          {!isMe && (
-            <Image
-              source={{ uri: params.userAvatar || 'https://i.pravatar.cc/150' }}
-              style={styles.messageAvatar}
-            />
-          )}
-          <TouchableOpacity
-            style={[
-              styles.snapBubble, 
-              isMe ? styles.mySnapBubble : (isDark ? styles.theirSnapBubbleDark : styles.theirSnapBubble)
-            ]}
-            onPress={() => handleSnapPress(item)}
-            onLongPress={() => handleDeleteMessage(item)}
-            delayLongPress={400}
-            disabled={!canView}
-          >
-            <View style={styles.snapContent}>
-              <Camera color={isMe ? SnapColors.white : SnapColors.blue} size={20} />
-              <Text style={[styles.snapText, isMe ? styles.mySnapText : styles.theirSnapText]}>
-                {isExpired ? '🔒 Süre doldu' : isOpened && !isMe ? '👁 Açıldı' : 'Kıvılcım'}
-              </Text>
+        <View style={styles.messageRowOuter}>
+          {wrapSwipeable(
+            item,
+            <View style={[styles.messageContainer, !isMe && styles.theirMessage]}>
+              {isMe ? <View style={styles.messageRowSpacer} /> : null}
+              {!isMe && (
+                <Image
+                  source={{ uri: params.userAvatar || 'https://i.pravatar.cc/150' }}
+                  style={styles.messageAvatar}
+                />
+              )}
+              <View
+                style={[
+                  styles.bubbleColumn,
+                  isMe && styles.bubbleColumnMe,
+                  { maxWidth: maxBubbleWidth, flexShrink: 0 },
+                ]}
+              >
+                <TouchableOpacity
+                  style={[
+                    styles.snapBubble,
+                    { maxWidth: maxBubbleWidth },
+                    isMe ? styles.mySnapBubble : (isDark ? styles.theirSnapBubbleDark : styles.theirSnapBubble),
+                  ]}
+                  onPress={() => handleSnapPress(item)}
+                  onLongPress={() => handleDeleteMessage(item)}
+                  delayLongPress={400}
+                  disabled={!canView}
+                >
+                  {item.reply_snippet ? replyQuoteBlock(item.reply_snippet, isMe) : null}
+                  <View style={styles.snapContent}>
+                    <Camera color={isMe ? SnapColors.white : SnapColors.blue} size={20} />
+                    <Text style={[styles.snapText, isMe ? styles.mySnapText : styles.theirSnapText]}>
+                      {isExpired ? '🔒 Süre doldu' : isOpened && !isMe ? '👁 Açıldı' : 'Kıvılcım'}
+                    </Text>
+                  </View>
+                  {item.content && item.content !== '📷 Snap' && (
+                    <Text style={[styles.snapCaption, isMe ? styles.mySnapCaption : styles.theirSnapCaption]}>
+                      {item.content}
+                    </Text>
+                  )}
+                  <View style={[styles.timeSeenRow, isMe ? styles.timeSeenRowMe : styles.timeSeenRowThem]}>
+                    <Text style={[styles.messageTime, isMe ? styles.myMessageTime : styles.theirMessageTime]}>
+                      {formatTime(item.created_at)}
+                    </Text>
+                    {isMe && item.is_read ? (
+                      <Text style={[styles.seenLabel, isMe && styles.seenLabelMe]}>Görüldü</Text>
+                    ) : null}
+                  </View>
+                </TouchableOpacity>
+              </View>
             </View>
-            {item.content && item.content !== '📷 Snap' && (
-              <Text style={[styles.snapCaption, isMe ? styles.mySnapCaption : styles.theirSnapCaption]}>
-                {item.content}
-              </Text>
-            )}
-            <Text style={[styles.messageTime, isMe ? styles.myMessageTime : styles.theirMessageTime]}>
-              {formatTime(item.created_at)}
-            </Text>
-          </TouchableOpacity>
+          )}
+          {heartMeta(item, isMe)}
         </View>
       );
     }
@@ -441,75 +565,220 @@ const ChatScreen = () => {
     if (isKivilcimReplyPreview) {
       const thumbUri = processImageUrl(item.image_url!) ?? item.image_url!;
       return (
-        <View style={[styles.messageContainer, isMe ? styles.myMessage : styles.theirMessage]}>
-          {!isMe && (
-            <Image
-              source={{ uri: params.userAvatar || 'https://i.pravatar.cc/150' }}
-              style={styles.messageAvatar}
-            />
-          )}
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onLongPress={() => handleDeleteMessage(item)}
-            delayLongPress={400}
-            style={[
-              styles.messageBubble,
-              styles.kivilcimReplyBubble,
-              isMe ? styles.myBubble : (isDark ? styles.theirBubbleDark : styles.theirBubble),
-            ]}
-          >
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={() => setPreviewImageUri(thumbUri)}
-              style={styles.kivilcimReplyThumbWrap}
-            >
-              <Image
-                source={{ uri: thumbUri }}
-                style={styles.kivilcimReplyThumb}
-                resizeMode="cover"
-              />
-              <View style={styles.kivilcimReplyThumbLabel}>
-                <Text style={styles.kivilcimReplyThumbLabelText}>Kıvılcım</Text>
+        <View style={styles.messageRowOuter}>
+          {wrapSwipeable(
+            item,
+            <View style={[styles.messageContainer, !isMe && styles.theirMessage]}>
+              {isMe ? <View style={styles.messageRowSpacer} /> : null}
+              {!isMe && (
+                <Image
+                  source={{ uri: params.userAvatar || 'https://i.pravatar.cc/150' }}
+                  style={styles.messageAvatar}
+                />
+              )}
+              <View
+                style={[
+                  styles.bubbleColumn,
+                  isMe && styles.bubbleColumnMe,
+                  { maxWidth: maxBubbleWidth, flexShrink: 0 },
+                ]}
+              >
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onLongPress={() => handleDeleteMessage(item)}
+                  delayLongPress={400}
+                  style={[
+                    styles.messageBubble,
+                    styles.kivilcimReplyBubble,
+                    { maxWidth: maxBubbleWidth },
+                    isMe ? styles.myBubble : (isDark ? styles.theirBubbleDark : styles.theirBubble),
+                  ]}
+                >
+                  {item.reply_snippet ? replyQuoteBlock(item.reply_snippet, isMe) : null}
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={() => setPreviewImageUri(thumbUri)}
+                    style={styles.kivilcimReplyThumbWrap}
+                  >
+                    <Image
+                      source={{ uri: thumbUri }}
+                      style={styles.kivilcimReplyThumb}
+                      resizeMode="cover"
+                    />
+                    <View style={styles.kivilcimReplyThumbLabel}>
+                      <Text style={styles.kivilcimReplyThumbLabelText}>Kıvılcım</Text>
+                    </View>
+                  </TouchableOpacity>
+                  <Text
+                    style={[
+                      styles.messageText,
+                      isMe ? styles.myMessageText : (isDark ? styles.theirMessageTextDark : styles.theirMessageText),
+                    ]}
+                  >
+                    {item.content}
+                  </Text>
+                  <View style={[styles.timeSeenRow, isMe ? styles.timeSeenRowMe : styles.timeSeenRowThem]}>
+                    <Text
+                      style={[
+                        styles.messageTime,
+                        isMe ? styles.myMessageTime : (isDark ? styles.theirMessageTimeDark : styles.theirMessageTime),
+                      ]}
+                    >
+                      {formatTime(item.created_at)}
+                    </Text>
+                    {isMe && item.is_read ? (
+                      <Text style={[styles.seenLabel, isMe && styles.seenLabelMe]}>Görüldü</Text>
+                    ) : null}
+                  </View>
+                </TouchableOpacity>
               </View>
-            </TouchableOpacity>
-            <Text style={[styles.messageText, isMe ? styles.myMessageText : (isDark ? styles.theirMessageTextDark : styles.theirMessageText)]}>
-              {item.content}
-            </Text>
-            <Text style={[styles.messageTime, isMe ? styles.myMessageTime : (isDark ? styles.theirMessageTimeDark : styles.theirMessageTime)]}>
-              {formatTime(item.created_at)}
-            </Text>
-          </TouchableOpacity>
+            </View>
+          )}
+          {heartMeta(item, isMe)}
         </View>
       );
     }
 
     // Normal mesaj
     return (
-      <View style={[styles.messageContainer, isMe ? styles.myMessage : styles.theirMessage]}>
-        {!isMe && (
-          <Image
-            source={{ uri: params.userAvatar || 'https://i.pravatar.cc/150' }}
-            style={styles.messageAvatar}
-          />
+      <View style={styles.messageRowOuter}>
+        {wrapSwipeable(
+          item,
+          <View style={[styles.messageContainer, !isMe && styles.theirMessage]}>
+            {isMe ? <View style={styles.messageRowSpacer} /> : null}
+            {!isMe && (
+              <Image
+                source={{ uri: params.userAvatar || 'https://i.pravatar.cc/150' }}
+                style={styles.messageAvatar}
+              />
+            )}
+            <View
+              style={[
+                styles.bubbleColumn,
+                isMe && styles.bubbleColumnMe,
+                { maxWidth: maxBubbleWidth, flexShrink: 0 },
+              ]}
+            >
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onLongPress={() => handleDeleteMessage(item)}
+                delayLongPress={400}
+                style={[
+                  styles.messageBubble,
+                  { maxWidth: maxBubbleWidth },
+                  isMe ? styles.myBubble : (isDark ? styles.theirBubbleDark : styles.theirBubble),
+                ]}
+              >
+                {item.reply_snippet ? replyQuoteBlock(item.reply_snippet, isMe) : null}
+                <Text
+                  style={[
+                    styles.messageText,
+                    isMe ? styles.myMessageText : (isDark ? styles.theirMessageTextDark : styles.theirMessageText),
+                  ]}
+                >
+                  {item.content}
+                </Text>
+                <View style={[styles.timeSeenRow, isMe ? styles.timeSeenRowMe : styles.timeSeenRowThem]}>
+                  <Text
+                    style={[
+                      styles.messageTime,
+                      isMe ? styles.myMessageTime : (isDark ? styles.theirMessageTimeDark : styles.theirMessageTime),
+                    ]}
+                  >
+                    {formatTime(item.created_at)}
+                  </Text>
+                  {isMe && item.is_read ? (
+                    <Text style={[styles.seenLabel, isMe && styles.seenLabelMe]}>Görüldü</Text>
+                  ) : null}
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
         )}
+        {heartMeta(item, isMe)}
+      </View>
+    );
+  };
+
+  const renderReplySwipeAction = useCallback(
+    () => (
+      <View style={styles.swipeReplyWrap}>
+        <Reply color={SnapColors.white} size={22} strokeWidth={2.2} />
+      </View>
+    ),
+    []
+  );
+
+  const replyQuoteBlock = (snippet: string, isMe: boolean) => (
+    <View
+      style={[
+        styles.replyQuote,
+        isMe ? styles.replyQuoteMe : isDark ? styles.replyQuoteThemDark : styles.replyQuoteThem,
+      ]}
+    >
+      <View style={[styles.replyQuoteBar, isMe && styles.replyQuoteBarMe]} />
+      <Text
+        style={[
+          styles.replyQuoteText,
+          isMe ? styles.replyQuoteTextMe : isDark ? styles.replyQuoteTextThemDark : styles.replyQuoteTextThem,
+        ]}
+        numberOfLines={2}
+      >
+        {snippet}
+      </Text>
+    </View>
+  );
+
+  const heartMeta = (item: Message, isMe: boolean) => {
+    const ids = item.heart_user_ids ?? [];
+    const count = ids.length;
+    const iLiked = currentUserId ? ids.includes(currentUserId) : false;
+    return (
+      <View style={[styles.heartMetaRow, isMe ? styles.heartMetaRowMe : styles.heartMetaRowThem]}>
         <TouchableOpacity
-          activeOpacity={0.85}
-          onLongPress={() => handleDeleteMessage(item)}
-          delayLongPress={400}
-          style={[styles.messageBubble, isMe ? styles.myBubble : (isDark ? styles.theirBubbleDark : styles.theirBubble)]}
+          onPress={() => toggleMessageHeart(item.id)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={styles.heartBtn}
         >
-          <Text style={[styles.messageText, isMe ? styles.myMessageText : (isDark ? styles.theirMessageTextDark : styles.theirMessageText)]}>
-            {item.content}
-          </Text>
-          <Text style={[styles.messageTime, isMe ? styles.myMessageTime : (isDark ? styles.theirMessageTimeDark : styles.theirMessageTime)]}>
-            {formatTime(item.created_at)}
-          </Text>
+          <Heart
+            size={15}
+            color={iLiked ? SnapColors.red : SnapColors.gray}
+            fill={iLiked ? SnapColors.red : 'transparent'}
+            strokeWidth={2.2}
+          />
+          {count > 0 ? <Text style={[styles.heartCount, isDark && styles.heartCountDark]}>{count}</Text> : null}
         </TouchableOpacity>
       </View>
     );
   };
 
+  /** Sağa kaydırınca yanıt (WhatsApp gibi): sol aksiyon paneli açılır → RNGH onSwipeableOpen direction 'left' */
+  const wrapSwipeable = (item: Message, row: React.ReactElement) => (
+    <Swipeable
+      ref={(el) => {
+        if (el) swipeableRefs.current.set(item.id, el);
+        else swipeableRefs.current.delete(item.id);
+      }}
+      friction={2}
+      overshootRight={false}
+      overshootLeft={false}
+      containerStyle={styles.swipeableRowContainer}
+      childrenContainerStyle={styles.swipeableRowChildren}
+      renderLeftActions={renderReplySwipeAction}
+      onSwipeableOpen={(direction) => {
+        if (direction !== 'left') return;
+        setReplyingTo(item);
+        requestAnimationFrame(() => {
+          swipeableRefs.current.get(item.id)?.close();
+        });
+      }}
+    >
+      {row}
+    </Swipeable>
+  );
+
   return (
+    <GestureHandlerRootView style={styles.gestureRoot}>
     <SafeAreaView style={[styles.root, isDark && styles.rootDark]} edges={['top']}>
       <KeyboardAvoidingView
         style={styles.container}
@@ -532,7 +801,11 @@ const ChatScreen = () => {
             />
             <View style={styles.headerInfo}>
               <Text style={[styles.headerName, isDark && styles.headerNameDark]}>{params.userName}</Text>
-              <Text style={[styles.headerUsername, isDark && styles.headerUsernameDark]}>@{params.username}</Text>
+              {otherTyping ? (
+                <Text style={[styles.headerTyping, isDark && styles.headerTypingDark]}>Yazıyor ✍️</Text>
+              ) : (
+                <Text style={[styles.headerUsername, isDark && styles.headerUsernameDark]}>@{params.username}</Text>
+              )}
             </View>
           </TouchableOpacity>
         </View>
@@ -563,6 +836,22 @@ const ChatScreen = () => {
         )}
 
         {/* Input */}
+        <View style={[styles.inputOuter, isDark && styles.inputOuterDark]}>
+          {replyingTo ? (
+            <View style={[styles.replyBar, isDark && styles.replyBarDark]}>
+              <View style={styles.replyBarAccent} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.replyBarLabel, isDark && styles.replyBarLabelDark]}>Yanıtlanıyor</Text>
+                <Text style={[styles.replyBarText, isDark && styles.replyBarTextDark]} numberOfLines={2}>
+                  {replyingTo.content?.trim() ||
+                    (replyingTo.image_url ? (replyingTo.is_snap ? '📷 Kıvılcım' : '📷 Medya') : '')}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setReplyingTo(null)} hitSlop={12}>
+                <X color={isDark ? SnapColors.darkSecondary : SnapColors.gray} size={22} />
+              </TouchableOpacity>
+            </View>
+          ) : null}
         <View style={[styles.inputContainer, isDark && styles.inputContainerDark]}>
           <TouchableOpacity
             style={styles.cameraButton}
@@ -575,7 +864,7 @@ const ChatScreen = () => {
             placeholder="Mesaj yaz..."
             placeholderTextColor={isDark ? SnapColors.darkSecondary : SnapColors.gray}
             value={newMessage}
-            onChangeText={setNewMessage}
+            onChangeText={handleMessageInputChange}
             multiline
             maxLength={500}
           />
@@ -590,6 +879,7 @@ const ChatScreen = () => {
               <Send color={SnapColors.white} size={20} />
             )}
           </TouchableOpacity>
+        </View>
         </View>
       </KeyboardAvoidingView>
 
@@ -680,10 +970,14 @@ const ChatScreen = () => {
         </View>
       </Modal>
     </SafeAreaView>
+    </GestureHandlerRootView>
   );
 };
 
 const styles = StyleSheet.create({
+  gestureRoot: {
+    flex: 1,
+  },
   root: {
     flex: 1,
     backgroundColor: SnapColors.white,
@@ -740,6 +1034,158 @@ const styles = StyleSheet.create({
   headerUsernameDark: {
     color: SnapColors.darkSecondary,
   },
+  headerTyping: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: SnapColors.blue,
+    marginTop: 2,
+  },
+  headerTypingDark: {
+    color: '#5ac8fa',
+  },
+  bubbleColumn: {},
+  bubbleColumnMe: {
+    alignItems: 'flex-end',
+  },
+  swipeReplyWrap: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 56,
+    marginRight: 8,
+    marginBottom: 16,
+    borderRadius: 14,
+    backgroundColor: SnapColors.blue,
+  },
+  replyQuote: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 8,
+    marginBottom: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.08)',
+  },
+  replyQuoteMe: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  replyQuoteThem: {
+    backgroundColor: 'rgba(0,0,0,0.06)',
+  },
+  replyQuoteThemDark: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  replyQuoteBar: {
+    width: 3,
+    borderRadius: 2,
+    backgroundColor: SnapColors.blue,
+  },
+  replyQuoteBarMe: {
+    backgroundColor: 'rgba(255,255,255,0.85)',
+  },
+  replyQuoteText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 17,
+  },
+  replyQuoteTextMe: {
+    color: 'rgba(255,255,255,0.95)',
+  },
+  replyQuoteTextThem: {
+    color: SnapColors.black,
+  },
+  replyQuoteTextThemDark: {
+    color: SnapColors.darkText,
+  },
+  timeSeenRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  timeSeenRowMe: {
+    justifyContent: 'flex-end',
+  },
+  timeSeenRowThem: {
+    justifyContent: 'flex-start',
+  },
+  seenLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  seenLabelMe: {
+    color: 'rgba(255,255,255,0.92)',
+  },
+  heartMetaRow: {
+    flexDirection: 'row',
+    marginTop: 4,
+    paddingHorizontal: 2,
+  },
+  heartMetaRowMe: {
+    justifyContent: 'flex-end',
+    alignSelf: 'flex-end',
+  },
+  heartMetaRowThem: {
+    justifyContent: 'flex-start',
+    alignSelf: 'flex-start',
+  },
+  heartBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  heartCount: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: SnapColors.gray,
+  },
+  heartCountDark: {
+    color: SnapColors.darkSecondary,
+  },
+  inputOuter: {
+    borderTopWidth: 1,
+    borderTopColor: SnapColors.lightGray,
+    backgroundColor: SnapColors.white,
+  },
+  inputOuterDark: {
+    borderTopColor: SnapColors.darkBorder,
+    backgroundColor: SnapColors.darkCard,
+  },
+  replyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: SnapColors.lightGray,
+  },
+  replyBarDark: {
+    backgroundColor: SnapColors.darkBorder,
+  },
+  replyBarAccent: {
+    width: 3,
+    alignSelf: 'stretch',
+    borderRadius: 2,
+    backgroundColor: SnapColors.blue,
+  },
+  replyBarLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: SnapColors.blue,
+    marginBottom: 2,
+  },
+  replyBarLabelDark: {
+    color: '#5ac8fa',
+  },
+  replyBarText: {
+    fontSize: 13,
+    color: SnapColors.black,
+    lineHeight: 18,
+  },
+  replyBarTextDark: {
+    color: SnapColors.darkText,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -749,16 +1195,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
   },
+  messageRowOuter: {
+    alignSelf: 'stretch',
+    width: '100%',
+    marginBottom: 16,
+  },
+  swipeableRowContainer: {
+    width: '100%',
+  },
+  swipeableRowChildren: {
+    width: '100%',
+    flexShrink: 0,
+  },
+  /** FlatList satırında flex:1 kullanma — giden mesaj tek çocukken yükseklik/genişlik 0’a çökebiliyor */
   messageContainer: {
     flexDirection: 'row',
-    marginBottom: 16,
     alignItems: 'flex-end',
-  },
-  myMessage: {
-    justifyContent: 'flex-end',
+    width: '100%',
   },
   theirMessage: {
     justifyContent: 'flex-start',
+  },
+  messageRowSpacer: {
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
   },
   messageAvatar: {
     width: 32,
@@ -767,13 +1228,11 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   messageBubble: {
-    maxWidth: '70%',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
   },
   kivilcimReplyBubble: {
-    maxWidth: '78%',
     paddingTop: 8,
     paddingBottom: 10,
     paddingHorizontal: 8,
@@ -867,7 +1326,6 @@ const styles = StyleSheet.create({
     color: SnapColors.darkSecondary,
   },
   snapBubble: {
-    maxWidth: '70%',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 20,
@@ -930,13 +1388,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 12,
-    borderTopWidth: 1,
-    borderTopColor: SnapColors.lightGray,
     backgroundColor: SnapColors.white,
   },
   inputContainerDark: {
     backgroundColor: SnapColors.darkCard,
-    borderTopColor: SnapColors.darkBorder,
   },
   cameraButton: {
     width: 40,

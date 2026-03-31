@@ -7,7 +7,7 @@ import {
   Image,
   TouchableOpacity,
   Modal,
-  PanResponder,
+  Platform,
   Animated,
   Easing,
   NativeSyntheticEvent,
@@ -18,18 +18,18 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { 
-  Calendar, BookOpen, User, Megaphone, Palette, Bus, Users, Search,
+  Calendar, BookOpen, Search,
   Flame, QrCode, X, ChevronLeft, ChevronRight, Sparkles,
   CloudRain, Sun, Cloud, CloudSnow, CloudLightning, CloudDrizzle,
   Tag, Coffee, Shirt, Smartphone, Ticket, GraduationCap, Gift, Bell,
   Pill, Library, Route, Radio
 } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { CommonActions, useNavigation } from '@react-navigation/native';
 import { Colors, Gradients, DribbbleColors } from '@/constants/Colors';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import Skeleton from '@/components/Skeleton';
-import { MOCK_BUSES, MOCK_PARTNERS, MOCK_EVENTS } from '@/api/mockData';
+import { MOCK_BUSES, MOCK_PARTNERS } from '@/api/mockData';
 import { HomeScreenProps, MainTabParamList } from '@/types/navigation';
 import { useThemeMode } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
@@ -47,30 +47,13 @@ interface FirsatData {
   resim_url?: string;
 }
 
-interface StoryData {
-  id: number;
-  baslik: string;
-  aciklama?: string;
-  resim_url?: string;
-  icon?: string;
-  sira?: number;
+interface CalendarEventItem {
+  id: string;
+  title: string;
+  date: string;
+  location: string;
+  category: string;
 }
-
-// Icon mapping
-const ICON_MAP: Record<string, any> = {
-  'user': User,
-  'megaphone': Megaphone,
-  'palette': Palette,
-  'bus': Bus,
-  'users': Users,
-};
-
-const DEFAULT_STORIES = [
-  { name: 'Kültür Sanat', icon: Palette, image: 'https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?q=80&w=2670&auto=format&fit=crop' },
-  { name: 'Ulaşım', icon: Bus, image: 'https://images.unsplash.com/photo-1570125909232-eb263c1869e7?q=80&w=2670&auto=format&fit=crop' },
-  { name: 'Gençlik', icon: Users, image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=2670&auto=format&fit=crop' },
-  { name: 'Duyurular', icon: Megaphone, image: 'https://images.unsplash.com/photo-1551434678-e076c223a692?q=80&w=2670&auto=format&fit=crop' },
-];
 
 /** surface* = ilgili liste sayfasıyla aynı pastel / gece tonu (düz renk, gradient yok) */
 const QUICK_ACCESS_NAV = [
@@ -129,26 +112,25 @@ const QUOTES_OF_DAY = [
   'Gençken gez, gör, dene; sonrası kendiliğinden gelir.',
 ];
 
-const STORY_DETAILS: Record<string, { description: string }> = {
-  'Kültür Sanat': { description: 'Konserler, sergiler, tiyatrolar ve çok daha fazlası burada.' },
-  Ulaşım: { description: 'Otobüs hatları, seferler ve kampüs ulaşımı hakkında hızlı bilgiler.' },
-  Gençlik: { description: 'Gençlik merkezleri, kulüpler ve etkinliklerden haberdar ol.' },
-  Duyurular: { description: 'Önemli duyurular, haberler ve güncellemeler burada.' },
+const PROMO_ANNOUNCEMENT = {
+  title: 'Bugüne Özel Indirim',
+  subtitle: "Secili kafelerde %20'ye varan ogrenci indirimi seni bekliyor.",
+  image: require('@/assets/images/_ (2).jpeg'),
 };
 
 const HomeScreen = () => {
   const navigation = useNavigation<HomeScreenProps['navigation']>();
-  const { profile } = useUser();
+  const { profile, isGuest } = useUser();
   const nextBus = MOCK_BUSES[0];
-  const [activeStoryIndex, setActiveStoryIndex] = useState<number | null>(null);
-  const [storyProgress, setStoryProgress] = useState(0); 
   const rainAnim = useRef(new Animated.Value(0)).current;
   
   // Takvim Modal State
+  const [promoModalVisible, setPromoModalVisible] = useState(true);
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [calendarView, setCalendarView] = useState<'month' | 'year'>('month');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [activeCardIndex, setActiveCardIndex] = useState(0);
+  const [guestSocialModalVisible, setGuestSocialModalVisible] = useState(false);
   const radarPulse = useRef(new Animated.Value(0)).current;
   const radarGlowOpacity = radarPulse.interpolate({
     inputRange: [0, 1],
@@ -161,11 +143,9 @@ const HomeScreen = () => {
   
   // Supabase Fırsatlar State
   const [firsatlar, setFirsatlar] = useState<FirsatData[]>([]);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEventItem[]>([]);
   const [loadingFirsatlar, setLoadingFirsatlar] = useState(true);
   
-  // Supabase Story State
-  const [stories, setStories] = useState<StoryData[]>([]);
-  const [loadingStories, setLoadingStories] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const { mode } = useThemeMode();
   const isDark = mode === 'dark';
@@ -200,27 +180,6 @@ const HomeScreen = () => {
     loop.start();
     return () => loop.stop();
   }, [radarPulse, isDark]);
-  
-  // Story detayları - Supabase'den gelen veriler varsa onları kullan
-  const getStoryDetails = (storyName: string): { description: string } => {
-    const story = stories.find(s => s.baslik === storyName);
-    if (story && story.aciklama) {
-      return { description: story.aciklama };
-    }
-    
-    // Default detaylar
-    const DEFAULT_STORY_DETAILS: Record<string, { description: string }> = {
-      'Kültür Sanat': { description: 'Konserler, sergiler, tiyatrolar ve çok daha fazlası burada.' },
-      Ulaşım: { description: 'Otobüs hatları, seferler ve kampüs ulaşımı hakkında hızlı bilgiler.' },
-      Gençlik: { description: 'Gençlik merkezleri, kulüpler ve etkinliklerden haberdar ol.' },
-      Duyurular: { description: 'Önemli duyurular, haberler ve güncellemeler burada.' },
-    };
-    
-    return DEFAULT_STORY_DETAILS[storyName] || { description: '' };
-  };
-  
-  // HEADER_NAV - Her zaman Kültür Sanat, Ulaşım, Gençlik, Duyurular (varsayılan hikayeler)
-  const headerNav = DEFAULT_STORIES;
   
   const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
   const DAYS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
@@ -259,6 +218,47 @@ const HomeScreen = () => {
   };
 
   // Özel gün ve etkinlik kontrolü
+  const parseEventDate = (rawDate: string) => {
+    if (!rawDate) return null;
+    const value = rawDate.trim();
+
+    // dd.mm.yyyy or dd/mm/yyyy
+    const trNumeric = value.match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/);
+    if (trNumeric) {
+      const day = Number(trNumeric[1]);
+      const month = Number(trNumeric[2]);
+      const year = Number(trNumeric[3]);
+      if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+        return { day, month, year };
+      }
+    }
+
+    // yyyy-mm-dd
+    const isoDate = value.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (isoDate) {
+      const year = Number(isoDate[1]);
+      const month = Number(isoDate[2]);
+      const day = Number(isoDate[3]);
+      if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+        return { day, month, year };
+      }
+    }
+
+    // "21 Aralık" style
+    const monthNames = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+    const monthNameRegex = new RegExp(`^(\\d{1,2})\\s+(${monthNames.join('|')})$`, 'i');
+    const named = value.match(monthNameRegex);
+    if (named) {
+      const day = Number(named[1]);
+      const monthIndex = monthNames.findIndex(m => m.toLowerCase() === named[2].toLowerCase());
+      if (day >= 1 && day <= 31 && monthIndex >= 0) {
+        return { day, month: monthIndex + 1 };
+      }
+    }
+
+    return null;
+  };
+
   const getDayContent = (day: number, month: number) => {
     const key = `${month + 1}-${day}`;
     let specialDay = SPECIAL_DAYS[key] || null;
@@ -268,10 +268,16 @@ const HomeScreen = () => {
       specialDay = SPECIAL_DAYS['3-21-RELIGIOUS'] || SPECIAL_DAYS['3-21'];
     }
 
-    // Etkinlik kontrolü
-    const monthNames = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
-    const dateStr = `${day} ${monthNames[month]}`;
-    const dailyEvents = MOCK_EVENTS.filter(e => e.date === dateStr);
+    // Etkinlik kontrolü (21 Aralık, 21.12.2025, 2025-12-21 gibi formatları destekler)
+    const dailyEvents = calendarEvents.filter(eventItem => {
+      const parsed = parseEventDate(eventItem.date);
+      if (!parsed) return false;
+      const sameDay = parsed.day === day;
+      const sameMonth = parsed.month === month + 1;
+      if (!sameDay || !sameMonth) return false;
+      if (parsed.year) return parsed.year === selectedDate.getFullYear();
+      return true;
+    });
 
     return { specialDay, dailyEvents };
   };
@@ -330,39 +336,45 @@ const HomeScreen = () => {
     }
   };
 
-  // Hikayeleri Supabase'den Çek
-  const fetchStories = async () => {
+  const fetchCalendarEvents = async () => {
     try {
       const { data, error } = await supabase
-        .from('hikayeler')
-        .select('*')
-        .order('created_at', { ascending: true });
-      
-      if (data && data.length > 0) {
-        setStories(data);
+        .from('etkinlikler')
+        .select('id, baslik, tarih, konum, kategori')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.log('Takvim etkinlik hatası:', error);
+        return;
       }
-      if (error) console.log("Hikaye hatası:", error);
+
+      const mapped: CalendarEventItem[] = (data || []).map((item: any) => ({
+        id: item.id?.toString?.() || `${item.baslik}-${item.tarih}`,
+        title: item.baslik || 'Etkinlik',
+        date: item.tarih || '',
+        location: item.konum || 'Konum bilgisi yok',
+        category: item.kategori || 'Etkinlik',
+      }));
+
+      setCalendarEvents(mapped);
     } catch (e) {
       console.log(e);
-    } finally {
-      setLoadingStories(false);
     }
   };
 
   useEffect(() => {
     fetchAllWeatherData();
     fetchFirsatlar();
-    fetchStories();
+    fetchCalendarEvents();
   }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
     setLoadingFirsatlar(true);
-    setLoadingStories(true);
     await Promise.all([
       fetchAllWeatherData(),
       fetchFirsatlar(),
-      fetchStories(),
+      fetchCalendarEvents(),
     ]);
     setRefreshing(false);
   };
@@ -409,8 +421,6 @@ const HomeScreen = () => {
     });
   };
 
-  const activeStory = activeStoryIndex !== null ? headerNav[activeStoryIndex] : null;
-
   const handleNavigation = (item: typeof QUICK_ACCESS_NAV[0]) => {
     navigation.navigate(item.screen as 'Events' | 'Magazine' | 'PharmacyList' | 'LibraryList' | 'CulturalRoute');
   };
@@ -418,6 +428,34 @@ const HomeScreen = () => {
   const handleBentoPress = (item: typeof QUICK_ACCESS_NAV[0]) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     handleNavigation(item);
+  };
+
+  const handleSosyalPress = () => {
+    if (isGuest) {
+      setGuestSocialModalVisible(true);
+      return;
+    }
+    navigation.navigate('Sosyal');
+  };
+
+  const handleGuestGoToLogin = () => {
+    setGuestSocialModalVisible(false);
+    const parentNav = navigation.getParent<any>();
+    if (parentNav) {
+      parentNav.navigate('Login');
+      return;
+    }
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [{ name: 'Login' as never }],
+      })
+    );
+  };
+
+  const handlePromoPress = () => {
+    setPromoModalVisible(false);
+    navigation.navigate('Main', { screen: 'GencKart' as keyof MainTabParamList });
   };
 
   const handleCardScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -456,64 +494,11 @@ const HomeScreen = () => {
       return { icon: Tag, color: '#fb7185', bg: '#ffe4e6', bgDark: '#3a2428' };
     }
     if (normalizedKategori.includes('kampanya')) {
-      return { icon: Megaphone, color: '#fbbf24', bg: '#fef3c7', bgDark: '#3d3420' };
+      return { icon: Bell, color: '#fbbf24', bg: '#fef3c7', bgDark: '#3d3420' };
     }
 
     return { icon: Gift, color: '#fb923c', bg: '#ffedd5', bgDark: '#3a2a1c' };
   };
-
-  const handleNextStory = () => {
-    if (activeStoryIndex === null) return;
-    const nextIndex = activeStoryIndex + 1;
-    if (nextIndex < headerNav.length) {
-      setActiveStoryIndex(nextIndex);
-    } else {
-      setActiveStoryIndex(null);
-    }
-  };
-
-  const handleStoryDetail = () => {
-    if (activeStoryIndex === null) return;
-    const story = headerNav[activeStoryIndex];
-    setActiveStoryIndex(null); // Modal'ı kapat
-    switch (story.name) {
-      case 'Ulaşım': 
-        navigation.navigate('Main', { screen: 'Transport' as keyof MainTabParamList }); 
-        break;
-      case 'Kültür Sanat': 
-        navigation.navigate('Magazine'); 
-        break;
-      case 'Gençlik': 
-        navigation.navigate('Events'); 
-        break;
-      case 'Duyurular':
-        navigation.navigate('Notifications');
-        break;
-      default: 
-        break;
-    }
-  };
-
-  useEffect(() => {
-    if (activeStoryIndex === null) {
-      setStoryProgress(0);
-      return;
-    }
-    setStoryProgress(0);
-    const totalDuration = 5000;
-    const intervalMs = 50;
-    const startedAt = Date.now();
-    const timer = setInterval(() => {
-      const elapsed = Date.now() - startedAt;
-      const ratio = Math.min(1, elapsed / totalDuration);
-      setStoryProgress(ratio);
-      if (ratio >= 1) {
-        clearInterval(timer);
-        handleNextStory();
-      }
-    }, intervalMs);
-    return () => clearInterval(timer);
-  }, [activeStoryIndex]);
 
   useEffect(() => {
     Animated.loop(
@@ -530,19 +515,6 @@ const HomeScreen = () => {
     inputRange: [0, 1],
     outputRange: [0, 8],
   });
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 10,
-      onPanResponderRelease: (_, gestureState) => {
-        const { dy } = gestureState;
-        if (dy < -40) handleStoryDetail();
-        else if (dy > 40) setActiveStoryIndex(null);
-        else handleNextStory();
-      },
-    })
-  ).current;
 
   return (
     <View style={styles.root}>
@@ -596,21 +568,6 @@ const HomeScreen = () => {
           <Text style={[styles.greeting, !isDark && { color: DribbbleColors.textPrimary }]}>Selam, {profile?.name || 'Şanlı Genç'}! 👋</Text>
           <Text style={[styles.greetingSub, !isDark && { color: DribbbleColors.textSecondary }]}>Bugün nasıl gidiyor?</Text>
 
-          <View style={styles.headerNavContainer}>
-              {headerNav.map((item, index) => (
-                  <TouchableOpacity
-                    key={item.name}
-                    style={styles.headerNavItem}
-                    activeOpacity={0.9}
-                    onPress={() => setActiveStoryIndex(index)}
-                  >
-                      <View style={[styles.storyBorder, !isDark && { borderColor: DribbbleColors.storyBorder }]}>
-                        <Image source={typeof item.image === 'string' ? { uri: item.image } : item.image} style={styles.headerNavImage} />
-                      </View>
-                      <Text style={[styles.headerNavText, !isDark && { color: DribbbleColors.textPrimary }]}>{item.name}</Text>
-                  </TouchableOpacity>
-              ))}
-          </View>
         </LinearGradient>
 
         {/* Dashboard */}
@@ -619,7 +576,7 @@ const HomeScreen = () => {
             colors={isDark ? [Colors.dark.card, Colors.dark.border] : Gradients.statsCardLight}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={[styles.statsCard, !isDark && { borderColor: DribbbleColors.borderLight, shadowColor: '#334155', shadowOpacity: 0.06 }]}
+            style={[styles.statsCard, !isDark && { borderColor: DribbbleColors.borderLight, shadowColor: Platform.OS === 'android' ? 'transparent' : '#334155', shadowOpacity: Platform.OS === 'android' ? 0 : 0.06, elevation: Platform.OS === 'android' ? 0 : 12 }]}
           >
               <TouchableOpacity
                 style={styles.statsSection}
@@ -635,7 +592,7 @@ const HomeScreen = () => {
                   </View>
               </TouchableOpacity>
               
-              <View style={[styles.statsDividerWhite, !isDark && { backgroundColor: 'rgba(0,0,0,0.08)' }]} />
+              <View style={[styles.statsDividerWhite, !isDark && { backgroundColor: Platform.OS === 'android' ? '#e5e7eb' : 'rgba(0,0,0,0.08)' }]} />
               
               <TouchableOpacity
                 style={styles.statsSection}
@@ -668,7 +625,7 @@ const HomeScreen = () => {
                     },
                   ]}
                   activeOpacity={0.9}
-                  onPress={() => navigation.navigate('Sosyal')}
+                  onPress={handleSosyalPress}
                 >
                     {isDark ? (
                       <Animated.View
@@ -708,7 +665,7 @@ const HomeScreen = () => {
             
             {/* Hızlı erişim — sayfa renkleriyle düz zemin */}
             <View style={styles.bentoGrid}>
-              <Animated.View style={[styles.bentoFullWidth, !isDark && { borderColor: 'rgba(0,0,0,0.06)', shadowColor: '#1e293b', shadowOpacity: 0.08, shadowRadius: 20 }, { opacity: bentoAnims[0], transform: [{ translateY: bentoAnims[0].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+              <Animated.View style={[styles.bentoFullWidth, !isDark && Platform.OS !== 'android' && { borderColor: 'rgba(0,0,0,0.06)', shadowColor: '#1e293b', shadowOpacity: 0.08, shadowRadius: 20 }, { opacity: bentoAnims[0], transform: [{ translateY: bentoAnims[0].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
                 <AnimatedPressable
                   scaleTo={0.96}
                   style={styles.bentoGlassWrapper}
@@ -732,6 +689,7 @@ const HomeScreen = () => {
                         source={require('@/assets/images/El calendario.json')}
                         autoPlay
                         loop
+                        resizeMode="contain"
                         style={styles.etkinlikLottie}
                       />
                     </View>
@@ -741,7 +699,7 @@ const HomeScreen = () => {
               </Animated.View>
               {/* Row 2: Keşfet (2/3) + Eczane (1/3) yan yana */}
               <View style={styles.bentoRow2}>
-                <Animated.View style={[styles.bentoLarge, !isDark && { borderColor: 'rgba(0,0,0,0.06)', shadowColor: '#1e293b', shadowOpacity: 0.08, shadowRadius: 20 }, { opacity: bentoAnims[1], transform: [{ translateY: bentoAnims[1].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+                <Animated.View style={[styles.bentoLarge, !isDark && Platform.OS !== 'android' && { borderColor: 'rgba(0,0,0,0.06)', shadowColor: '#1e293b', shadowOpacity: 0.08, shadowRadius: 20 }, { opacity: bentoAnims[1], transform: [{ translateY: bentoAnims[1].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
                   <AnimatedPressable
                     scaleTo={0.96}
                     style={styles.bentoGlassWrapper}
@@ -765,6 +723,7 @@ const HomeScreen = () => {
                           source={require('@/assets/images/Map pin location.json')}
                           autoPlay
                           loop
+                          resizeMode="contain"
                           style={styles.etkinlikLottie}
                         />
                       </View>
@@ -772,7 +731,7 @@ const HomeScreen = () => {
                     </View>
                   </AnimatedPressable>
                 </Animated.View>
-                <Animated.View style={[styles.bentoSmall, !isDark && { borderColor: 'rgba(0,0,0,0.06)', shadowColor: '#1e293b', shadowOpacity: 0.08, shadowRadius: 20 }, { opacity: bentoAnims[2], transform: [{ translateY: bentoAnims[2].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+                <Animated.View style={[styles.bentoSmall, !isDark && Platform.OS !== 'android' && { borderColor: 'rgba(0,0,0,0.06)', shadowColor: '#1e293b', shadowOpacity: 0.08, shadowRadius: 20 }, { opacity: bentoAnims[2], transform: [{ translateY: bentoAnims[2].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
                   <AnimatedPressable
                     scaleTo={0.96}
                     style={styles.bentoGlassWrapper}
@@ -796,6 +755,7 @@ const HomeScreen = () => {
                           source={require('@/assets/images/AR Tablet.json')}
                           autoPlay
                           loop
+                          resizeMode="contain"
                           style={styles.bentoLottieSmall}
                         />
                       </View>
@@ -806,7 +766,7 @@ const HomeScreen = () => {
               </View>
               {/* Row 3: Kütüphane (1/3) + Gezi (2/3) yan yana */}
               <View style={styles.bentoRow2}>
-                <Animated.View style={[styles.bentoSmall, !isDark && { borderColor: 'rgba(0,0,0,0.06)', shadowColor: '#1e293b', shadowOpacity: 0.08, shadowRadius: 20 }, { opacity: bentoAnims[3], transform: [{ translateY: bentoAnims[3].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+                <Animated.View style={[styles.bentoSmall, !isDark && Platform.OS !== 'android' && { borderColor: 'rgba(0,0,0,0.06)', shadowColor: '#1e293b', shadowOpacity: 0.08, shadowRadius: 20 }, { opacity: bentoAnims[3], transform: [{ translateY: bentoAnims[3].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
                   <AnimatedPressable
                     scaleTo={0.96}
                     style={styles.bentoGlassWrapper}
@@ -830,6 +790,7 @@ const HomeScreen = () => {
                           source={require('@/assets/images/Books.json')}
                           autoPlay
                           loop
+                          resizeMode="contain"
                           style={styles.bentoLottieSmall}
                         />
                       </View>
@@ -837,7 +798,7 @@ const HomeScreen = () => {
                     </View>
                   </AnimatedPressable>
                 </Animated.View>
-                <Animated.View style={[styles.bentoLarge, !isDark && { borderColor: 'rgba(0,0,0,0.06)', shadowColor: '#1e293b', shadowOpacity: 0.08, shadowRadius: 20 }, { opacity: bentoAnims[4], transform: [{ translateY: bentoAnims[4].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+                <Animated.View style={[styles.bentoLarge, !isDark && Platform.OS !== 'android' && { borderColor: 'rgba(0,0,0,0.06)', shadowColor: '#1e293b', shadowOpacity: 0.08, shadowRadius: 20 }, { opacity: bentoAnims[4], transform: [{ translateY: bentoAnims[4].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
                   <AnimatedPressable
                     scaleTo={0.96}
                     style={styles.bentoGlassWrapper}
@@ -861,6 +822,7 @@ const HomeScreen = () => {
                           source={require('@/assets/images/Travel is fun.json')}
                           autoPlay
                           loop
+                          resizeMode="contain"
                           style={[styles.etkinlikLottie, { backgroundColor: 'transparent' }]}
                         />
                       </View>
@@ -976,33 +938,72 @@ const HomeScreen = () => {
           </View>
         </View>
 
-        {/* Story Modal */}
-        <Modal visible={activeStoryIndex !== null} animationType="fade" transparent onRequestClose={() => setActiveStoryIndex(null)}>
-          <View style={styles.storyModalBackdrop}>
-            {activeStory && (
-              <View style={styles.storyModalCard} {...panResponder.panHandlers}>
-                <View style={styles.storyProgressBarBackground}>
-                  <View style={[styles.storyProgressBarFill, { width: `${storyProgress * 100}%` }]} />
-                </View>
-                <TouchableOpacity style={StyleSheet.absoluteFill} onPress={handleNextStory} activeOpacity={1}>
-                  <Image source={typeof activeStory.image === 'string' ? { uri: activeStory.image } : activeStory.image} style={styles.storyImage} />
-                </TouchableOpacity>
-                <View style={styles.storyTextOverlay}>
-                  <Text style={styles.storyTitle}>{activeStory.name}</Text>
-                  {getStoryDetails(activeStory.name).description && (
-                    <Text style={styles.storyDescription}>{getStoryDetails(activeStory.name).description}</Text>
-                  )}
-                  <View style={styles.storyCtaRow}>
-                    <Text style={styles.storyHintText}>Yukarı kaydır → Detay</Text>
-                    <TouchableOpacity style={styles.storyCtaButton} activeOpacity={0.9} onPress={handleStoryDetail}>
-                      <Text style={styles.storyCtaText}>
-                        {activeStory.name === 'Kültür Sanat' || activeStory.name === 'Gençlik' ? 'Etkinliklere Git' : activeStory.name === 'Ulaşım' ? 'Ulaşım Ekranına Git' : 'Detaya Git'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
+        <Modal
+          visible={guestSocialModalVisible}
+          animationType="fade"
+          transparent
+          onRequestClose={() => setGuestSocialModalVisible(false)}
+        >
+          <View style={styles.guestModalBackdrop}>
+            <View style={[styles.guestModalCard, isDark && styles.guestModalCardDark]}>
+              <View style={[styles.guestModalBadge, isDark && styles.guestModalBadgeDark]}>
+                <Radio color={isDark ? '#7dd3fc' : '#2563eb'} size={18} />
+                <Text style={[styles.guestModalBadgeText, isDark && styles.guestModalBadgeTextDark]}>
+                  ŞanlıSosyal
+                </Text>
               </View>
-            )}
+              <Text style={[styles.guestModalTitle, isDark && styles.guestModalTitleDark]}>
+                Giriş Yapman Gerekiyor
+              </Text>
+              <Text style={[styles.guestModalSubtitle, isDark && styles.guestModalSubtitleDark]}>
+                ŞanlıSosyal'e erişmek için hesabınla giriş yapman gerekiyor.
+              </Text>
+              <View style={styles.guestModalActions}>
+                <TouchableOpacity
+                  style={[styles.guestModalSecondaryBtn, isDark && styles.guestModalSecondaryBtnDark]}
+                  onPress={() => setGuestSocialModalVisible(false)}
+                >
+                  <Text style={[styles.guestModalSecondaryText, isDark && styles.guestModalSecondaryTextDark]}>
+                    Vazgeç
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.guestModalPrimaryBtn, isDark && styles.guestModalPrimaryBtnDark]}
+                  onPress={handleGuestGoToLogin}
+                >
+                  <Text style={styles.guestModalPrimaryText}>Giriş Yap</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal
+          visible={promoModalVisible}
+          animationType="fade"
+          transparent
+          onRequestClose={() => setPromoModalVisible(false)}
+        >
+          <View style={styles.promoBackdrop}>
+            <View style={[styles.promoCard, isDark && styles.promoCardDark]}>
+              <TouchableOpacity
+                style={[styles.promoClose, isDark && styles.promoCloseDark]}
+                onPress={() => setPromoModalVisible(false)}
+              >
+                <X color={isDark ? '#f8fafc' : '#475569'} size={18} />
+              </TouchableOpacity>
+              <TouchableOpacity activeOpacity={0.92} onPress={handlePromoPress}>
+                <Image source={PROMO_ANNOUNCEMENT.image} style={styles.promoImage} />
+                <View style={styles.promoBody}>
+                  <Text style={[styles.promoTitle, isDark && styles.promoTitleDark]}>
+                    {PROMO_ANNOUNCEMENT.title}
+                  </Text>
+                  <Text style={[styles.promoSubtitle, isDark && styles.promoSubtitleDark]}>
+                    {PROMO_ANNOUNCEMENT.subtitle}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
           </View>
         </Modal>
 
@@ -1296,12 +1297,22 @@ const styles = StyleSheet.create({
     badgeText: { fontFamily: 'PlusJakartaSans_700Bold', color: Colors.white },
     greeting: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 32, color: Colors.white, marginTop: 10 },
     greetingSub: { fontFamily: 'PlusJakartaSans_500Medium', fontSize: 16, color: 'rgba(255,255,255,0.9)', marginTop: 4 },
-    headerNavContainer: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 20 },
-    headerNavItem: { alignItems: 'center' },
-    storyBorder: { width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#f4a823' },
-    headerNavImage: { width: 54, height: 54, borderRadius: 27, borderWidth: 0 },
-    headerNavText: { color: Colors.white, marginTop: 8, fontWeight: '600' },
-    statsCard: { flexDirection: 'row', borderRadius: 30, marginHorizontal: 20, marginTop: -50, height: 100, shadowColor: '#0f1a2e', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 24, elevation: 12, alignItems: 'center', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
+    statsCard: {
+      flexDirection: 'row',
+      borderRadius: 30,
+      marginHorizontal: 20,
+      marginTop: -26,
+      height: 100,
+      shadowColor: Platform.OS === 'android' ? 'transparent' : '#0f1a2e',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: Platform.OS === 'android' ? 0 : 0.2,
+      shadowRadius: Platform.OS === 'android' ? 0 : 24,
+      elevation: Platform.OS === 'android' ? 0 : 12,
+      alignItems: 'center',
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.15)'
+    },
     statsSection: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     statsLeft: { flex: 1, alignItems: 'center' },
     statsRight: { flex: 1, alignItems: 'center' },
@@ -1346,15 +1357,27 @@ const styles = StyleSheet.create({
     bentoSurfaceFill: { borderRadius: 30 },
     bentoFullWidth: {
       width: '100%', minHeight: 100, borderRadius: 30, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin, marginBottom: 12,
-      shadowColor: '#0f1a2e', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.18, shadowRadius: 24, elevation: 10,
+      shadowColor: Platform.OS === 'android' ? 'transparent' : '#0f1a2e',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: Platform.OS === 'android' ? 0 : 0.18,
+      shadowRadius: Platform.OS === 'android' ? 0 : 24,
+      elevation: Platform.OS === 'android' ? 0 : 10,
     },
     bentoLarge: {
       flex: 2, minHeight: 100, borderRadius: 30, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin,
-      shadowColor: '#0f1a2e', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.18, shadowRadius: 24, elevation: 10,
+      shadowColor: Platform.OS === 'android' ? 'transparent' : '#0f1a2e',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: Platform.OS === 'android' ? 0 : 0.18,
+      shadowRadius: Platform.OS === 'android' ? 0 : 24,
+      elevation: Platform.OS === 'android' ? 0 : 10,
     },
     bentoSmall: {
       flex: 1, minHeight: 100, borderRadius: 30, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin,
-      shadowColor: '#0f1a2e', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.18, shadowRadius: 24, elevation: 10,
+      shadowColor: Platform.OS === 'android' ? 'transparent' : '#0f1a2e',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: Platform.OS === 'android' ? 0 : 0.18,
+      shadowRadius: Platform.OS === 'android' ? 0 : 24,
+      elevation: Platform.OS === 'android' ? 0 : 10,
     },
     bentoMedium: { flex: 1, minHeight: 100, borderRadius: 30, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin, shadowColor: '#0f1a2e', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 8 },
     bentoSquare: { flex: 1, aspectRatio: 1, minHeight: 90, borderRadius: 30, overflow: 'hidden', borderWidth: 1, borderColor: Colors.glassBorderThin, shadowColor: '#0f1a2e', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 8 },
@@ -1368,10 +1391,34 @@ const styles = StyleSheet.create({
       shadowRadius: 12,
       elevation: 4,
     },
-    etkinlikLottieWrapper: { width: 48, height: 48, justifyContent: 'center', alignItems: 'center' },
-    etkinlikLottie: { width: 48, height: 48 },
-    bentoLottieSmallWrapper: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-    bentoLottieSmall: { width: 40, height: 40 },
+    etkinlikLottieWrapper: {
+      width: 48,
+      height: 48,
+      justifyContent: 'center',
+      alignItems: 'center',
+      overflow: 'hidden',
+      backgroundColor: 'transparent',
+      borderRadius: 12,
+    },
+    etkinlikLottie: {
+      width: 48,
+      height: 48,
+      backgroundColor: 'transparent',
+    },
+    bentoLottieSmallWrapper: {
+      width: 40,
+      height: 40,
+      justifyContent: 'center',
+      alignItems: 'center',
+      overflow: 'hidden',
+      backgroundColor: 'transparent',
+      borderRadius: 10,
+    },
+    bentoLottieSmall: {
+      width: 40,
+      height: 40,
+      backgroundColor: 'transparent',
+    },
     bentoTitle: { marginTop: 10, fontSize: 13, fontWeight: '400', letterSpacing: 1.2, color: Colors.primaryHex },
     bentoTitleSmall: { marginTop: 8, fontSize: 10, fontWeight: '400', letterSpacing: 0.8, color: Colors.primaryHex },
 
@@ -1560,18 +1607,173 @@ const styles = StyleSheet.create({
       shadowRadius: 18,
       shadowOffset: { width: 0, height: 8 },
     },
-    storyModalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
-    storyModalCard: { width: '100%', maxWidth: 420, aspectRatio: 9 / 16, borderRadius: 28, overflow: 'hidden', backgroundColor: Colors.black, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
-    storyProgressBarBackground: { position: 'absolute', top: 10, left: 12, right: 12, height: 3, borderRadius: 999, backgroundColor: 'rgba(148,163,184,0.6)', overflow: 'hidden', zIndex: 2 },
-    storyProgressBarFill: { height: '100%', backgroundColor: Colors.white, borderRadius: 999 },
-    storyImage: { width: '100%', height: '100%', position: 'absolute' },
-    storyTextOverlay: { position: 'absolute', left: 16, right: 16, bottom: 20 },
-    storyTitle: { fontSize: 18, fontWeight: '700', color: Colors.white, marginBottom: 4 },
-    storyDescription: { fontSize: 14, color: 'rgba(249,250,251,0.9)' },
-    storyCtaRow: { marginTop: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    storyHintText: { fontSize: 11, color: 'rgba(209,213,219,0.9)' },
-    storyCtaButton: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, backgroundColor: 'rgba(79,70,229,0.9)' },
-    storyCtaText: { fontSize: 12, fontWeight: '600', color: Colors.white },
+    promoBackdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(2,6,23,0.58)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 24,
+    },
+    promoCard: {
+      width: '100%',
+      borderRadius: 20,
+      backgroundColor: '#ffffff',
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: 'rgba(15,23,42,0.08)',
+    },
+    promoCardDark: {
+      backgroundColor: '#0f172a',
+      borderColor: 'rgba(148,163,184,0.24)',
+    },
+    promoClose: {
+      position: 'absolute',
+      top: 10,
+      right: 10,
+      zIndex: 2,
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(255,255,255,0.78)',
+    },
+    promoCloseDark: {
+      backgroundColor: 'rgba(15,23,42,0.72)',
+      borderWidth: 1,
+      borderColor: 'rgba(148,163,184,0.35)',
+    },
+    promoImage: {
+      width: '100%',
+      height: 150,
+    },
+    promoBody: {
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+    },
+    promoTitle: {
+      color: '#0f172a',
+      fontSize: 18,
+      fontWeight: '800',
+      marginBottom: 6,
+    },
+    promoTitleDark: {
+      color: '#f8fafc',
+    },
+    promoSubtitle: {
+      color: '#475569',
+      fontSize: 13,
+      lineHeight: 18,
+      fontWeight: '500',
+    },
+    promoSubtitleDark: {
+      color: '#cbd5e1',
+    },
+    guestModalBackdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(2, 6, 23, 0.58)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 24,
+    },
+    guestModalCard: {
+      width: '100%',
+      borderRadius: 22,
+      backgroundColor: '#ffffff',
+      paddingHorizontal: 20,
+      paddingTop: 18,
+      paddingBottom: 16,
+      borderWidth: 1,
+      borderColor: 'rgba(15,23,42,0.08)',
+    },
+    guestModalCardDark: {
+      backgroundColor: '#0f172a',
+      borderColor: 'rgba(148,163,184,0.2)',
+    },
+    guestModalBadge: {
+      alignSelf: 'center',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 999,
+      backgroundColor: 'rgba(37,99,235,0.1)',
+      borderWidth: 1,
+      borderColor: 'rgba(37,99,235,0.18)',
+      marginBottom: 12,
+    },
+    guestModalBadgeDark: {
+      backgroundColor: 'rgba(14,165,233,0.18)',
+      borderColor: 'rgba(125,211,252,0.35)',
+    },
+    guestModalBadgeText: {
+      color: '#1d4ed8',
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    guestModalBadgeTextDark: {
+      color: '#bae6fd',
+    },
+    guestModalTitle: {
+      textAlign: 'center',
+      color: '#0f172a',
+      fontSize: 20,
+      fontWeight: '800',
+      marginBottom: 8,
+    },
+    guestModalTitleDark: {
+      color: '#f8fafc',
+    },
+    guestModalSubtitle: {
+      textAlign: 'center',
+      color: '#475569',
+      fontSize: 14,
+      lineHeight: 20,
+      marginBottom: 16,
+    },
+    guestModalSubtitleDark: {
+      color: '#cbd5e1',
+    },
+    guestModalActions: {
+      flexDirection: 'row',
+      gap: 10,
+    },
+    guestModalSecondaryBtn: {
+      flex: 1,
+      height: 44,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#e2e8f0',
+    },
+    guestModalSecondaryBtnDark: {
+      backgroundColor: '#1e293b',
+    },
+    guestModalSecondaryText: {
+      color: '#334155',
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    guestModalSecondaryTextDark: {
+      color: '#cbd5e1',
+    },
+    guestModalPrimaryBtn: {
+      flex: 1,
+      height: 44,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#2563eb',
+    },
+    guestModalPrimaryBtnDark: {
+      backgroundColor: '#0ea5e9',
+    },
+    guestModalPrimaryText: {
+      color: '#ffffff',
+      fontSize: 14,
+      fontWeight: '700',
+    },
     // Calendar Modal Styles
     calendarModalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
     calendarModalCard: { backgroundColor: Colors.white, borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 20, height: '80%' },

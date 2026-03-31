@@ -13,6 +13,10 @@ export type MainTabParamList = {
 
 // Ana Stack Navigasyonun Ekranları
 export type RootStackParamList = {
+  OnboardingFlow: undefined;
+  Onboarding1: undefined;
+  Onboarding2: undefined;
+  Onboarding3: undefined;
   Welcome: undefined;
   Login: undefined;
   Main: NavigatorScreenParams<MainTabParamList>; // Tab menüsünü bir ekran olarak içerir
@@ -36,7 +40,7 @@ export type RootStackParamList = {
   StoryView: { storyId?: string; userId?: string } | undefined;
   CompleteProfile: undefined;
   CreatePost: undefined;
-  SosyalProfile: undefined;
+  SosyalProfile: { userId?: string };
 };
 
 // HomeScreen için özel tip oluşturma. Bu, hem Stack hem de Tab tiplerini birleştirir.

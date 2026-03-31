@@ -35,6 +35,8 @@ import StoryViewScreen from '@/screens/StoryViewScreen';
 import CompleteProfileScreen from '@/screens/CompleteProfileScreen';
 import CreatePostScreen from '@/screens/CreatePostScreen';
 import SosyalProfileScreen from '@/screens/SosyalProfileScreen';
+import OnboardingNavigator from '@/navigation/OnboardingNavigator';
+import { hasCompletedOnboarding } from '@/utils/onboarding';
 
 // Custom Tab Bar
 import CustomTabBar from './CustomTabBar';
@@ -136,10 +138,38 @@ const slideFromRight = ({ current }: any) => ({
 });
 
 const AppNavigator = () => {
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const [initialRouteName, setInitialRouteName] = useState<'OnboardingFlow' | 'Login'>('OnboardingFlow');
+
+  useEffect(() => {
+    let isMounted = true;
+    const bootstrap = async () => {
+      try {
+        if (__DEV__) {
+          setInitialRouteName('OnboardingFlow');
+          return;
+        }
+        const completed = await hasCompletedOnboarding();
+        if (!isMounted) return;
+        setInitialRouteName(completed ? 'Login' : 'OnboardingFlow');
+      } finally {
+        if (isMounted) setIsBootstrapping(false);
+      }
+    };
+    bootstrap();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  if (isBootstrapping) {
+    return <View style={styles.bootSplash} />;
+  }
+
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName="Login"
+        initialRouteName={initialRouteName}
         screenOptions={{
           headerShown: false,
           cardStyleInterpolator: slideFromRight,
@@ -149,6 +179,7 @@ const AppNavigator = () => {
           },
         }}
       >
+        <Stack.Screen name="OnboardingFlow" component={OnboardingNavigator} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="Main" component={MainTabs} />
@@ -178,6 +209,10 @@ const AppNavigator = () => {
 };
 
 const styles = StyleSheet.create({
+  bootSplash: {
+    flex: 1,
+    backgroundColor: '#07090f',
+  },
   container: {
     flex: 1,
   },

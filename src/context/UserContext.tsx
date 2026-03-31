@@ -12,14 +12,17 @@ interface UserProfile {
 
 interface UserContextValue {
   profile: UserProfile | null;
+  isGuest: boolean;
   isLoading: boolean;
   refreshProfile: () => Promise<void>;
+  setGuestMode: () => void;
 }
 
 const UserContext = createContext<UserContextValue | undefined>(undefined);
 
 export const UserProvider = ({ children }: { children: React.ReactNode }) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isGuest, setIsGuest] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchProfile = useCallback(async () => {
@@ -27,6 +30,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setProfile(null);
+        setIsGuest(false);
         return;
       }
       const { data } = await supabase
@@ -43,6 +47,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         avatarUrl: data?.avatar_url,
       };
       setProfile(profile);
+      setIsGuest(false);
 
       // Push token'ı arka planda kaydet (hata olsa da devam et)
       registerForPushNotificationsAsync(user.id).catch(() => {});
@@ -61,6 +66,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         fetchProfile();
       } else {
         setProfile(null);
+        setIsGuest(false);
         setIsLoading(false);
       }
     });
@@ -68,8 +74,14 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     return () => listener.subscription.unsubscribe();
   }, [fetchProfile]);
 
+  const setGuestMode = useCallback(() => {
+    setProfile(null);
+    setIsGuest(true);
+    setIsLoading(false);
+  }, []);
+
   return (
-    <UserContext.Provider value={{ profile, isLoading, refreshProfile: fetchProfile }}>
+    <UserContext.Provider value={{ profile, isGuest, isLoading, refreshProfile: fetchProfile, setGuestMode }}>
       {children}
     </UserContext.Provider>
   );

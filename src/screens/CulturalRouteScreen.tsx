@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -135,7 +135,7 @@ const CulturalRouteScreen = () => {
         style={[styles.header, { paddingTop: insets.top + 16 }]}
       >
         <Text style={styles.headerTitle}>Gezi Rotaları</Text>
-        <Text style={styles.headerSubtitle}>Urfa'da yapılacaklar ve gezi önerileri</Text>
+        <Text style={styles.headerSubtitle}>Urfa'da yapılacaklar ve gezi onerileri</Text>
       </LinearGradient>
 
       <FlatList
@@ -148,6 +148,13 @@ const CulturalRouteScreen = () => {
         maxToRenderPerBatch={4}
         windowSize={6}
         removeClippedSubviews
+        ListHeaderComponent={
+          <View style={[styles.infoNote, isDark ? styles.infoNoteDark : null]}>
+            <Text style={[styles.infoNoteText, isDark ? styles.infoNoteTextDark : null]}>
+              Rotalar öneridir. İşletme/açılış saatleri ve ulaşım bilgilerini gitmeden önce doğrulayın.
+            </Text>
+          </View>
+        }
       />
     </View>
   );
@@ -177,15 +184,37 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 20,
   },
+  infoNote: {
+    marginBottom: 14,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#ede9fe',
+    borderWidth: 1,
+    borderColor: 'rgba(109,40,217,0.18)',
+  },
+  infoNoteDark: {
+    backgroundColor: 'rgba(124,58,237,0.14)',
+    borderColor: 'rgba(167,139,250,0.28)',
+  },
+  infoNoteText: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#5b21b6',
+    fontWeight: '600',
+  },
+  infoNoteTextDark: {
+    color: '#c4b5fd',
+  },
   planCard: {
     borderRadius: 20,
     padding: 18,
     marginBottom: 20,
-    shadowColor: ROUTE.violet800,
+    shadowColor: Platform.OS === 'android' ? 'transparent' : ROUTE.violet800,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
+    shadowOpacity: Platform.OS === 'android' ? 0 : 0.08,
+    shadowRadius: Platform.OS === 'android' ? 0 : 12,
+    elevation: Platform.OS === 'android' ? 0 : 3,
   },
   cardHeader: {
     marginBottom: 12,

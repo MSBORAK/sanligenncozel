@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -146,11 +146,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     padding: 15,
     marginBottom: 15,
-    shadowColor: '#15803d',
+    shadowColor: Platform.OS === 'android' ? 'transparent' : '#15803d',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
+    shadowOpacity: Platform.OS === 'android' ? 0 : 0.08,
+    shadowRadius: Platform.OS === 'android' ? 0 : 12,
+    elevation: Platform.OS === 'android' ? 0 : 3,
   },
   iconContainer: {
     width: 50,

@@ -1,521 +1,266 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  Dimensions,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  ImageBackground,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, Animated, KeyboardAvoidingView, LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { Eye, EyeOff, Mail, Lock, CheckCircle2, Circle } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList } from '@/types/navigation';
-import { Colors, Gradients } from '@/constants/Colors';
-import BackgroundImage from '@/assets/images/background.jpg';
+import { CommonActions } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import { GradientBackground } from '@/components/GradientBackground';
+import { InputField } from '@/components/InputField';
+import { PrimaryButton } from '@/components/PrimaryButton';
+import { SecondaryButton } from '@/components/SecondaryButton';
+import type { RootStackParamList } from '@/types/navigation';
+import type { OnboardingStackParamList } from '../navigation/OnboardingNavigator';
+import { colors } from '@/theme/colors';
 import { supabase } from '@/lib/supabase';
-import { Alert, ActivityIndicator } from 'react-native';
+import { useUser } from '@/context/UserContext';
 
-const { width, height } = Dimensions.get('window');
+type AuthMode = 'login' | 'register';
+type NestedNav = StackNavigationProp<OnboardingStackParamList, 'Login'>;
+type AuthStep = 'email' | 'code';
 
-type LoginScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Login'>;
-
-const LoginScreen = () => {
-  const navigation = useNavigation<LoginScreenNavigationProp>();
-  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
+/**
+ * Glassmorphism authentication screen with segmented login/register.
+ */
+export const LoginScreen: React.FC = () => {
+  const navigation = useNavigation<NestedNav>();
+  const { setGuestMode } = useUser();
+  const [mode, setMode] = useState<AuthMode>('login');
+  const [step, setStep] = useState<AuthStep>('email');
   const [email, setEmail] = useState('');
-  const [loginVerificationCode, setLoginVerificationCode] = useState('');
-  const [showLoginCodeInput, setShowLoginCodeInput] = useState(false);
-  
-  // Kayıt formu state'leri
-  const [registerUsername, setRegisterUsername] = useState('');
-  const [registerEmail, setRegisterEmail] = useState('');
-  const [registerVerificationCode, setRegisterVerificationCode] = useState('');
-  const [showRegisterCodeInput, setShowRegisterCodeInput] = useState(false);
-  const [acceptTerms, setAcceptTerms] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [segmentWidth, setSegmentWidth] = useState(0);
+  const indicatorTranslateX = useRef(new Animated.Value(0)).current;
 
-  const handleLogin = async () => {
-    if (!email.trim()) {
-      Alert.alert('Hata', 'E-posta adresinizi girin.');
+  const onModeChange = (next: AuthMode) => {
+    setMode(next);
+    setStep('email');
+    setOtpCode('');
+  };
+
+  const indicatorWidth = segmentWidth > 0 ? (segmentWidth - 8) / 2 : 0;
+
+  useEffect(() => {
+    Animated.spring(indicatorTranslateX, {
+      toValue: mode === 'register' ? indicatorWidth : 0,
+      useNativeDriver: true,
+      damping: 18,
+      stiffness: 220,
+      mass: 0.7,
+    }).start();
+  }, [mode, indicatorWidth, indicatorTranslateX]);
+
+  const onSegmentLayout = (event: LayoutChangeEvent) => {
+    const { width } = event.nativeEvent.layout;
+    if (width > 0) setSegmentWidth(width);
+  };
+
+  const goToMain = (asGuest = false) => {
+    if (asGuest) {
+      setGuestMode();
+    }
+    const parent = navigation.getParent<StackNavigationProp<RootStackParamList>>();
+    if (parent) {
+      parent.replace('Main', { screen: 'Home' });
       return;
     }
-    setLoading(true);
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [{ name: 'Main' as never, params: { screen: 'Home' } as never }],
+      })
+    );
+  };
+
+  const sendOtpCode = async () => {
+    if (!email.trim()) {
+      Alert.alert('Eksik Bilgi', 'Lütfen e-posta adresinizi girin.');
+      return;
+    }
     try {
-      if (!showLoginCodeInput) {
-        // OTP gönder
-        const { error } = await supabase.auth.signInWithOtp({ email: email.trim() });
-        if (error) throw error;
-        setShowLoginCodeInput(true);
-        Alert.alert('Kod Gönderildi', `${email} adresine doğrulama kodu gönderildi.`);
-      } else {
-        // OTP doğrula
-        const { error } = await supabase.auth.verifyOtp({
-          email: email.trim(),
-          token: loginVerificationCode.trim(),
-          type: 'email',
-        });
-        if (error) throw error;
-        navigation.replace('Main', { screen: 'Home' });
-      }
-    } catch (e: any) {
-      Alert.alert('Hata', e.message || 'Bir hata oluştu.');
-    } finally {
-      setLoading(false);
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: {
+          shouldCreateUser: mode === 'register',
+        },
+      });
+      if (error) throw error;
+      setStep('code');
+      Alert.alert('Kod Gönderildi', 'E-posta adresine gelen doğrulama kodunu gir.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Bir hata oluştu.';
+      Alert.alert('Hata', message);
     }
   };
 
-  const handleRegister = async () => {
-    if (!registerEmail.trim() || !registerUsername.trim()) {
-      Alert.alert('Hata', 'Tüm alanları doldurun.');
+  const verifyOtpCode = async () => {
+    if (!email.trim() || !otpCode.trim()) {
+      Alert.alert('Eksik Bilgi', 'Lütfen e-posta ve doğrulama kodunu girin.');
       return;
     }
-    setLoading(true);
     try {
-      if (!showRegisterCodeInput) {
-        // Kullanıcı adı benzersizlik kontrolü
-        const cleanUsername = registerUsername.trim().toLowerCase().replace(/\s/g, '_');
-        const { data: existing } = await supabase
-          .from('user_profiles')
-          .select('username')
-          .eq('username', cleanUsername)
-          .single();
-
-        if (existing) {
-          Alert.alert('Kullanıcı Adı Alınmış', `"${cleanUsername}" kullanıcı adı başkası tarafından kullanılıyor. Farklı bir isim dene.`);
-          setLoading(false);
-          return;
-        }
-
-        const { error } = await supabase.auth.signInWithOtp({ email: registerEmail.trim() });
-        if (error) throw error;
-        setShowRegisterCodeInput(true);
-        Alert.alert('Kod Gönderildi', `${registerEmail} adresine doğrulama kodu gönderildi.`);
-      } else {
-        const { data, error } = await supabase.auth.verifyOtp({
-          email: registerEmail.trim(),
-          token: registerVerificationCode.trim(),
-          type: 'email',
-        });
-        if (error) throw error;
-        // Profil oluştur
-        if (data.user) {
-          const cleanUsername = registerUsername.trim().toLowerCase().replace(/\s/g, '_');
-          await supabase.from('user_profiles').upsert({
-            user_id: data.user.id,
-            name: registerUsername.trim(),
-            username: cleanUsername,
-          });
-        }
-        navigation.replace('Main', { screen: 'Home' });
-      }
-    } catch (e: any) {
-      Alert.alert('Hata', e.message || 'Bir hata oluştu.');
-    } finally {
-      setLoading(false);
+      const { error } = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        token: otpCode.trim(),
+        type: 'email',
+      });
+      if (error) throw error;
+      goToMain();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Kod doğrulanamadı.';
+      Alert.alert('Doğrulama Hatası', message);
     }
   };
 
   return (
-    <View style={styles.root}>
-      <ImageBackground source={BackgroundImage} style={StyleSheet.absoluteFill}>
-        {/* Arka Plan Gradyanı ve Efektler */}
-        <LinearGradient
-          colors={['rgba(15,118,110,0.5)', 'rgba(13,148,136,0.4)', 'rgba(20,184,166,0.3)']}
-          style={StyleSheet.absoluteFill}
-        >
-          {/* Dekoratif Işık - Balıklıgöl teal & Urfa taşı */}
-          <View style={[styles.glow, { top: '10%', left: '-10%', backgroundColor: '#758956' }]} />
-          <View style={[styles.glow, { bottom: '20%', right: '-10%', backgroundColor: '#14b8a6' }]} />
-        </LinearGradient>
-      </ImageBackground>
-
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-      >
-        <SafeAreaView style={styles.container}>
-          <ScrollView 
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.scrollContent}
-          >
-            {/* Başlık Bölümü */}
-            <View style={styles.header}>
-              <Text style={styles.title}>Şanlı Genç</Text>
-              <Text style={styles.subtitle}>Şehrin Kalbine Hoşgeldiniz</Text>
-            </View>
-
-            {/* Giriş Kartı (Glassmorphism) */}
-            <View style={styles.cardContainer}>
-              <BlurView intensity={30} tint="light" style={styles.cardBlur}>
-                <View style={styles.cardInner}>
-                  {/* Tablar */}
-                  <View style={styles.tabContainer}>
-                    <TouchableOpacity
-                      onPress={() => setActiveTab('login')}
-                      style={[styles.tab, activeTab === 'login' && styles.activeTab]}
-                    >
-                      <Text style={[styles.tabText, activeTab === 'login' && styles.activeTabText]}>
-                        Giriş Yap
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => setActiveTab('register')}
-                      style={[styles.tab, activeTab === 'register' && styles.activeTab]}
-                    >
-                      <Text style={[styles.tabText, activeTab === 'register' && styles.activeTabText]}>
-                        Kayıt Ol
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Inputlar */}
-                  <View style={styles.inputContainer}>
-                    {activeTab === 'login' ? (
-                      // Giriş Yap Inputları
-                      <>
-                        <View style={styles.inputWrapper}>
-                          <TextInput
-                            placeholder="E-posta"
-                            placeholderTextColor="rgba(255,255,255,0.5)"
-                            style={styles.input}
-                            value={email}
-                            onChangeText={setEmail}
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                            editable={!showLoginCodeInput}
-                          />
-                        </View>
-                        
-                        {showLoginCodeInput ? (
-                          <View style={styles.inputWrapper}>
-                            <TextInput
-                              placeholder="Doğrulama Kodu"
-                              placeholderTextColor="rgba(255,255,255,0.5)"
-                              style={styles.input}
-                              value={loginVerificationCode}
-                              onChangeText={setLoginVerificationCode}
-                              keyboardType="number-pad"
-                              maxLength={6}
-                            />
-                          </View>
-                        ) : null}
-                      </>
-                    ) : (
-                      // Kayıt Ol Inputları
-                      <>
-                        <View style={styles.inputWrapper}>
-                          <TextInput
-                            placeholder="Kullanıcı Adı (örn: mervesude)"
-                            placeholderTextColor="rgba(255,255,255,0.5)"
-                            style={styles.input}
-                            value={registerUsername}
-                            onChangeText={(t) => setRegisterUsername(t.toLowerCase().replace(/\s/g, '_'))}
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                            keyboardType="default"
-                          />
-                        </View>
-
-                        <View style={styles.inputWrapper}>
-                          <TextInput
-                            placeholder="E-posta"
-                            placeholderTextColor="rgba(255,255,255,0.5)"
-                            style={styles.input}
-                            value={registerEmail}
-                            onChangeText={setRegisterEmail}
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                            editable={!showRegisterCodeInput}
-                          />
-                        </View>
-
-                        {showRegisterCodeInput ? (
-                          <View style={styles.inputWrapper}>
-                            <TextInput
-                              placeholder="Doğrulama Kodu"
-                              placeholderTextColor="rgba(255,255,255,0.5)"
-                              style={styles.input}
-                              value={registerVerificationCode}
-                              onChangeText={setRegisterVerificationCode}
-                              keyboardType="number-pad"
-                              maxLength={6}
-                            />
-                          </View>
-                        ) : null}
-                      </>
-                    )}
-                  </View>
-
-                  {/* Alt Seçenekler */}
-                  {activeTab === 'register' && (
-                    <View style={styles.optionsRow}>
-                      <TouchableOpacity 
-                          style={styles.rememberRow}
-                          onPress={() => setAcceptTerms(!acceptTerms)}
-                      >
-                        {acceptTerms ? (
-                          <CheckCircle2 color="#a855f7" size={18} />
-                        ) : (
-                          <Circle color="rgba(255,255,255,0.4)" size={18} />
-                        )}
-                        <Text style={[styles.optionText, { marginLeft: 6 }]}>Kullanım Koşulları'nı kabul ederim.</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-
-                  {/* Giriş/Kayıt Butonu */}
-                  <TouchableOpacity 
-                    activeOpacity={0.8} 
-                    onPress={() => {
-                      if (activeTab === 'login') {
-                        handleLogin();
-                      } else {
-                        handleRegister();
-                      }
-                    }}
-                    disabled={loading}
-                    style={styles.loginBtnWrapper}
-                  >
-                    <LinearGradient
-                      colors={[...Gradients.hero]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.loginBtn}
-                    >
-                      {loading ? (
-                        <ActivityIndicator color="#fff" />
-                      ) : (
-                        <Text style={styles.loginBtnText}>
-                          {activeTab === 'login'
-                            ? showLoginCodeInput
-                              ? 'Giriş Yap'
-                              : 'Kod Gönder'
-                            : showRegisterCodeInput
-                              ? 'Kodu Doğrula'
-                              : 'Doğrulama Kodu Gönder'}
-                        </Text>
-                      )}
-                    </LinearGradient>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => navigation.replace('Main', { screen: 'Home' })}
-                    style={styles.guestLoginButton}
-                  >
-                    <Text style={styles.guestLoginButtonText}>Misafir Girişi Yap</Text>
-                  </TouchableOpacity>
+    <GradientBackground>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={styles.cardShell}>
+          <BlurView intensity={25} tint="dark" style={styles.blur}>
+            <View style={styles.card}>
+              <View style={styles.header}>
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>ŞANLIURFA</Text>
                 </View>
-              </BlurView>
-            </View>
-          </ScrollView>
-        </SafeAreaView>
-      </KeyboardAvoidingView>
+                <Text style={styles.title}>Şanlı Genç</Text>
+                <Text style={styles.subtitle}>
+                  {step === 'email'
+                    ? mode === 'login'
+                      ? 'E-posta adresinle giriş kodu al'
+                      : 'E-posta adresinle hızlıca hesap oluştur'
+                    : 'E-postana gelen 6 haneli kodu gir'}
+                </Text>
+              </View>
 
-      {/* Alt Şehir Silüeti (Basit Bir Çizim/Efekt) */}
-      <View style={styles.cityOutlineContainer}>
-        <View style={styles.cityOutline} />
-      </View>
-    </View>
+              <View style={styles.segmentWrap} onLayout={onSegmentLayout}>
+                <Animated.View
+                  style={[
+                    styles.indicator,
+                    {
+                      width: indicatorWidth,
+                      transform: [{ translateX: indicatorTranslateX }],
+                    },
+                  ]}
+                >
+                  <LinearGradient colors={['#F59E0B', '#EF4444']} style={styles.indicatorGradient} />
+                </Animated.View>
+                <Pressable style={styles.segmentButton} onPress={() => onModeChange('login')}>
+                  <Text style={[styles.segmentLabel, mode === 'login' && styles.segmentLabelActive]}>Giriş Yap</Text>
+                </Pressable>
+                <Pressable style={styles.segmentButton} onPress={() => onModeChange('register')}>
+                  <Text style={[styles.segmentLabel, mode === 'register' && styles.segmentLabelActive]}>Kayıt Ol</Text>
+                </Pressable>
+              </View>
+
+              <InputField
+                icon="✉️"
+                placeholder="E-posta adresiniz"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                editable={step === 'email'}
+              />
+              {step === 'code' ? (
+                <InputField
+                  icon="🔐"
+                  placeholder="Doğrulama kodu"
+                  value={otpCode}
+                  onChangeText={setOtpCode}
+                  keyboardType="number-pad"
+                  containerStyle={styles.inputSpacing}
+                  maxLength={6}
+                />
+              ) : null}
+
+              {step === 'code' ? (
+                <Pressable style={styles.forgotWrap} onPress={() => setStep('email')}>
+                  <Text style={styles.forgotText}>E-postayı değiştir</Text>
+                </Pressable>
+              ) : null}
+
+              <PrimaryButton
+                label={step === 'email' ? 'Kod Gönder' : 'Kodu Doğrula'}
+                onPress={step === 'email' ? sendOtpCode : verifyOtpCode}
+                style={styles.buttonSpacing}
+              />
+              <SecondaryButton label="Misafir Olarak Devam Et" onPress={() => goToMain(true)} style={styles.buttonSpacing} />
+
+              <Text style={styles.finePrint}>Devam ederek Gizlilik Politikası'nı kabul edersiniz</Text>
+            </View>
+          </BlurView>
+        </View>
+      </KeyboardAvoidingView>
+    </GradientBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  glow: {
+  flex: { flex: 1 },
+  cardShell: {
     position: 'absolute',
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    opacity: 0.3,
+    top: '20%',
+    bottom: '20%',
+    left: 24,
+    right: 24,
+    borderRadius: 24,
   },
-  container: {
+  blur: {
     flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-    justifyContent: 'center',
-  },
-  header: {
-    alignItems: 'center',
-    marginTop: height * 0.03,
-    marginBottom: 20,
-  },
-  title: {
-    fontFamily: 'PlusJakartaSans_800ExtraBold',
-    fontSize: 42,
-    color: '#fff',
-    textShadowColor: 'rgba(13,148,136,0.8)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 24,
-    letterSpacing: 2,
-  },
-  subtitle: {
-    fontFamily: 'PlusJakartaSans_500Medium',
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.85)',
-    marginTop: 8,
-    letterSpacing: 0.5,
-  },
-  cardContainer: {
-    borderRadius: 30,
+    borderRadius: 24,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    shadowColor: '#758956',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 30,
-    elevation: 10,
+    borderColor: colors.glassBorder,
   },
-  cardBlur: {
-    padding: 2,
-  },
-  cardInner: {
-    padding: 24,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    marginBottom: 30,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 15,
-    padding: 4,
-  },
-  tab: {
+  card: {
     flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderRadius: 12,
+    paddingHorizontal: 22,
+    paddingTop: 24,
+    paddingBottom: 18,
+    backgroundColor: colors.glassBackground,
   },
-  activeTab: {
-    backgroundColor: Colors.primary.indigo,
-  },
-  tabText: {
-    color: 'rgba(255,255,255,0.6)',
-    fontWeight: '600',
-    fontSize: 15,
-  },
-  activeTabText: {
-    color: '#fff',
-  },
-  inputContainer: {
-    gap: 16,
-    marginBottom: 20,
-  },
-  inputWrapper: {
-    height: 56,
-    borderRadius: 12,
+  header: { alignItems: 'center', marginBottom: 20 },
+  badge: {
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 10,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(139,92,246,0.3)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
+    borderColor: 'rgba(139,92,246,0.5)',
+    marginBottom: 10,
   },
-  input: {
-    flex: 1,
-    color: '#fff',
-    fontSize: 16,
-  },
-  eyeIcon: {
+  badgeText: { color: '#C4B5FD', fontSize: 10, letterSpacing: 1.4, fontWeight: '700' },
+  title: { color: colors.white, fontSize: 30, fontWeight: '800', marginBottom: 6 },
+  subtitle: { color: colors.textSecondary, fontSize: 13, textAlign: 'center' },
+  segmentWrap: {
+    height: 44,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.09)',
+    marginBottom: 16,
     padding: 4,
-  },
-  sendCodeButton: {
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: 'rgba(168, 85, 247, 0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(168, 85, 247, 0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  sendCodeText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  optionsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 30,
   },
-  forgotBtn: {
-    paddingVertical: 4,
-  },
-  rememberRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  optionText: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 12,
-  },
-  loginBtnWrapper: {
-    marginBottom: 24,
-  },
-  loginBtn: {
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#758956',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-  },
-  loginBtnText: {
-    fontFamily: 'PlusJakartaSans_700Bold',
-    color: '#fff',
-    fontSize: 18,
-    letterSpacing: 1,
-  },
-  guestLoginButton: {
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderRadius: 28,
-    backgroundColor: 'rgba(13,148,136,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(13,148,136,0.4)',
-    marginTop: 10,
-    shadowColor: Colors.primary.indigo,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-  },
-  guestLoginButtonText: {
-    color: Colors.primary.violet,
-    fontSize: 16, // Biraz daha büyük font
-    fontWeight: '700', // Daha kalın font
-  },
-  cityOutlineContainer: {
+  indicator: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 100,
-    opacity: 0.2,
+    left: 4,
+    top: 4,
+    height: 36,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
-  cityOutline: {
-    flex: 1,
-    borderTopWidth: 2,
-    borderColor: 'rgba(255,255,255,0.3)',
-    // Burada basit bir silüet efekti için borderlar kullanılabilir
-    // Gerçek bir silüet için SVG veya resim daha iyi olur
+  indicatorGradient: { flex: 1, borderRadius: 12 },
+  segmentButton: { flex: 1, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
+  segmentLabel: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
+  segmentLabelActive: { color: colors.white },
+  inputSpacing: { marginTop: 10 },
+  forgotWrap: { alignSelf: 'flex-end', marginTop: 8, marginBottom: 12 },
+  forgotText: { color: '#C4B5FD', fontSize: 11 },
+  buttonSpacing: { marginTop: 9 },
+  finePrint: {
+    marginTop: 12,
+    textAlign: 'center',
+    color: colors.textMuted,
+    fontSize: 10,
   },
 });
 

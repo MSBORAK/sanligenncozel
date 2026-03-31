@@ -13,7 +13,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SendHorizonal, Bot, MapPin, TicketPercent, Sparkles, Activity, Calendar, BookOpen, Navigation, HelpCircle, Coffee, Film } from 'lucide-react-native';
+import { SendHorizonal, Bot, Activity } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, DribbbleColors, Gradients } from '@/constants/Colors';
@@ -41,61 +41,51 @@ const QUICK_ACTIONS = [
     id: 'bus',
     label: '📍 Otobüs Saatleri',
     text: 'Otobüs saatlerini öğrenmek istiyorum.',
-    icon: MapPin,
   },
   {
     id: 'discounts',
     label: '🎫 İndirimler',
     text: 'Genç Kart ile nerelerde indirim var?',
-    icon: TicketPercent,
   },
   {
     id: 'events',
     label: '🎉 Etkinlikler',
     text: 'Bugün veya yakında hangi etkinlikler var?',
-    icon: Sparkles,
   },
   {
     id: 'calendar',
     label: '📅 Takvim',
     text: 'Bu ay hangi özel günler var?',
-    icon: Calendar,
   },
   {
     id: 'library',
     label: '📚 Kütüphaneler',
     text: 'Şanlıurfa\'da hangi kütüphaneler var?',
-    icon: BookOpen,
   },
   {
     id: 'pharmacy',
     label: '💊 Nöbetçi Eczane',
     text: 'Nöbetçi eczaneleri gösterir misin?',
-    icon: Navigation,
   },
   {
     id: 'cultural',
     label: '🗺️ Kültürel Rotalar',
     text: 'Şanlıurfa\'da hangi kültürel rotalar var?',
-    icon: Navigation,
   },
   {
     id: 'cafe',
     label: '☕ Kafeler',
     text: 'Genç Kart geçerli kafeler hangileri?',
-    icon: Coffee,
   },
   {
     id: 'cinema',
     label: '🎬 Sinemalar',
     text: 'Sinema indirimleri hakkında bilgi verir misin?',
-    icon: Film,
   },
   {
     id: 'help',
     label: '❓ Yardım',
     text: 'Uygulamayı nasıl kullanabilirim?',
-    icon: HelpCircle,
   },
 ];
 
@@ -169,11 +159,11 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ item }) => {
               backgroundColor: Colors.dark.card,
               borderWidth: 1,
               borderColor: Colors.dark.border,
-              shadowColor: '#000',
+              shadowColor: Platform.OS === 'android' ? 'transparent' : '#000',
               shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.2,
-              shadowRadius: 4,
-              elevation: 3,
+              shadowOpacity: Platform.OS === 'android' ? 0 : 0.2,
+              shadowRadius: Platform.OS === 'android' ? 0 : 4,
+              elevation: Platform.OS === 'android' ? 0 : 3,
             }
           ]}>
             <Text style={isDark ? styles.botBubbleTextDark : styles.botBubbleText}>
@@ -398,7 +388,7 @@ const AssistantScreen = () => {
             style={[
               styles.bubblePage,
               { marginBottom: pageBottomMargin },
-              isDark && { shadowOpacity: 0.25 },
+              isDark && { shadowOpacity: Platform.OS === 'android' ? 0 : 0.25 },
             ]}
           >
         <KeyboardAvoidingView
@@ -441,7 +431,6 @@ const AssistantScreen = () => {
                   activeOpacity={0.9}
                 >
                   <View style={styles.quickStartChipInner}>
-                    <action.icon size={18} color={isDark ? '#5eead4' : '#0f766e'} />
                     <Text style={[styles.quickStartText, isDark && { color: '#f8fafc' }]}>{action.label}</Text>
                   </View>
                 </TouchableOpacity>
@@ -525,12 +514,12 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(20,184,166,0.2)',
-    shadowColor: '#0f766e',
+    borderColor: Platform.OS === 'android' ? '#2dd4bf33' : 'rgba(20,184,166,0.2)',
+    shadowColor: Platform.OS === 'android' ? 'transparent' : '#0f766e',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOpacity: Platform.OS === 'android' ? 0 : 0.1,
+    shadowRadius: Platform.OS === 'android' ? 0 : 16,
+    elevation: Platform.OS === 'android' ? 0 : 8,
   },
   keyboardAvoidingView: {
     flex: 1,
@@ -573,14 +562,14 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   quickStartChipLight: {
-    backgroundColor: 'rgba(230,244,234,0.95)',
+    backgroundColor: Platform.OS === 'android' ? '#e6f4ea' : 'rgba(230,244,234,0.95)',
     borderWidth: 1,
-    borderColor: 'rgba(16,185,129,0.28)',
+    borderColor: Platform.OS === 'android' ? '#6ee7b7' : 'rgba(16,185,129,0.28)',
   },
   quickStartChipDark: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: Platform.OS === 'android' ? '#0f172a' : 'rgba(255,255,255,0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(45,212,191,0.22)',
+    borderColor: Platform.OS === 'android' ? '#155e63' : 'rgba(45,212,191,0.22)',
   },
   quickStartChipInner: {
     flexDirection: 'row',
@@ -619,14 +608,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   botAvatarLight: {
-    backgroundColor: 'rgba(204,251,241,0.95)',
+    backgroundColor: Platform.OS === 'android' ? '#ccfbf1' : 'rgba(204,251,241,0.95)',
     borderWidth: 1,
-    borderColor: 'rgba(20,184,166,0.35)',
+    borderColor: Platform.OS === 'android' ? '#5eead4' : 'rgba(20,184,166,0.35)',
   },
   botAvatarDark: {
-    backgroundColor: 'rgba(13,148,136,0.22)',
+    backgroundColor: Platform.OS === 'android' ? '#0f172a' : 'rgba(13,148,136,0.22)',
     borderWidth: 1,
-    borderColor: 'rgba(45,212,191,0.35)',
+    borderColor: Platform.OS === 'android' ? '#155e63' : 'rgba(45,212,191,0.35)',
   },
   bubble: {
     padding: 15,
@@ -673,12 +662,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(20,184,166,0.18)',
-    backgroundColor: 'rgba(236,253,245,0.45)',
+    borderTopColor: Platform.OS === 'android' ? '#99f6e4' : 'rgba(20,184,166,0.18)',
+    backgroundColor: Platform.OS === 'android' ? '#ecfdf5' : 'rgba(236,253,245,0.45)',
   },
   inputContainerDark: {
-    borderTopColor: 'rgba(45,212,191,0.15)',
-    backgroundColor: 'rgba(0,0,0,0.15)',
+    borderTopColor: Platform.OS === 'android' ? '#134e4a' : 'rgba(45,212,191,0.15)',
+    backgroundColor: Platform.OS === 'android' ? '#020617' : 'rgba(0,0,0,0.15)',
   },
   input: {
     flex: 1,

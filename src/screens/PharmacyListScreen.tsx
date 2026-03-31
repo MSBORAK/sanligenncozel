@@ -1,5 +1,5 @@
-import React, { useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking } from 'react-native';
+import React, { useMemo, useCallback, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking, ScrollView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -21,10 +21,28 @@ const PHARM = {
   accentDark: '#fb7185',
 } as const;
 
+const DISTRICT_FILTERS = [
+  'Tümü',
+  'Merkez',
+  'Harran',
+  'Akçakale',
+  'Suruç',
+  'Birecik',
+  'Bozova',
+  'Ceylanpınar',
+  'Halfeti',
+  'Hilvan',
+  'Siverek',
+  'Viranşehir',
+] as const;
+
+type DistrictFilter = typeof DISTRICT_FILTERS[number];
+
 const PharmacyListScreen = () => {
   const { mode } = useThemeMode();
   const isDark = mode === 'dark';
   const insets = useSafeAreaInsets();
+  const [selectedDistrict, setSelectedDistrict] = useState<DistrictFilter>('Tümü');
 
   const handleDirections = useCallback((pharmacy: Pharmacy) => {
     const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(pharmacy.address)}`;
@@ -41,7 +59,35 @@ const PharmacyListScreen = () => {
     return [...nöbetçi, ...diğer];
   }, []);
 
-  const renderPharmacyItem = useCallback(({ item }: { item: Pharmacy }) => (
+  const detectDistrict = useCallback((address: string): DistrictFilter => {
+    const value = address.toLocaleLowerCase('tr-TR');
+    if (value.includes('harran')) return 'Harran';
+    if (value.includes('akçakale') || value.includes('akcakale')) return 'Akçakale';
+    if (value.includes('suruç') || value.includes('suruc')) return 'Suruç';
+    if (value.includes('birecik')) return 'Birecik';
+    if (value.includes('bozova')) return 'Bozova';
+    if (value.includes('ceylanpınar') || value.includes('ceylanpinar')) return 'Ceylanpınar';
+    if (value.includes('halfeti') || value.includes('halefeti')) return 'Halfeti';
+    if (value.includes('hilvan')) return 'Hilvan';
+    if (value.includes('siverek')) return 'Siverek';
+    if (value.includes('viranşehir') || value.includes('viransehir')) return 'Viranşehir';
+    if (value.includes('karaköprü') || value.includes('karakopru') || value.includes('haliliye') || value.includes('eyyübiye') || value.includes('merkez')) {
+      return 'Merkez';
+    }
+    return 'Merkez';
+  }, []);
+
+  const pharmacyDataWithDistrict = useMemo(
+    () => pharmacyData.map((p) => ({ ...p, district: detectDistrict(p.address) })),
+    [pharmacyData, detectDistrict]
+  );
+
+  const filteredPharmacies = useMemo(() => {
+    if (selectedDistrict === 'Tümü') return pharmacyDataWithDistrict;
+    return pharmacyDataWithDistrict.filter((p) => p.district === selectedDistrict);
+  }, [pharmacyDataWithDistrict, selectedDistrict]);
+
+  const renderPharmacyItem = useCallback(({ item }: { item: Pharmacy & { district: DistrictFilter } }) => (
     <TouchableOpacity
       style={[
         styles.pharmacyCard,
@@ -84,6 +130,7 @@ const PharmacyListScreen = () => {
             {item.address}
           </Text>
         </View>
+        <Text style={[styles.districtText, isDark && { color: PHARM.iconDark }]}>{item.district}</Text>
         <View style={styles.distanceRow}>
           <Text style={[styles.distance, isDark && { color: PHARM.accentDark }]}>{item.distance.toFixed(1)} km</Text>
           <TouchableOpacity style={styles.phoneButton} onPress={() => handleCall(item.phone)} activeOpacity={0.7}>
@@ -106,7 +153,7 @@ const PharmacyListScreen = () => {
     </TouchableOpacity>
   ), [isDark, handleCall, handleDirections]);
 
-  const nöbetçiCount = useMemo(() => pharmacyData.filter(p => p.isOnDuty).length, [pharmacyData]);
+  const nöbetçiCount = useMemo(() => filteredPharmacies.filter(p => p.isOnDuty).length, [filteredPharmacies]);
   const listBottomPad = Math.max(insets.bottom, 20);
 
   return (
@@ -122,11 +169,13 @@ const PharmacyListScreen = () => {
         style={[styles.header, { paddingTop: insets.top + 16 }]}
       >
         <Text style={styles.headerTitle}>Nöbetçi Eczaneler</Text>
-        <Text style={styles.headerSubtitle}>{nöbetçiCount} nöbetçi eczane bulundu</Text>
+        <Text style={styles.headerSubtitle}>
+          {selectedDistrict === 'Tümü' ? 'Tum ilceler' : selectedDistrict} · {nöbetçiCount} nöbetçi eczane
+        </Text>
       </LinearGradient>
 
       <FlatList
-        data={pharmacyData}
+        data={filteredPharmacies}
         renderItem={renderPharmacyItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[styles.listContent, { paddingBottom: listBottomPad }]}
@@ -135,6 +184,41 @@ const PharmacyListScreen = () => {
         maxToRenderPerBatch={6}
         windowSize={7}
         removeClippedSubviews
+        ListHeaderComponent={
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterRow}
+          >
+            {DISTRICT_FILTERS.map((district) => {
+              const active = selectedDistrict === district;
+              return (
+                <TouchableOpacity
+                  key={district}
+                  style={[
+                    styles.filterChip,
+                    active
+                      ? (isDark ? styles.filterChipActiveDark : styles.filterChipActive)
+                      : (isDark ? styles.filterChipDark : styles.filterChipLight),
+                  ]}
+                  onPress={() => setSelectedDistrict(district)}
+                  activeOpacity={0.85}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      active
+                        ? styles.filterChipTextActive
+                        : (isDark ? styles.filterChipTextDark : styles.filterChipTextLight),
+                    ]}
+                  >
+                    {district}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        }
       />
     </View>
   );
@@ -164,6 +248,45 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 20,
   },
+  filterRow: {
+    paddingBottom: 12,
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  filterChipLight: {
+    backgroundColor: '#fff',
+    borderColor: 'rgba(190, 24, 93, 0.16)',
+  },
+  filterChipDark: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderColor: 'rgba(251,113,133,0.24)',
+  },
+  filterChipActive: {
+    backgroundColor: '#fbcfe8',
+    borderColor: '#ec4899',
+  },
+  filterChipActiveDark: {
+    backgroundColor: 'rgba(251,113,133,0.22)',
+    borderColor: '#fb7185',
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  filterChipTextLight: {
+    color: '#9f1239',
+  },
+  filterChipTextDark: {
+    color: '#fda4af',
+  },
+  filterChipTextActive: {
+    color: '#831843',
+  },
   pharmacyCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -171,11 +294,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     padding: 15,
     marginBottom: 15,
-    shadowColor: PHARM.rose800,
+    shadowColor: Platform.OS === 'android' ? 'transparent' : PHARM.rose800,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
+    shadowOpacity: Platform.OS === 'android' ? 0 : 0.08,
+    shadowRadius: Platform.OS === 'android' ? 0 : 12,
+    elevation: Platform.OS === 'android' ? 0 : 3,
   },
   iconContainer: {
     width: 50,
@@ -224,6 +347,14 @@ const styles = StyleSheet.create({
     color: DribbbleColors.textSecondary,
     marginLeft: 4,
     flex: 1,
+  },
+  districtText: {
+    marginTop: -1,
+    marginBottom: 6,
+    marginLeft: 18,
+    fontSize: 11,
+    fontWeight: '700',
+    color: PHARM.rose700,
   },
   distanceRow: {
     flexDirection: 'row',
