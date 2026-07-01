@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,8 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { ArrowLeft, Send, Camera, X, RefreshCw, Heart, Reply } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -33,7 +34,7 @@ const SnapColors = {
   white: '#FFFFFF',
   gray: '#8E8E93',
   lightGray: '#F2F2F7',
-  blue: '#0FADFF',
+  blue: '#FF4500',
   red: '#FF2D55',
   // Dark mode colors
   darkBg: '#000000',
@@ -74,6 +75,8 @@ const ChatScreen = () => {
   const isDark = mode === 'dark';
   
   const [messages, setMessages] = useState<Message[]>([]);
+  /** Ters FlatList için: en yeni mesaj index 0'da (yani dipte) olacak şekilde */
+  const invertedMessages = useMemo(() => [...messages].slice().reverse(), [messages]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -94,7 +97,6 @@ const ChatScreen = () => {
   const typingIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingSendThrottleRef = useRef(0);
   const messageChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const swipeableRefs = useRef<Map<string, React.ElementRef<typeof Swipeable> | null>>(new Map());
   const { width: windowWidth } = useWindowDimensions();
   /** Swipeable + yüzde maxWidth bazen ~0 genişlik hesaplanmasına yol açıyor; sabit üst sınır metni yatay sarar */
   const maxBubbleWidth = Math.min(windowWidth * 0.78, 340);
@@ -157,9 +159,12 @@ const ChatScreen = () => {
                 if (prev.some(msg => msg.id === newMsg.id)) return prev;
                 return [...prev, newMsg];
               });
-              setTimeout(() => {
-                flatListRef.current?.scrollToEnd({ animated: true });
-              }, 100);
+              // Ters listede en yeni mesaj zaten dipte belirir; kendi mesajımızda dibe (offset 0) in
+              if (newMsg.sender_id === currentUserId) {
+                setTimeout(() => {
+                  flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+                }, 100);
+              }
               if (newMsg.sender_id !== currentUserId) {
                 supabase.rpc('mark_messages_as_read', {
                   p_conversation_id: conversationId,
@@ -239,15 +244,34 @@ const ChatScreen = () => {
 
   const toggleMessageHeart = useCallback(
     async (messageId: string) => {
+      if (!currentUserId) return;
+      // Optimistik güncelleme — UI anında tepki verir
+      setMessages(prev => prev.map(m => {
+        if (m.id !== messageId) return m;
+        const ids = m.heart_user_ids ?? [];
+        const liked = ids.includes(currentUserId);
+        return {
+          ...m,
+          heart_user_ids: liked ? ids.filter(id => id !== currentUserId) : [...ids, currentUserId],
+        };
+      }));
       try {
         const { error } = await supabase.rpc('toggle_message_heart', { p_message_id: messageId });
         if (error) throw error;
-      } catch (e: any) {
-        const msg = e?.message || 'Kalp güncellenemedi';
-        Alert.alert('Hata', msg);
+      } catch {
+        // Hata olursa geri al
+        setMessages(prev => prev.map(m => {
+          if (m.id !== messageId) return m;
+          const ids = m.heart_user_ids ?? [];
+          const liked = ids.includes(currentUserId);
+          return {
+            ...m,
+            heart_user_ids: liked ? ids.filter(id => id !== currentUserId) : [...ids, currentUserId],
+          };
+        }));
       }
     },
-    []
+    [currentUserId]
   );
 
   const getOrCreateConversation = async (user1Id: string, user2Id: string) => {
@@ -280,11 +304,8 @@ const ChatScreen = () => {
 
       if (error) throw error;
       if (data) {
+        // Ters (inverted) liste otomatik olarak en yeni mesajda (dipte) açılır — ekstra scroll gerekmez
         setMessages(data);
-        // Mesajlar yüklendikten sonra en alta scroll
-        setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: false });
-        }, 100);
       }
 
       // Mesajları okundu olarak işaretle
@@ -346,7 +367,7 @@ const ChatScreen = () => {
           if (prev.some(msg => msg.id === data.id)) return prev;
           return [...prev, data as Message];
         });
-        flatListRef.current?.scrollToEnd({ animated: true });
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
       }, 200);
     } catch (err: any) {
       const detail = err?.message || err?.details || JSON.stringify(err) || 'Bilinmeyen hata';
@@ -490,7 +511,7 @@ const ChatScreen = () => {
     );
   };
 
-  const renderMessage = ({ item }: { item: Message }) => {
+  const renderMessage = useCallback(({ item }: { item: Message }) => {
     const isMe = item.sender_id === currentUserId;
     const isSnap = item.is_snap && item.image_url;
     /** Kıvılcım tepkisi: metin + küçük görsel (is_snap değil, sadece önizleme URL'i) */
@@ -698,7 +719,8 @@ const ChatScreen = () => {
         {heartMeta(item, isMe)}
       </View>
     );
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId, isDark, maxBubbleWidth, params.userAvatar, toggleMessageHeart, setReplyingTo, setPreviewImageUri]);
 
   const renderReplySwipeAction = useCallback(
     () => (
@@ -752,29 +774,25 @@ const ChatScreen = () => {
     );
   };
 
-  /** Sağa kaydırınca yanıt (WhatsApp gibi): sol aksiyon paneli açılır → RNGH onSwipeableOpen direction 'left' */
+  /** Sağa kaydırınca yanıt (WhatsApp gibi) — ReanimatedSwipeable UI-thread'de çalışır, akıcı */
   const wrapSwipeable = (item: Message, row: React.ReactElement) => (
-    <Swipeable
-      ref={(el) => {
-        if (el) swipeableRefs.current.set(item.id, el);
-        else swipeableRefs.current.delete(item.id);
-      }}
-      friction={2}
-      overshootRight={false}
+    <ReanimatedSwipeable
+      friction={1}
+      leftThreshold={28}
       overshootLeft={false}
+      overshootFriction={8}
+      dragOffsetFromLeftEdge={12}
       containerStyle={styles.swipeableRowContainer}
       childrenContainerStyle={styles.swipeableRowChildren}
       renderLeftActions={renderReplySwipeAction}
-      onSwipeableOpen={(direction) => {
+      onSwipeableOpen={(direction, swipeable: SwipeableMethods) => {
         if (direction !== 'left') return;
         setReplyingTo(item);
-        requestAnimationFrame(() => {
-          swipeableRefs.current.get(item.id)?.close();
-        });
+        requestAnimationFrame(() => swipeable.close());
       }}
     >
       {row}
-    </Swipeable>
+    </ReanimatedSwipeable>
   );
 
   return (
@@ -818,15 +836,19 @@ const ChatScreen = () => {
         ) : (
           <FlatList
             ref={flatListRef}
-            data={messages}
+            data={invertedMessages}
             renderItem={renderMessage}
             keyExtractor={(item) => item.id}
+            inverted
             contentContainerStyle={styles.messagesList}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
-            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+            removeClippedSubviews={false}
+            windowSize={10}
+            maxToRenderPerBatch={12}
+            initialNumToRender={15}
             ListEmptyComponent={
-              <View style={styles.emptyState}>
+              <View style={[styles.emptyState, { transform: [{ scaleY: -1 }] }]}>
                 <Text style={[styles.emptyStateText, isDark && styles.emptyStateTextDark]}>
                   {params.userName} ile sohbete başla! 👋
                 </Text>
@@ -980,10 +1002,10 @@ const styles = StyleSheet.create({
   },
   root: {
     flex: 1,
-    backgroundColor: SnapColors.white,
+    backgroundColor: '#FFF8F5',
   },
   rootDark: {
-    backgroundColor: SnapColors.darkBg,
+    backgroundColor: '#0A0200',
   },
   container: {
     flex: 1,
@@ -994,12 +1016,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: SnapColors.lightGray,
-    backgroundColor: SnapColors.white,
+    borderBottomColor: 'rgba(255,69,0,0.1)',
+    backgroundColor: '#FFF8F5',
   },
   headerDark: {
-    backgroundColor: SnapColors.darkCard,
-    borderBottomColor: SnapColors.darkBorder,
+    backgroundColor: '#130500',
+    borderBottomColor: 'rgba(255,69,0,0.15)',
   },
   backButton: {
     marginRight: 12,
@@ -1145,12 +1167,12 @@ const styles = StyleSheet.create({
   },
   inputOuter: {
     borderTopWidth: 1,
-    borderTopColor: SnapColors.lightGray,
-    backgroundColor: SnapColors.white,
+    borderTopColor: 'rgba(255,69,0,0.1)',
+    backgroundColor: '#FFF8F5',
   },
   inputOuterDark: {
-    borderTopColor: SnapColors.darkBorder,
-    backgroundColor: SnapColors.darkCard,
+    borderTopColor: 'rgba(255,69,0,0.15)',
+    backgroundColor: '#130500',
   },
   replyBar: {
     flexDirection: 'row',
@@ -1176,7 +1198,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   replyBarLabelDark: {
-    color: '#5ac8fa',
+    color: '#FF9166',
   },
   replyBarText: {
     fontSize: 13,
@@ -1287,16 +1309,20 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   myBubble: {
-    backgroundColor: SnapColors.blue,
+    backgroundColor: '#FF4500',
     borderBottomRightRadius: 4,
   },
   theirBubble: {
-    backgroundColor: SnapColors.lightGray,
+    backgroundColor: '#fff',
     borderBottomLeftRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,69,0,0.12)',
   },
   theirBubbleDark: {
-    backgroundColor: SnapColors.darkCard,
+    backgroundColor: '#1C0800',
     borderBottomLeftRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,69,0,0.18)',
   },
   messageText: {
     fontSize: 15,
@@ -1388,10 +1414,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 12,
-    backgroundColor: SnapColors.white,
+    backgroundColor: '#FFF8F5',
   },
   inputContainerDark: {
-    backgroundColor: SnapColors.darkCard,
+    backgroundColor: '#130500',
   },
   cameraButton: {
     width: 40,
@@ -1402,17 +1428,20 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    backgroundColor: SnapColors.lightGray,
+    backgroundColor: '#fff',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 10,
     fontSize: 15,
     maxHeight: 100,
-    color: SnapColors.black,
+    color: '#1a0800',
+    borderWidth: 1,
+    borderColor: 'rgba(255,69,0,0.15)',
   },
   inputDark: {
-    backgroundColor: SnapColors.darkBorder,
-    color: SnapColors.darkText,
+    backgroundColor: '#1C0800',
+    color: '#fff',
+    borderColor: 'rgba(255,69,0,0.2)',
   },
   sendButton: {
     width: 40,

@@ -13,7 +13,7 @@ module.exports = function(api) {
           }
         }
       ],
-      'react-native-reanimated/plugin', // Must be last
+      'react-native-worklets/plugin', // Reanimated 4 — worklet'ler UI-thread'de çalışsın diye EN SONDA
     ]
   };
 };

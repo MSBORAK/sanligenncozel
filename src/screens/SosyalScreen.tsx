@@ -52,6 +52,10 @@ import {
   QrCode,
   RefreshCw,
   ArrowLeft,
+  Zap,
+  ZapOff,
+  Grid3x3,
+  Timer,
 } from 'lucide-react-native';
 import MapView, { PROVIDER_DEFAULT, PROVIDER_GOOGLE, Heatmap, Marker } from 'react-native-maps';
 import { PinchGestureHandler, State } from 'react-native-gesture-handler';
@@ -196,26 +200,26 @@ export const MOCK_HEAT_POINTS: HeatPoint[] = [
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const SNAP_EXPIRES_MS = 4 * 60 * 60 * 1000; // 4 saat
 
-/** Gündüz / açık kartlarda sıcak vurgu (Gece modunda kullanma — gece için NIGHT) */
+/** Kıvılcım — ateş/spark aksanı */
 const AMBER = {
-  vivid:   '#f59e0b',
-  warm:    '#fbbf24',
-  glow:    'rgba(245,158,11,0.25)',
-  border:  'rgba(245,158,11,0.35)',
-  text:    '#fcd34d',
-  light:   'rgba(252,211,77,0.12)',
-  deep:    'rgba(120,53,15,0.4)',
+  vivid:   '#FF4500',
+  warm:    '#FF6B35',
+  glow:    'rgba(255,69,0,0.25)',
+  border:  'rgba(255,69,0,0.35)',
+  text:    '#FF9166',
+  light:   'rgba(255,69,0,0.12)',
+  deep:    'rgba(120,20,0,0.4)',
 };
 
-/** Gece modu — turuncu yok, buzlu mavi/cyan */
+/** Gece modu — kıvılcım spark */
 const NIGHT = {
-  vivid:   '#0ea5e9',
-  warm:    '#7dd3fc',
-  glow:    'rgba(14,165,233,0.22)',
-  border:  'rgba(56,189,248,0.32)',
-  text:    '#7dd3fc',
-  light:   'rgba(125,211,252,0.12)',
-  deep:    'rgba(12,74,110,0.45)',
+  vivid:   '#FF4500',
+  warm:    '#FF6B35',
+  glow:    'rgba(255,69,0,0.22)',
+  border:  'rgba(255,107,53,0.32)',
+  text:    '#FF9166',
+  light:   'rgba(255,69,0,0.12)',
+  deep:    'rgba(120,20,0,0.45)',
 };
 
 const DARK = {
@@ -227,8 +231,8 @@ const DARK = {
   textSub:   'rgba(241,245,249,0.55)',
   glass:     'rgba(6, 12, 26, 0.65)',
   tabBg:     'rgba(255,255,255,0.06)',
-  tabActiveBg: 'rgba(56,189,248,0.18)',
-  accentSoft: 'rgba(56,189,248,0.12)',
+  tabActiveBg: 'rgba(255,69,0,0.18)',
+  accentSoft: 'rgba(255,69,0,0.12)',
 };
 
 const LIGHT = {
@@ -240,10 +244,10 @@ const LIGHT = {
   textSub: '#64748b',
   glass: 'rgba(255,255,255,0.72)',
   card: '#ffffff',
-  amberSoft: 'rgba(96,165,250,0.10)',
-  amberBorder: 'rgba(96,165,250,0.16)',
-  accent: '#60a5fa',
-  accentSoft: 'rgba(96,165,250,0.10)',
+  amberSoft: 'rgba(255,69,0,0.10)',
+  amberBorder: 'rgba(255,69,0,0.16)',
+  accent: '#FF4500',
+  accentSoft: 'rgba(255,69,0,0.10)',
   tabBg: 'rgba(255,255,255,0.92)',
   tabActiveBg: '#ffffff',
 };
@@ -259,14 +263,14 @@ function getExpiryProgress(snap: SnapPost, referenceTime: Date = new Date()): nu
   return Math.min(1, Math.max(0, elapsed / total));
 }
 
-/** Kalan süreyi "3s 42d" formatında gösterir */
+/** Kalan süreyi "3sa 42dk" formatında gösterir */
 function formatTimeLeft(snap: SnapPost, referenceTime: Date = new Date()): string {
   const msLeft = snap.expires_at.getTime() - referenceTime.getTime();
   if (msLeft <= 0) return 'Süre doldu';
   const h = Math.floor(msLeft / 3600000);
   const m = Math.floor((msLeft % 3600000) / 60000);
-  if (h > 0) return `${h}s ${m}d`;
-  return `${m}d`;
+  if (h > 0) return `${h}sa ${m}dk`;
+  return `${m}dk`;
 }
 
 /** Grup kıvılcımı: aynı anda 2–5 arkadaş */
@@ -397,38 +401,39 @@ function SnapCard({ snap, onPress, isDark }: SnapCardProps) {
           ],
           { borderColor: theme.border, backgroundColor: theme.surface },
         ]}>
-          {/* Fotoğraf Alanı */}
+          {/* Fotoğraf Alanı — kullanıcı bilgisi overlay içinde */}
           <View style={[styles.snapImageContainer, { backgroundColor: isDark ? '#1a1f2e' : '#eef2ff' }]}>
             <SnapMediaThumb uri={snap.imageUri} isVideo={snap.isVideo} style={styles.snapImage} />
-            {/* Kalan süre etiketi */}
-            <View style={[styles.snapTimeTag, { backgroundColor: isDark ? 'rgba(6,12,26,0.7)' : 'rgba(255,255,255,0.86)', borderColor: isDark ? NIGHT.border : LIGHT.border }]}>
-              <Clock color={isDark ? NIGHT.warm : LIGHT.accent} size={10} strokeWidth={2.5} />
-              <Text style={[styles.snapTimeText, { color: isDark ? NIGHT.warm : LIGHT.accent }]}>{timeLeft}</Text>
-            </View>
-            {/* Alt gradient overlay */}
-            <LinearGradient
-              colors={isDark ? ['transparent', 'rgba(6,12,26,0.78)'] : ['transparent', 'rgba(248,250,252,0.22)']}
-              style={styles.snapImageOverlay}
-            />
-          </View>
 
-          {/* Kullanıcı Bilgisi */}
-            <View style={[styles.snapFooter, { backgroundColor: theme.surface }]}>
-            {/* Avatar + Countdown Ring */}
-            <View style={styles.snapAvatarWrapper}>
-              <CountdownRing progress={progress} size={46} seen={snap.seen} isDark={isDark} />
-              <View style={[styles.snapAvatar, { backgroundColor: snap.user.avatarColor + '33' }]}>
-                <Text style={[styles.snapAvatarText, { color: snap.user.avatarColor }]}>
-                  {snap.user.name.charAt(0)}
-                </Text>
-              </View>
+            {/* Kalan süre etiketi — üst sağ */}
+            <View style={[styles.snapTimeTag, { backgroundColor: 'rgba(0,0,0,0.45)', borderColor: 'rgba(255,255,255,0.15)' }]}>
+              <Clock color="#fff" size={10} strokeWidth={2.5} />
+              <Text style={[styles.snapTimeText, { color: '#fff' }]}>{timeLeft}</Text>
             </View>
-            {/* İsim + Lokasyon */}
-            <View style={styles.snapUserInfo}>
-              <Text style={[styles.snapUserName, { color: theme.text }]}>{snap.user.name}</Text>
-              <View style={styles.snapLocationRow}>
-                <MapPin color={isDark ? NIGHT.vivid : LIGHT.accent} size={10} strokeWidth={2.5} />
-                <Text style={[styles.snapLocationText, { color: theme.textSub }]}>{snap.location.label}</Text>
+
+            {/* Alt gradient — kullanıcı bilgisi için zemin */}
+            <LinearGradient
+              colors={['transparent', 'rgba(0,0,0,0.72)']}
+              style={[styles.snapImageOverlay, { justifyContent: 'flex-end', paddingHorizontal: 8, paddingBottom: 8 }]}
+              pointerEvents="none"
+            />
+
+            {/* Kullanıcı Bilgisi — fotoğrafın üzerinde */}
+            <View style={styles.snapOverlayFooter}>
+              <View style={styles.snapAvatarWrapper}>
+                <CountdownRing progress={progress} size={34} seen={snap.seen} isDark={true} />
+                <View style={[styles.snapAvatar, { width: 28, height: 28, borderRadius: 14, backgroundColor: snap.user.avatarColor + '44' }]}>
+                  <Text style={[styles.snapAvatarText, { color: '#fff', fontSize: 12 }]}>
+                    {snap.user.name.charAt(0)}
+                  </Text>
+                </View>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.snapOverlayName} numberOfLines={1}>{snap.user.name}</Text>
+                <View style={styles.snapLocationRow}>
+                  <MapPin color="rgba(255,255,255,0.7)" size={9} strokeWidth={2.5} />
+                  <Text style={styles.snapOverlayLocation} numberOfLines={1}>{snap.location.label}</Text>
+                </View>
               </View>
             </View>
           </View>
@@ -443,10 +448,10 @@ function SnapCard({ snap, onPress, isDark }: SnapCardProps) {
 // Aynı kullanıcının tüm snap'leri tek kart içinde
 // ─────────────────────────────────────────────
 
-function SnapGroupCard({ group, onPress, isDark, currentUserId, onAvatarPress }: { 
-  group: SnapGroup; 
-  onPress: (snap: SnapPost) => void; 
-  isDark: boolean; 
+function SnapGroupCard({ group, onPress, isDark, currentUserId, onAvatarPress }: {
+  group: SnapGroup;
+  onPress: (snap: SnapPost) => void;
+  isDark: boolean;
   currentUserId?: string;
   onAvatarPress?: (userId: string) => void;
 }) {
@@ -459,8 +464,8 @@ function SnapGroupCard({ group, onPress, isDark, currentUserId, onAvatarPress }:
   const progress = getExpiryProgress(activeSnap);
   const timeLeft = formatTimeLeft(activeSnap);
   
-  // Kart genişliği - 2 kolon için
-  const cardWidth = (SCREEN_W - 48) / 2; // 48 = padding (16*2) + gap (16)
+  // Kart genişliği - 2 kolon için (%48 * ekran)
+  const cardWidth = SCREEN_W * 0.48;
 
   return (
     <View style={[
@@ -498,12 +503,6 @@ function SnapGroupCard({ group, onPress, isDark, currentUserId, onAvatarPress }:
           ))}
         </ScrollView>
 
-        {/* Kalan süre etiketi */}
-        <View style={[styles.snapTimeTag, { backgroundColor: isDark ? 'rgba(6,12,26,0.7)' : 'rgba(255,255,255,0.86)', borderColor: isDark ? NIGHT.border : LIGHT.border }]}>
-          <Clock color={isDark ? NIGHT.warm : LIGHT.accent} size={10} strokeWidth={2.5} />
-          <Text style={[styles.snapTimeText, { color: isDark ? NIGHT.warm : LIGHT.accent }]}>{timeLeft}</Text>
-        </View>
-
         {/* Görüldü işareti */}
         {group.snaps[activeIdx]?.viewedBy?.includes(currentUserId || '') && (
           <View style={[styles.viewedBadge, { backgroundColor: isDark ? 'rgba(34,197,94,0.9)' : 'rgba(34,197,94,0.85)' }]}>
@@ -525,39 +524,45 @@ function SnapGroupCard({ group, onPress, isDark, currentUserId, onAvatarPress }:
           </View>
         )}
 
-        {/* Alt gradient */}
+        {/* Alt gradient — kullanıcı bilgisi için zemin */}
         <LinearGradient
-          colors={isDark ? ['transparent', 'rgba(6,12,26,0.78)'] : ['transparent', 'rgba(248,250,252,0.22)']}
+          colors={['transparent', 'rgba(0,0,0,0.72)']}
           style={styles.snapImageOverlay}
           pointerEvents="none"
         />
-      </View>
 
-      {/* Footer */}
-      <View style={[styles.snapFooter, { backgroundColor: theme.surface }]}>
-        <TouchableOpacity 
-          style={styles.snapAvatarWrapper}
-          onPress={() => onAvatarPress?.(group.userId)}
-        >
-          <CountdownRing progress={progress} size={38} seen={!group.hasUnseen} isDark={isDark} />
-          <View style={[styles.snapAvatar, { width: 32, height: 32, borderRadius: 16, backgroundColor: group.avatarColor + '33' }]}>
-            {group.snaps[0]?.user?.avatarUrl ? (
-              <Image
-                source={{ uri: processImageUrl(group.snaps[0].user.avatarUrl) || undefined }}
-                style={{ width: '100%', height: '100%', borderRadius: 16 }}
-              />
-            ) : (
-              <Text style={[styles.snapAvatarText, { color: group.avatarColor, fontSize: 14 }]}>
-                {group.userName.charAt(0)}
-              </Text>
-            )}
+        {/* Kullanıcı Bilgisi — fotoğrafın üzerinde */}
+        <View style={styles.snapOverlayFooter}>
+          <TouchableOpacity
+            style={styles.snapAvatarWrapper}
+            onPress={() => onAvatarPress?.(group.userId)}
+          >
+            <CountdownRing progress={progress} size={34} seen={!group.hasUnseen} isDark={true} />
+            <View style={[styles.snapAvatar, { width: 28, height: 28, borderRadius: 14, backgroundColor: group.avatarColor + '44' }]}>
+              {group.snaps[0]?.user?.avatarUrl ? (
+                <Image
+                  source={{ uri: processImageUrl(group.snaps[0].user.avatarUrl) || undefined }}
+                  style={{ width: 28, height: 28, borderRadius: 14 }}
+                />
+              ) : (
+                <Text style={[styles.snapAvatarText, { color: '#fff', fontSize: 12 }]}>
+                  {group.userName.charAt(0)}
+                </Text>
+              )}
+            </View>
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.snapOverlayName} numberOfLines={1}>{group.userName}</Text>
+            <Text style={styles.snapOverlayLocation} numberOfLines={1}>
+              {group.snaps.length > 1 ? `${activeIdx + 1}/${group.snaps.length}` : '@' + group.username}
+            </Text>
           </View>
-        </TouchableOpacity>
-        <View style={styles.snapUserInfo}>
-          <Text style={[styles.snapUserName, { color: theme.text, fontSize: 13 }]} numberOfLines={1}>{group.userName}</Text>
-          <Text style={[styles.snapLocationText, { color: theme.textSub, fontSize: 10 }]} numberOfLines={1}>
-            {group.snaps.length > 1 ? `${activeIdx + 1}/${group.snaps.length}` : '@' + group.username}
-          </Text>
+        </View>
+
+        {/* Kalan süre etiketi — en son çizilir ki her şeyin üstünde kalsın */}
+        <View style={[styles.snapTimeTag, { zIndex: 999, elevation: 40 }]} pointerEvents="none">
+          <Clock color="#fff" size={11} strokeWidth={2.5} />
+          <Text style={styles.snapTimeText}>{timeLeft}</Text>
         </View>
       </View>
     </View>
@@ -607,17 +612,23 @@ function RadarCompactCard({ isDark, onPress }: { isDark: boolean; onPress: () =>
 
   return (
     <TouchableOpacity activeOpacity={0.88} onPress={onPress} style={styles.radarCardOuter}>
-      <BlurView
-        intensity={isDark ? 22 : 30}
-        tint={isDark ? 'dark' : 'light'}
-        style={[styles.radarCardBlur, { borderColor: isDark ? NIGHT.border : 'rgba(96,165,250,0.22)', backgroundColor: isDark ? DARK.surface : LIGHT.surface }]}
+      <LinearGradient
+        colors={isDark
+          ? ['rgba(255,69,0,0.18)', 'rgba(30,8,0,0.95)']
+          : ['rgba(255,69,0,0.08)', 'rgba(255,255,252,0.97)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.radarCardBlur, { borderColor: isDark ? NIGHT.border : 'rgba(255,69,0,0.2)' }]}
       >
         {/* Sol: ikon + pulse */}
         <View style={styles.radarCardLeft}>
-          <Animated.View style={[styles.radarPulseRing, { transform: [{ scale: pulseAnim }], backgroundColor: isDark ? 'rgba(14,165,233,0.12)' : 'rgba(96,165,250,0.10)' }]} />
-          <View style={[styles.radarIconCircle, { backgroundColor: isDark ? NIGHT.glow : 'rgba(96,165,250,0.15)' }]}>
-            <Radio size={18} color={accentColor} strokeWidth={2} />
-          </View>
+          <Animated.View style={[styles.radarPulseRing, { transform: [{ scale: pulseAnim }], backgroundColor: 'rgba(255,69,0,0.18)' }]} />
+          <LinearGradient
+            colors={['#FF4500', '#FF6B35']}
+            style={styles.radarIconCircle}
+          >
+            <Radio size={18} color="#fff" strokeWidth={2} />
+          </LinearGradient>
         </View>
 
         {/* Orta: metin */}
@@ -625,7 +636,7 @@ function RadarCompactCard({ isDark, onPress }: { isDark: boolean; onPress: () =>
           <View style={styles.radarCardTitleRow}>
             <Text style={[styles.radarCardTitle, { color: theme.text }]}>Şehir Radarı</Text>
             <View style={styles.radarLiveDot} />
-            <Text style={[styles.radarLiveText, { color: isDark ? '#ef4444' : '#f97316' }]}>CANLI</Text>
+            <Text style={[styles.radarLiveText, { color: '#FF4500' }]}>CANLI</Text>
           </View>
           <Text style={[styles.radarCardSub, { color: theme.textSub }]}>
             Son 4 saatte {activeCount !== null ? `${activeCount} paylaşım` : 'yükleniyor...'}
@@ -635,14 +646,14 @@ function RadarCompactCard({ isDark, onPress }: { isDark: boolean; onPress: () =>
         {/* Sağ: mini ısı çubuğu */}
         <View style={styles.radarCardRight}>
           <LinearGradient
-            colors={isDark ? ['#22c55e', '#38bdf8', '#ef4444'] : ['#86efac', '#fbbf24', '#fb7185']}
+            colors={['#22c55e', '#FF6B35', '#FF4500']}
             style={styles.radarMiniBar}
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
           />
           <Text style={[styles.radarCardArrow, { color: accentColor }]}>›</Text>
         </View>
-      </BlurView>
+      </LinearGradient>
     </TouchableOpacity>
   );
 }
@@ -834,6 +845,10 @@ function FeedView({
       canView: true,
       snapList,
       initialIndex: initialIndex >= 0 ? initialIndex : 0,
+      userId: snap.userId,
+      userName: snap.user?.name ?? snap.user?.username ?? '',
+      isOwnSnap: snap.userId === currentUserId,
+      reactionsEnabled: true,
     });
   }, [filteredSnaps, navigation]);
   
@@ -924,41 +939,31 @@ function FeedHeader({
         style={{ marginTop: 12 }}
         contentContainerStyle={{ gap: 8 }}
       >
-        <TouchableOpacity
-          onPress={() => onFilterChange('everyone')}
-          style={{
-            paddingHorizontal: 20,
-            paddingVertical: 8,
-            borderRadius: 20,
-            backgroundColor: feedFilter === 'everyone' ? accentColor : (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'),
-          }}
-        >
-          <Text style={{
-            color: feedFilter === 'everyone' ? '#fff' : theme.textSub,
-            fontSize: 14,
-            fontWeight: '600',
-          }}>
-            Herkes
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          onPress={() => onFilterChange('friends')}
-          style={{
-            paddingHorizontal: 20,
-            paddingVertical: 8,
-            borderRadius: 20,
-            backgroundColor: feedFilter === 'friends' ? accentColor : (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'),
-          }}
-        >
-          <Text style={{
-            color: feedFilter === 'friends' ? '#fff' : theme.textSub,
-            fontSize: 14,
-            fontWeight: '600',
-          }}>
-            Arkadaşlar
-          </Text>
-        </TouchableOpacity>
+        {(['everyone', 'friends'] as const).map((f) => {
+          const active = feedFilter === f;
+          return (
+            <TouchableOpacity
+              key={f}
+              onPress={() => onFilterChange(f)}
+              style={{
+                paddingHorizontal: 20,
+                paddingVertical: 8,
+                borderRadius: 20,
+                backgroundColor: active ? accentColor : 'transparent',
+                borderWidth: 1.5,
+                borderColor: active ? accentColor : (isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.12)'),
+              }}
+            >
+              <Text style={{
+                color: active ? '#fff' : theme.textSub,
+                fontSize: 14,
+                fontWeight: '600',
+              }}>
+                {f === 'everyone' ? 'Herkes' : 'Arkadaşlar'}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -996,7 +1001,7 @@ function StreakStrip({
         paddingHorizontal: 14,
         borderWidth: 1,
         borderColor: isDark ? NIGHT.border : LIGHT.border,
-        backgroundColor: isDark ? 'rgba(56,189,248,0.1)' : 'rgba(96,165,250,0.08)',
+        backgroundColor: isDark ? 'rgba(255,69,0,0.1)' : 'rgba(255,69,0,0.06)',
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
@@ -1005,7 +1010,7 @@ function StreakStrip({
             width: 40,
             height: 40,
             borderRadius: 20,
-            backgroundColor: isDark ? NIGHT.glow : 'rgba(96,165,250,0.18)',
+            backgroundColor: isDark ? NIGHT.glow : 'rgba(255,69,0,0.12)',
             alignItems: 'center',
             justifyContent: 'center',
           }}>
@@ -1093,7 +1098,7 @@ function MessagesView({
         ]
       )}
     >
-      <View style={[styles.msgAvatar, { backgroundColor: isDark ? NIGHT.glow : 'rgba(96,165,250,0.15)' }]}>
+      <View style={[styles.msgAvatar, { backgroundColor: isDark ? NIGHT.glow : 'rgba(255,69,0,0.12)' }]}>
         {user.avatar_url ? (
           <Image source={{ uri: processImageUrl(user.avatar_url) ?? undefined }} style={styles.msgAvatarImg} />
         ) : (
@@ -1136,7 +1141,7 @@ function MessagesView({
       }}
       delayLongPress={400}
     >
-      <View style={[styles.msgAvatar, { backgroundColor: isDark ? NIGHT.glow : 'rgba(96,165,250,0.15)' }]}>
+      <View style={[styles.msgAvatar, { backgroundColor: isDark ? NIGHT.glow : 'rgba(255,69,0,0.12)' }]}>
         {conv.other_user.avatar_url ? (
           <Image source={{ uri: processImageUrl(conv.other_user.avatar_url) ?? undefined }} style={styles.msgAvatarImg} />
         ) : (
@@ -1174,7 +1179,7 @@ function MessagesView({
         <TouchableOpacity
           onPress={onShowRequests}
           activeOpacity={0.85}
-          style={[styles.requestsBanner, { backgroundColor: isDark ? 'rgba(56,189,248,0.14)' : 'rgba(96,165,250,0.12)', borderColor: isDark ? NIGHT.warm : LIGHT.accent }]}
+          style={[styles.requestsBanner, { backgroundColor: isDark ? 'rgba(255,69,0,0.14)' : 'rgba(255,69,0,0.09)', borderColor: isDark ? NIGHT.warm : LIGHT.accent }]}
         >
           <View style={[styles.requestsBadge, { backgroundColor: isDark ? NIGHT.vivid : LIGHT.accent }]}>
             <Text style={styles.requestsBadgeText}>{incomingRequests.length}</Text>
@@ -1412,7 +1417,7 @@ function RadarView() {
               height: 44,
               borderRadius: 22,
               borderWidth: 3,
-              borderColor: isDark ? '#0ea5e9' : '#f59e0b',
+              borderColor: isDark ? '#FF4500' : '#f59e0b',
               backgroundColor: isDark ? '#1e293b' : '#fff',
               overflow: 'hidden',
               shadowColor: '#000',
@@ -1491,12 +1496,14 @@ function RadarView() {
 
       {/* Üst Radar Başlığı */}
       <View style={styles.radarHeaderOverlay}>
-        <BlurView intensity={25} tint={isDark ? 'dark' : 'light'} style={styles.radarHeaderBlur}>
-          <Radio color={isDark ? NIGHT.warm : LIGHT.accent} size={16} strokeWidth={2} />
+        <BlurView intensity={30} tint={isDark ? 'dark' : 'light'} style={[styles.radarHeaderBlur, { borderColor: 'rgba(255,69,0,0.35)' }]}>
+          <LinearGradient colors={['#FF4500', '#FF6B35']} style={{ width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' }}>
+            <Radio color="#fff" size={15} strokeWidth={2.2} />
+          </LinearGradient>
           <Text style={[styles.radarHeaderText, { color: theme.text }]}>Şehir Radarı</Text>
           <View style={styles.radarLiveDot} />
           <Text style={styles.radarLiveText}>CANLI</Text>
-          {loading && <ActivityIndicator size="small" color={isDark ? NIGHT.warm : LIGHT.accent} style={{ marginLeft: 6 }} />}
+          {loading && <ActivityIndicator size="small" color="#FF4500" style={{ marginLeft: 6 }} />}
         </BlurView>
       </View>
 
@@ -1514,7 +1521,7 @@ function RadarView() {
           ) : null}
           <View style={styles.radarLegendBar}>
             <LinearGradient
-              colors={isDark ? ['#22c55e', '#38bdf8', '#ef4444'] : ['#86efac', '#fbbf24', '#fb7185']}
+              colors={['#22c55e', '#FF6B35', '#FF4500']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.radarLegendGradient}
@@ -1585,9 +1592,44 @@ export default function SosyalScreen() {
   const tabAnim = useRef(new Animated.Value(0)).current;
   const cameraScale = useRef(new Animated.Value(1)).current;
 
+  // Tepki state
+  const [reactionsEnabled, setReactionsEnabled] = useState(true);
+  const [reactionInput, setReactionInput] = useState('');
+  const [reactionSending, setReactionSending] = useState(false);
+  const REACTION_EMOJIS = ['🔥', '❤️', '😍', '😂', '👏', '⚡'];
+
   // Zoom state
   const [cameraZoom, setCameraZoom] = useState(0);
   const lastZoomRef = useRef(0);
+  const [flashMode, setFlashMode] = useState<'off' | 'auto' | 'on'>('off');
+  const [gridVisible, setGridVisible] = useState(false);
+  const [timerSec, setTimerSec] = useState<0 | 3 | 10>(0);
+  const [timerCountdown, setTimerCountdown] = useState<number | null>(null);
+  const [exposure, setExposure] = useState(0);
+  const exposurePanY = useRef(new Animated.Value(0)).current;
+  const exposurePanRef = useRef<any>(null);
+
+  const cycleFlash = useCallback(() => {
+    setFlashMode(f => f === 'off' ? 'auto' : f === 'auto' ? 'on' : 'off');
+  }, []);
+  const cycleTimer = useCallback(() => {
+    setTimerSec(t => t === 0 ? 3 : t === 3 ? 10 : 0);
+  }, []);
+
+  const handleTakePhotoWithTimer = useCallback(() => {
+    if (timerSec === 0) { handleTakePhoto(); return; }
+    setTimerCountdown(timerSec);
+    let count = timerSec;
+    const iv = setInterval(() => {
+      count -= 1;
+      setTimerCountdown(count);
+      if (count === 0) {
+        clearInterval(iv);
+        setTimerCountdown(null);
+        handleTakePhoto();
+      }
+    }, 1000);
+  }, [timerSec, handleTakePhoto]);
 
   const handlePinchGesture = useCallback((event: any) => {
     if (event.nativeEvent.state === State.ACTIVE) {
@@ -2053,7 +2095,7 @@ export default function SosyalScreen() {
       id: profile?.userId ?? 'me',
       name: profile?.name ?? 'Sen',
       username: profile?.username ?? 'me',
-      avatarColor: isDark ? '#38bdf8' : '#60a5fa',
+      avatarColor: isDark ? '#FF4500' : '#FF6B35',
       avatarUrl: profile?.avatarUrl,
     },
     imageUri: uri,
@@ -2658,12 +2700,12 @@ export default function SosyalScreen() {
     <View style={[styles.root, { backgroundColor: theme.bg }]}>
       {/* ── Arka plan dokusu ── */}
       <LinearGradient
-        colors={isDark ? ['#000000', '#000000', '#000000'] : ['#f8fafc', '#eff6ff', '#ffffff']}
+        colors={isDark ? ['#0A0200', '#0F0300', '#000000'] : ['#FFF8F5', '#FFF2EC', '#ffffff']}
         locations={[0, 0.6, 1]}
         style={StyleSheet.absoluteFill}
       />
       {/* Ambient ışık huzmesi */}
-      <View style={[styles.amberOrb, { backgroundColor: isDark ? 'rgba(14,165,233,0.08)' : 'rgba(96,165,250,0.10)' }]} />
+      <View style={[styles.amberOrb, { backgroundColor: isDark ? 'rgba(255,69,0,0.08)' : 'rgba(255,107,53,0.07)' }]} />
 
       {/* ── SafeArea + Header ── */}
       <SafeAreaView edges={['top']} style={styles.safeTop}>
@@ -2696,7 +2738,7 @@ export default function SosyalScreen() {
               )}
             </View>
             <View>
-              <Text style={[styles.headerTitle, { color: theme.text }]}>ŞanlıSosyal</Text>
+              <Text style={[styles.headerTitle, { color: theme.text }]}>⚡ Kıvılcım</Text>
               <Text style={[styles.headerSub, { color: isDark ? NIGHT.text : LIGHT.accent }]}>
                 {profile?.username ? `@${profile.username}` : 'Anlık · Doğal · Geçici'}
               </Text>
@@ -2794,7 +2836,7 @@ export default function SosyalScreen() {
         <View style={styles.sosyalOrbWrapper}>
           <Animated.View style={[styles.sosyalOrbPulse, { transform: [{ scale: cameraScale }] }]}>
             {/* Dış halka */}
-            <View style={[styles.sosyalOrbRing, { borderColor: isDark ? 'rgba(56,189,248,0.35)' : 'rgba(96,165,250,0.35)' }]} />
+            <View style={[styles.sosyalOrbRing, { borderColor: 'rgba(255,69,0,0.4)' }]} />
           </Animated.View>
           <TouchableOpacity
             onPress={handleCameraPress}
@@ -2802,7 +2844,7 @@ export default function SosyalScreen() {
             style={styles.sosyalOrbTouch}
           >
             <LinearGradient
-              colors={isDark ? ['#0c4a6e', '#0369a1', '#0ea5e9'] : ['#60a5fa', '#818cf8', '#a78bfa']}
+              colors={['#FF4500', '#FF6B35', '#FF9166']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.sosyalOrbGradient}
@@ -2891,7 +2933,7 @@ export default function SosyalScreen() {
           {!cameraPermission?.granted ? (
             /* İzin ekranı */
             <View style={[styles.permissionState, { backgroundColor: '#000' }]}>
-              <Camera color="#38bdf8" size={52} strokeWidth={1.5} />
+              <Camera color="#FF4500" size={52} strokeWidth={1.5} />
               <Text style={[styles.permissionTitle, { color: '#fff' }]}>Kamera izni gerekiyor</Text>
               <Text style={[styles.permissionSub, { color: 'rgba(255,255,255,0.5)' }]}>
                 Anlık foto ve kısa video çekilir; galeriye erişilmez.
@@ -3008,7 +3050,7 @@ export default function SosyalScreen() {
                     style={styles.snapCameraConfirmBtn}
                     activeOpacity={0.9}
                   >
-                    <LinearGradient colors={['#0369a1', '#0ea5e9']} style={styles.snapCameraConfirmGrad}>
+                    <LinearGradient colors={['#CC3700', '#FF4500']} style={styles.snapCameraConfirmGrad}>
                       <Text style={styles.snapCameraConfirmText}>Kıvılcım At ✦</Text>
                     </LinearGradient>
                   </TouchableOpacity>
@@ -3028,9 +3070,11 @@ export default function SosyalScreen() {
                     mode={cameraCaptureMode === 'video' ? 'video' : 'picture'}
                     ratio={Platform.OS === 'android' ? '16:9' : undefined}
                     zoom={cameraZoom}
-                    enableTorch={false}
+                    enableTorch={flashMode === 'on'}
+                    flash={flashMode}
                     autofocus="on"
                     mirror={false}
+                    exposure={exposure}
                   />
                 </View>
               </PinchGestureHandler>
@@ -3102,7 +3146,7 @@ export default function SosyalScreen() {
                     paddingHorizontal: 18,
                     paddingVertical: 8,
                     borderRadius: 999,
-                    backgroundColor: cameraCaptureMode === 'photo' ? 'rgba(14,165,233,0.42)' : 'rgba(255,255,255,0.12)',
+                    backgroundColor: cameraCaptureMode === 'photo' ? 'rgba(255,69,0,0.55)' : 'rgba(255,255,255,0.12)',
                     borderWidth: 1,
                     borderColor: 'rgba(255,255,255,0.3)',
                   }}
@@ -3126,8 +3170,123 @@ export default function SosyalScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Orta — ipucu + zoom göstergesi */}
-              <View style={[styles.snapCameraMidHint, { zIndex: 2 }]} pointerEvents="none">
+              {/* Sağ kenar — Flash / Grid / Timer (tek panelde) */}
+              <View style={{
+                position: 'absolute',
+                right: 12,
+                top: insets.top + 110,
+                gap: 10,
+                zIndex: 20,
+                alignItems: 'center',
+                backgroundColor: 'rgba(0,0,0,0.28)',
+                borderRadius: 26,
+                paddingVertical: 10,
+                paddingHorizontal: 5,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.12)',
+              }}>
+                {/* Flash */}
+                <TouchableOpacity
+                  onPress={cycleFlash}
+                  style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: flashMode !== 'off' ? '#FFD700' : 'rgba(255,255,255,0.2)' }}
+                  activeOpacity={0.8}
+                >
+                  {flashMode === 'off'
+                    ? <ZapOff color="rgba(255,255,255,0.7)" size={18} strokeWidth={2} />
+                    : flashMode === 'auto'
+                    ? <Zap color="#FFD700" size={18} strokeWidth={2} />
+                    : <Zap color="#FFD700" size={18} strokeWidth={2} fill="#FFD700" />
+                  }
+                  {flashMode !== 'off' && (
+                    <Text style={{ color: '#FFD700', fontSize: 8, fontWeight: '800', marginTop: 1 }}>
+                      {flashMode === 'auto' ? 'OTO' : 'AÇIK'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+
+                {/* Grid */}
+                <TouchableOpacity
+                  onPress={() => setGridVisible(g => !g)}
+                  style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: gridVisible ? '#FF4500' : 'rgba(255,255,255,0.2)' }}
+                  activeOpacity={0.8}
+                >
+                  <Grid3x3 color={gridVisible ? '#FF4500' : 'rgba(255,255,255,0.7)'} size={18} strokeWidth={2} />
+                </TouchableOpacity>
+
+                {/* Timer */}
+                <TouchableOpacity
+                  onPress={cycleTimer}
+                  style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: timerSec > 0 ? '#FF4500' : 'rgba(255,255,255,0.2)' }}
+                  activeOpacity={0.8}
+                >
+                  <Timer color={timerSec > 0 ? '#FF4500' : 'rgba(255,255,255,0.7)'} size={18} strokeWidth={2} />
+                  {timerSec > 0 && (
+                    <Text style={{ color: '#FF4500', fontSize: 8, fontWeight: '800', marginTop: 1 }}>{timerSec}sn</Text>
+                  )}
+                </TouchableOpacity>
+
+              </View>
+
+              {/* Sol kenar — Pozlama slider (yukarı=açık / aşağı=koyu) */}
+              <View style={{
+                position: 'absolute',
+                left: 14,
+                top: insets.top + 110,
+                bottom: 140,
+                zIndex: 20,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <View style={{ height: 160, width: 36, alignItems: 'center', justifyContent: 'center' }}>
+                  <View style={{ height: 140, width: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)', overflow: 'visible' }}>
+                    <View style={{
+                      position: 'absolute',
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      height: `${((exposure + 1) / 2) * 100}%`,
+                      backgroundColor: exposure > 0.1 ? '#FFD700' : exposure < -0.1 ? '#60a5fa' : 'rgba(255,255,255,0.5)',
+                      borderRadius: 2,
+                    }} />
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setExposure(e => Math.min(1, parseFloat((e + 0.25).toFixed(2))))}
+                    style={{ position: 'absolute', top: 0, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 20, fontWeight: '300' }}>+</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setExposure(e => Math.max(-1, parseFloat((e - 0.25).toFixed(2))))}
+                    style={{ position: 'absolute', bottom: 0, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 20, fontWeight: '300' }}>−</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Grid overlay */}
+              {gridVisible && (
+                <View style={[StyleSheet.absoluteFill, { zIndex: 3 }]} pointerEvents="none">
+                  {[1, 2].map(i => (
+                    <View key={`h${i}`} style={{ position: 'absolute', top: `${(i / 3) * 100}%`, left: 0, right: 0, height: 1, backgroundColor: 'rgba(255,255,255,0.35)' }} />
+                  ))}
+                  {[1, 2].map(i => (
+                    <View key={`v${i}`} style={{ position: 'absolute', left: `${(i / 3) * 100}%`, top: 0, bottom: 0, width: 1, backgroundColor: 'rgba(255,255,255,0.35)' }} />
+                  ))}
+                </View>
+              )}
+
+              {/* Timer geri sayım overlay */}
+              {timerCountdown !== null && (
+                <View style={[StyleSheet.absoluteFill, { zIndex: 30, alignItems: 'center', justifyContent: 'center' }]} pointerEvents="none">
+                  <Text style={{ fontSize: 96, fontWeight: '900', color: '#fff', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 20 }}>
+                    {timerCountdown}
+                  </Text>
+                </View>
+              )}
+
+              {/* Alt ipucu + zoom göstergesi — çekim butonunun hemen üstünde */}
+              <View style={[styles.snapCameraMidHint, { bottom: insets.bottom + 130, zIndex: 12 }]} pointerEvents="none">
                 <Text style={styles.snapCameraTimerBadge}>
                   {cameraCaptureMode === 'video'
                     ? (isRecordingVideo ? '● Kayıt… · durmak için tekrar dokun' : 'Video · başlatmak için dokun · en fazla 60 sn')
@@ -3156,8 +3315,8 @@ export default function SosyalScreen() {
                   {/* Orta: Foto shutter veya Video kayıt */}
                   {cameraCaptureMode === 'photo' ? (
                     <TouchableOpacity
-                      onPress={handleTakePhoto}
-                      disabled={cameraBusy}
+                      onPress={handleTakePhotoWithTimer}
+                      disabled={cameraBusy || timerCountdown !== null}
                       activeOpacity={0.85}
                       style={styles.snapShutterOuter}
                     >
@@ -3198,18 +3357,18 @@ export default function SosyalScreen() {
       </Modal>
 
       {/* Snap Viewer */}
-      <Modal visible={!!selectedSnap} animationType="fade" transparent onRequestClose={handleCloseSnapViewer}>
+      <Modal visible={!!selectedSnap} animationType="fade" transparent={false} onRequestClose={handleCloseSnapViewer}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.snapViewerBackdrop}
+          style={{ flex: 1, backgroundColor: '#000' }}
         >
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={handleCloseSnapViewer} />
           {selectedSnap && (
-            <View style={styles.snapViewerCard}>
+            <View style={{ flex: 1, backgroundColor: '#000' }}>
+              {/* Fotoğraf / Video — tam ekran */}
               {selectedSnap.isVideo ? (
                 <Video
                   source={{ uri: selectedSnap.imageUri }}
-                  style={styles.snapViewerImage}
+                  style={StyleSheet.absoluteFill}
                   resizeMode={ResizeMode.CONTAIN}
                   useNativeControls
                   shouldPlay
@@ -3217,65 +3376,75 @@ export default function SosyalScreen() {
                   isMuted={false}
                 />
               ) : (
-                <Image source={{ uri: selectedSnap.imageUri }} style={styles.snapViewerImage} />
+                <Image source={{ uri: selectedSnap.imageUri }} style={StyleSheet.absoluteFill} resizeMode="contain" />
               )}
-              <LinearGradient colors={['transparent', 'rgba(6,12,26,0.92)']} style={StyleSheet.absoluteFill} pointerEvents="none" />
+
+              {/* Üst gradient */}
+              <LinearGradient colors={['rgba(0,0,0,0.55)', 'transparent']} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 120 }} pointerEvents="none" />
+              {/* Alt gradient */}
+              <LinearGradient colors={['transparent', 'rgba(0,0,0,0.85)']} style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 220 }} pointerEvents="none" />
+
               {/* Üst bar */}
-              <View style={styles.snapViewerTop}>
+              <View style={[styles.snapViewerTop, { paddingTop: insets.top + 8 }]}>
                 <View>
                   <Text style={styles.snapViewerName}>{selectedSnap.user.name}</Text>
                   <Text style={styles.snapViewerMeta}>{selectedSnap.location.label}</Text>
                 </View>
                 <TouchableOpacity onPress={handleCloseSnapViewer} style={styles.modalCloseBtn} activeOpacity={0.8}>
-                  <Text style={styles.modalCloseText}>Kapat</Text>
+                  <XIcon color="#fff" size={22} strokeWidth={2.5} />
                 </TouchableOpacity>
               </View>
-              {/* Alt alan — tepki + mesaj */}
-              <View style={styles.snapViewerBottom}>
-                <Text style={styles.snapViewerTime}>{formatTimeLeft(selectedSnap)}</Text>
-                {selectedSnap.user.id !== currentUserId && (
+
+              {/* Alt alan — süre + tepkiler */}
+              <View style={[styles.snapViewerBottom, { paddingBottom: insets.bottom + 16 }]}>
+                <Text style={[styles.snapViewerTime, { color: '#FF9166' }]}>{formatTimeLeft(selectedSnap)}</Text>
+
+                {reactionsEnabled && (
                   <>
-                    {/* Hızlı emoji tepkileri */}
+                    {/* Emoji tepkileri */}
                     <View style={styles.snapReactionRow}>
-                      {['❤️', '🔥', '😂', '😮', '👏'].map(emoji => (
+                      {['🔥', '❤️', '😍', '😂', '👏', '⚡'].map(emoji => (
                         <TouchableOpacity
                           key={emoji}
                           style={styles.snapReactionBtn}
                           activeOpacity={0.7}
-                          onPress={() => handleSnapReply(emoji)}
+                          onPress={() => {
+                            if (selectedSnap.user.id !== currentUserId) handleSnapReply(emoji);
+                          }}
                         >
-                          <Text style={{ fontSize: 26 }}>{emoji}</Text>
+                          <Text style={{ fontSize: 28 }}>{emoji}</Text>
                         </TouchableOpacity>
                       ))}
                     </View>
-                    {/* Mesaj kutusu */}
-                    <View style={styles.snapReplyRow}>
-                      <TextInput
-                        style={styles.snapReplyInput}
-                        placeholder="Yanıt yaz..."
-                        placeholderTextColor="rgba(255,255,255,0.45)"
-                        value={snapReplyText}
-                        onChangeText={setSnapReplyText}
-                        returnKeyType="send"
-                        onSubmitEditing={() => handleSnapReply(snapReplyText)}
-                        editable={!snapReplySending}
-                      />
-                      <TouchableOpacity
-                        style={[styles.snapReplySendBtn, { opacity: snapReplyText.trim() ? 1 : 0.4 }]}
-                        activeOpacity={0.8}
-                        onPress={() => handleSnapReply(snapReplyText)}
-                        disabled={!snapReplyText.trim() || snapReplySending}
-                      >
-                        {snapReplySending
-                          ? <ActivityIndicator size="small" color="#fff" />
-                          : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Gönder</Text>
-                        }
-                      </TouchableOpacity>
-                    </View>
+                    {/* Metin yanıtı */}
+                    {selectedSnap.user.id !== currentUserId ? (
+                      <View style={styles.snapReplyRow}>
+                        <TextInput
+                          style={styles.snapReplyInput}
+                          placeholder="Kıvılcıma yanıt yaz..."
+                          placeholderTextColor="rgba(255,255,255,0.45)"
+                          value={snapReplyText}
+                          onChangeText={setSnapReplyText}
+                          returnKeyType="send"
+                          onSubmitEditing={() => handleSnapReply(snapReplyText)}
+                          editable={!snapReplySending}
+                        />
+                        <TouchableOpacity
+                          style={[styles.snapReplySendBtn, { opacity: snapReplyText.trim() ? 1 : 0.4 }]}
+                          activeOpacity={0.8}
+                          onPress={() => handleSnapReply(snapReplyText)}
+                          disabled={!snapReplyText.trim() || snapReplySending}
+                        >
+                          {snapReplySending
+                            ? <ActivityIndicator size="small" color="#fff" />
+                            : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Gönder</Text>
+                          }
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <Text style={styles.snapViewerNote}>Kendi kıvılcımın — 4 saat sonra silinir.</Text>
+                    )}
                   </>
-                )}
-                {selectedSnap.user.id === currentUserId && (
-                  <Text style={styles.snapViewerNote}>Kendi anlık görüntün — 4 saat sonra silinir.</Text>
                 )}
               </View>
             </View>
@@ -3307,7 +3476,7 @@ export default function SosyalScreen() {
                     onPress={() => toggleGroupRecipient(f.user_id)}
                     style={[styles.msgItem, { borderBottomColor: theme.border }]}
                   >
-                    <View style={[styles.msgAvatar, { backgroundColor: isDark ? NIGHT.glow : 'rgba(96,165,250,0.15)' }]}>
+                    <View style={[styles.msgAvatar, { backgroundColor: isDark ? NIGHT.glow : 'rgba(255,69,0,0.12)' }]}>
                       {f.avatar_url ? (
                         <Image source={{ uri: processImageUrl(f.avatar_url) ?? undefined }} style={styles.msgAvatarImg} />
                       ) : (
@@ -3372,7 +3541,7 @@ export default function SosyalScreen() {
                     onPress={() => setStreakBuddyPickId(f.user_id)}
                     style={[styles.msgItem, { borderBottomColor: theme.border }]}
                   >
-                    <View style={[styles.msgAvatar, { backgroundColor: isDark ? NIGHT.glow : 'rgba(96,165,250,0.15)' }]}>
+                    <View style={[styles.msgAvatar, { backgroundColor: isDark ? NIGHT.glow : 'rgba(255,69,0,0.12)' }]}>
                       <Text style={[styles.msgAvatarText, { color: isDark ? NIGHT.warm : LIGHT.accent }]}>
                         {f.name.charAt(0).toUpperCase()}
                       </Text>
@@ -3387,7 +3556,7 @@ export default function SosyalScreen() {
               })}
             </ScrollView>
             <TouchableOpacity activeOpacity={0.9} style={[styles.friendActionBtn, { marginTop: 12 }]} onPress={saveStreakBuddy}>
-              <LinearGradient colors={isDark ? ['#0369a1', '#0ea5e9'] : ['#60a5fa', '#a78bfa']} style={styles.friendActionGradient}>
+              <LinearGradient colors={isDark ? ['#CC3700', '#FF4500'] : ['#FF6B35', '#FF4500']} style={styles.friendActionGradient}>
                 <Text style={styles.friendActionText}>Kaydet</Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -3415,7 +3584,7 @@ export default function SosyalScreen() {
                 style={[styles.friendQrBox, { flex: 1, backgroundColor: isDark ? '#f8fafc0f' : '#f8fafc', borderColor: theme.border }]}
               >
                 <LinearGradient
-                  colors={isDark ? ['#0369a1', '#0ea5e9'] : ['#60a5fa', '#a78bfa']}
+                  colors={['#CC3700', '#FF4500']}
                   style={{ width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center' }}
                 >
                   <QrCode color="#fff" size={22} strokeWidth={2} />
@@ -3431,7 +3600,7 @@ export default function SosyalScreen() {
                 style={[styles.friendQrBox, { flex: 1, backgroundColor: isDark ? '#f8fafc0f' : '#f8fafc', borderColor: theme.border }]}
               >
                 <LinearGradient
-                  colors={isDark ? ['#10b981', '#059669'] : ['#a78bfa', '#7c3aed']}
+                  colors={['#FF4500', '#FF6B35']}
                   style={{ width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center' }}
                 >
                   <Camera color="#fff" size={22} strokeWidth={2} />
@@ -3465,7 +3634,7 @@ export default function SosyalScreen() {
                     onPress={() => handleSelectFriendFromSearch(user)}
                     style={[styles.searchResultItem, { borderBottomColor: theme.border }]}
                   >
-                    <View style={[styles.msgAvatar, { backgroundColor: isDark ? NIGHT.glow : 'rgba(96,165,250,0.15)' }]}>
+                    <View style={[styles.msgAvatar, { backgroundColor: isDark ? NIGHT.glow : 'rgba(255,69,0,0.12)' }]}>
                       {user.avatar_url ? (
                         <Image source={{ uri: processImageUrl(user.avatar_url) ?? undefined }} style={{ width: '100%', height: '100%', borderRadius: 20 }} />
                       ) : (
@@ -3510,7 +3679,7 @@ export default function SosyalScreen() {
                 </View>
               ) : incomingRequests.map((req) => (
                 <View key={req.id} style={[styles.msgItem, { borderBottomColor: theme.border }]}>
-                  <View style={[styles.msgAvatar, { backgroundColor: isDark ? NIGHT.glow : 'rgba(96,165,250,0.15)' }]}>
+                  <View style={[styles.msgAvatar, { backgroundColor: isDark ? NIGHT.glow : 'rgba(255,69,0,0.12)' }]}>
                     <Text style={[styles.msgAvatarText, { color: isDark ? NIGHT.warm : LIGHT.accent }]}>
                       {(req.sender_profile?.name || '?').charAt(0).toUpperCase()}
                     </Text>
@@ -3925,26 +4094,48 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 28,
+    height: 80,
+  },
+  snapOverlayFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingBottom: 8,
+    paddingTop: 4,
+    gap: 6,
+  },
+  snapOverlayName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  snapOverlayLocation: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 1,
   },
   snapTimeTag: {
     position: 'absolute',
-    top: 6,
-    right: 20,
+    top: 8,
+    right: 8,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: 'rgba(6,12,26,0.7)',
-    paddingHorizontal: 6,
-    paddingVertical: 2.5,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: NIGHT.border,
+    borderColor: 'rgba(255,255,255,0.15)',
   },
   snapTimeText: {
     fontSize: 10,
-    color: NIGHT.warm,
-    fontWeight: '600',
+    color: '#fff',
+    fontWeight: '700',
   },
   viewedBadge: {
     position: 'absolute',
@@ -3971,8 +4162,8 @@ const styles = StyleSheet.create({
   },
   snapAvatarWrapper: {
     position: 'relative',
-    width: 46,
-    height: 46,
+    width: 38,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -4071,9 +4262,9 @@ const styles = StyleSheet.create({
   radarHeaderBlur: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: NIGHT.border,
@@ -4108,15 +4299,16 @@ const styles = StyleSheet.create({
   radarLegendBlur: {
     padding: 16,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: DARK.border,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,69,0,0.4)',
     overflow: 'hidden',
     gap: 10,
+    backgroundColor: 'rgba(0,0,0,0.55)',
   },
   radarLegendTitle: {
     fontSize: 13,
-    fontWeight: '600',
-    color: DARK.text,
+    fontWeight: '700',
+    color: '#ffffff',
   },
   radarLegendBar: {
     gap: 4,
@@ -4131,11 +4323,11 @@ const styles = StyleSheet.create({
   },
   radarLegendLabel: {
     fontSize: 10,
-    color: DARK.textSub,
+    color: 'rgba(255,255,255,0.7)',
   },
   radarLegendNote: {
     fontSize: 10,
-    color: DARK.textSub,
+    color: 'rgba(255,255,255,0.75)',
     textAlign: 'center',
     lineHeight: 14,
   },
@@ -4478,18 +4670,12 @@ const styles = StyleSheet.create({
   },
   snapViewerBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(6,12,26,0.82)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 16,
+    backgroundColor: '#000',
+    justifyContent: 'flex-start',
   },
   snapViewerCard: {
-    width: '100%',
-    maxWidth: 420,
-    aspectRatio: 0.75,
-    borderRadius: 28,
-    overflow: 'hidden',
-    backgroundColor: '#111827',
+    flex: 1,
+    backgroundColor: '#000',
   },
   snapViewerImage: {
     ...StyleSheet.absoluteFillObject,
@@ -4518,7 +4704,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 16,
     right: 16,
-    bottom: 16,
+    bottom: 0,
     zIndex: 2,
   },
   snapViewerTime: {
@@ -4565,7 +4751,7 @@ const styles = StyleSheet.create({
     height: 44,
     paddingHorizontal: 18,
     borderRadius: 22,
-    backgroundColor: '#0ea5e9',
+    backgroundColor: '#FF4500',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -4813,7 +4999,6 @@ const styles = StyleSheet.create({
   },
   snapCameraMidHint: {
     position: 'absolute',
-    top: '12%',
     left: 0,
     right: 0,
     alignItems: 'center',

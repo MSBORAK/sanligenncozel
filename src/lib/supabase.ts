@@ -1,9 +1,19 @@
 import { createClient } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const SUPABASE_URL = 'https://taljkterwvuwmazbkram.supabase.co';
 export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhbGprdGVyd3Z1d21hemJrcmFtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwNDI5MjQsImV4cCI6MjA4MTYxODkyNH0.I9JkJN5bOfaDqsmdNMgXotXqPGfK6OB1zQ5SMk-8epI';
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    // Oturumu cihazda kalıcı sakla → kullanıcı bir kere giriş yapınca (Instagram gibi) açık kalır
+    storage: AsyncStorage,
+    persistSession: true,
+    autoRefreshToken: true,
+    // React Native'de URL tabanlı oturum tespiti yok
+    detectSessionInUrl: false,
+  },
+});
 
 /**
  * Supabase Storage'dan public URL al

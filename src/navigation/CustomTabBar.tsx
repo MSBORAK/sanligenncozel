@@ -25,13 +25,13 @@ const ICONS = {
 };
 
 const TAB_ACTIVE_COLORS: Record<string, string> = {
-  Home: '#3b82f6',
-  Transport: '#f472b6',
-  GencKart: '#f59e0b',
-  Assistant: '#10b981',
-  Profile: '#8b5cf6',
-  Notifications: '#ef4444',
-  Camera: '#0ea5e9',
+  Home:      '#F59E0B',  // amber — anasayfa
+  Transport: '#3B82F6',  // mavi — ulaşım
+  GencKart:  '#F59E0B',  // amber — genç kart
+  Assistant: '#8B5CF6',  // mor — yapay zeka
+  Profile:   '#64748B',  // slate — profil
+  Notifications: '#EF4444',
+  Camera:    '#0EA5E9',
 };
 
 type TabName =

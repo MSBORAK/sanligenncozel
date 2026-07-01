@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, StatusBar } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowUpRight, MapPin, Wifi, Heart } from 'lucide-react-native';
@@ -148,19 +148,32 @@ const GencKartScreen = () => {
   const tabBarLift = Math.max(TAB_BAR_BOTTOM_MARGIN, insets.bottom + 8);
   const scrollBottomPadding = tabBarLift + TAB_BAR_HEIGHT + 24;
 
+  const pageBg = isDark ? '#0A0800' : '#FFFBF0';
+
   return (
-    <SafeAreaView
-      style={[styles.container, isDark ? { backgroundColor: Colors.dark.background } : { backgroundColor: DribbbleColors.background }]}
-      edges={['top']}
-    >
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: scrollBottomPadding }}
-        >
-            <View style={styles.header}>
-                <Text style={[styles.headerTitle, isDark && { color: '#f8fafc' }]}>Şanlı Genç Kart</Text>
-                <Text style={[styles.headerSubtitle, isDark && { color: '#94a3b8' }]}>Şehrin anahtarı cebinde!</Text>
-            </View>
+    <View style={[styles.container, { backgroundColor: pageBg }]}>
+      {/* ── HERO ── */}
+      <LinearGradient
+        colors={isDark
+          ? ['#78350f', '#b45309', '#f59e0b', pageBg]
+          : ['#b45309', '#d97706', '#fbbf24', pageBg]}
+        style={[styles.hero, { paddingTop: insets.top + 18 }]}
+      >
+        <View style={styles.heroTop}>
+          <View>
+            <Text style={styles.heroLabel}>ŞANLI GENÇ KART</Text>
+            <Text style={styles.heroTitle}>Şehrin anahtarı{'\n'}cebinde!</Text>
+          </View>
+          <View style={styles.heroIconWrap}>
+            <Wifi color="#fff" size={22} strokeWidth={1.8} />
+          </View>
+        </View>
+      </LinearGradient>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: scrollBottomPadding }}
+      >
 
             {/* Genç Kart */}
             <LinearGradient
@@ -260,8 +273,8 @@ const GencKartScreen = () => {
                     </AnimatedListItem>
                 ))}
             </View>
-        </ScrollView>
-    </SafeAreaView>
+      </ScrollView>
+    </View>
   );
 };
 
@@ -270,22 +283,37 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: DribbbleColors.background,
   },
-  header: {
-      paddingHorizontal: 20,
-      paddingTop: 14,
-      paddingBottom: 20,
+  hero: {
+    paddingHorizontal: 20,
+    paddingBottom: 28,
+    gap: 12,
   },
-  headerTitle: {
-    fontSize: 30,
+  heroTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  heroLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.4,
+    color: 'rgba(255,255,255,0.65)',
+    marginBottom: 6,
+  },
+  heroTitle: {
+    fontSize: 26,
     fontWeight: '800',
-    color: Colors.darkGray,
+    color: '#fff',
     letterSpacing: -0.5,
+    lineHeight: 32,
   },
-  headerSubtitle: {
-      fontSize: 15,
-      color: '#92400e',
-      marginTop: 3,
-      fontWeight: '500',
+  heroIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   gencKart: {
     borderRadius: 25,

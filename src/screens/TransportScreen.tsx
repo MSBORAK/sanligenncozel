@@ -1,20 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, Keyboard, ActivityIndicator, Dimensions, Modal } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, MapPin, Star, Info, Maximize2, Minimize2, Navigation, ArrowRight } from 'lucide-react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Search, MapPin, Star, Maximize2, Minimize2, Navigation, ArrowRight, Bus } from 'lucide-react-native';
 import * as Location from 'expo-location';
 import { Platform } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, DribbbleColors } from '@/constants/Colors';
 import { MOCK_STOPS } from '@/data/transport';
 import { estimateTime, calculateDistance } from '@/utils/estimateTime';
 import { useThemeMode } from '@/context/ThemeContext';
 import { useFavorites } from '@/context/FavoritesContext';
 
-/** Tab bar pembesi — vurgular için */
-const TRANSPORT_ACCENT = '#f472b6';
-const TRANSPORT_ACCENT_SOFT = '#fce7f3';
-const ROUTE_LINE_FALLBACK = TRANSPORT_ACCENT;
+/** Ulaşım mavisi */
+const TRANSPORT_ACCENT      = '#3B82F6';
+const TRANSPORT_ACCENT_SOFT = 'rgba(59,130,246,0.10)';
+const ROUTE_LINE_FALLBACK   = TRANSPORT_ACCENT;
 
 const FAVORITE_STOPS = [
   { id: 'abide', name: 'Abide Durağı', lines: '63, 73, 90' },
@@ -244,11 +245,18 @@ const TransportScreen = () => {
     setRoutes(foundRoutes);
   }, [fromStop, toStop]);
 
+  const insets  = useSafeAreaInsets();
+  const pageBg  = isDark ? '#09070A' : '#F0F4FF';
+  const cardBg  = isDark ? 'rgba(255,255,255,0.055)' : '#FFFFFF';
+  const cardBdr = isDark ? 'rgba(255,255,255,0.09)'  : 'rgba(0,0,0,0.07)';
+  const txt1    = isDark ? '#F9F8F6' : '#1A1208';
+  const txt2    = isDark ? 'rgba(249,248,246,0.42)' : '#6B7280';
+
   if (isLoading) {
     return (
-      <View style={[styles.root, isDark ? { backgroundColor: Colors.dark.background } : { backgroundColor: DribbbleColors.cardWhite }, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={[styles.root, { backgroundColor: pageBg, justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={TRANSPORT_ACCENT} />
-        <Text style={{ marginTop: 12, color: isDark ? Colors.darkGray : DribbbleColors.textSecondary, fontWeight: '500' }}>
+        <Text style={{ marginTop: 12, color: txt2, fontWeight: '500' }}>
           Konum ve duraklar yükleniyor...
         </Text>
       </View>
@@ -256,10 +264,7 @@ const TransportScreen = () => {
   }
 
   return (
-    <SafeAreaView
-      style={[styles.root, isDark ? { backgroundColor: Colors.dark.background } : { backgroundColor: DribbbleColors.cardWhite }]}
-      edges={['top']}
-    >
+    <SafeAreaView style={[styles.root, { backgroundColor: pageBg }]} edges={[]}>
       {/* Full Screen Map - Rendered at SafeAreaView level when expanded */}
       {isMapExpanded && (
         <View style={styles.mapExpanded}>
@@ -379,35 +384,48 @@ const TransportScreen = () => {
 
       {/* Normal Content - Hidden when map is expanded */}
       {!isMapExpanded && (
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-        >
-          <View style={styles.card}>
-            {/* Header */}
-            <View style={styles.headerRow}>
+        <>
+          {/* ── HERO — ScrollView dışında, tam kenara yapışık ── */}
+          <LinearGradient
+            colors={isDark ? ['#0B1628','#0F2044','#09070A'] : ['#1D4ED8','#3B82F6','#F0F4FF']}
+            style={[styles.hero, { paddingTop: insets.top + 18 }]}
+          >
+            <View style={styles.heroTop}>
               <View>
-                <Text style={[styles.title, !isDark && { color: DribbbleColors.textPrimary }]}>Ulaşım Rehberi</Text>
-                <Text style={[styles.subtitle, !isDark && { color: DribbbleColors.textSecondary }]}>Otobüsüm nerede?</Text>
+                <Text style={styles.heroLabel}>ULAŞIM REHBERİ</Text>
+                <Text style={styles.heroTitle}>Otobüsüm nerede?</Text>
               </View>
-              <View style={[styles.headerIcon, !isDark && { backgroundColor: TRANSPORT_ACCENT_SOFT }]}>
-                <MapPin color={TRANSPORT_ACCENT} size={22} />
+              <View style={styles.heroIconWrap}>
+                <Bus color="#fff" size={22} strokeWidth={1.8}/>
               </View>
             </View>
+            {nearestStop && (
+              <View style={styles.heroPill}>
+                <MapPin color="#93C5FD" size={12} strokeWidth={2.5}/>
+              <Text style={styles.heroPillTxt}>En yakın: {nearestStop.name}</Text>
+            </View>
+          )}
+          </LinearGradient>
+
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+          >
+          <View style={styles.card}>
 
             {/* Nereden - Nereye Seçimi */}
             <View style={styles.routeSelector}>
               <TouchableOpacity
-                style={[styles.routeButton, isDark && { backgroundColor: Colors.dark.card, borderColor: Colors.dark.border }, !isDark && { backgroundColor: DribbbleColors.cardWhite, borderColor: DribbbleColors.borderLight }]}
+                style={[styles.routeButton, { backgroundColor: cardBg, borderColor: cardBdr }]}
                 onPress={() => setShowStopPicker('from')}
               >
                 <View style={styles.routeButtonContent}>
                   <Navigation color={TRANSPORT_ACCENT} size={20} />
                   <View style={styles.routeButtonTextContainer}>
-                    <Text style={[styles.routeButtonLabel, isDark && { color: '#94a3b8' }]}>Nereden</Text>
-                    <Text style={[styles.routeButtonValue, isDark && { color: '#f8fafc' }]} numberOfLines={1}>
+                    <Text style={[styles.routeButtonLabel, { color: txt2 }]}>Nereden</Text>
+                    <Text style={[styles.routeButtonValue, { color: txt1 }]} numberOfLines={1}>
                       {fromStop ? fromStop.name : 'Durak seçin'}
                     </Text>
                   </View>
@@ -417,14 +435,14 @@ const TransportScreen = () => {
               <ArrowRight color={isDark ? '#64748b' : '#9ca3af'} size={24} style={{ marginHorizontal: 12 }} />
 
               <TouchableOpacity
-                style={[styles.routeButton, isDark && { backgroundColor: Colors.dark.card, borderColor: Colors.dark.border }, !isDark && { backgroundColor: DribbbleColors.cardWhite, borderColor: DribbbleColors.borderLight }]}
+                style={[styles.routeButton, { backgroundColor: cardBg, borderColor: cardBdr }]}
                 onPress={() => setShowStopPicker('to')}
               >
                 <View style={styles.routeButtonContent}>
                   <MapPin color={isDark ? '#10b981' : '#10b981'} size={20} />
                   <View style={styles.routeButtonTextContainer}>
-                    <Text style={[styles.routeButtonLabel, isDark && { color: '#94a3b8' }]}>Nereye</Text>
-                    <Text style={[styles.routeButtonValue, isDark && { color: '#f8fafc' }]} numberOfLines={1}>
+                    <Text style={[styles.routeButtonLabel, { color: txt2 }]}>Nereye</Text>
+                    <Text style={[styles.routeButtonValue, { color: txt1 }]} numberOfLines={1}>
                       {toStop ? toStop.name : 'Durak seçin'}
                     </Text>
                   </View>
@@ -483,19 +501,16 @@ const TransportScreen = () => {
 
           {/* Search */}
           <View style={{ zIndex: 10 }}>
-            <View style={[styles.searchContainer, isDark && { backgroundColor: Colors.dark.card }, !isDark && { backgroundColor: TRANSPORT_ACCENT_SOFT }]}>
+            <View style={[styles.searchContainer, { backgroundColor: cardBg, borderColor: cardBdr, borderWidth: 1 }]}>
               <Search color={isDark ? '#94a3b8' : '#9ca3af'} size={20} />
               <TextInput
                 placeholder="Hat no veya durak adı ara..."
-                style={[styles.searchInput, isDark && { color: '#f8fafc' }]}
-                placeholderTextColor={isDark ? '#64748b' : '#9ca3af'}
+                style={[styles.searchInput, { color: txt1 }]}
+                placeholderTextColor={txt2}
                 value={searchQuery}
                 onChangeText={(text) => {
                   setSearchQuery(text);
-                  // Arama yapıldığında bölge filtresini kaldır ki tüm şehirde arasın
-                  if (text.length > 0) {
-                    setSelectedArea(null);
-                  }
+                  if (text.length > 0) setSelectedArea(null);
                 }}
               />
             </View>
@@ -544,35 +559,27 @@ const TransportScreen = () => {
 
           {/* Area pills */}
           <View style={styles.areaPillsRow}>
-            {['Tümü', 'Merkez', 'Osmanbey', 'Karaköprü', 'Eyyübiye', 'Balıklıgöl'].map((area) => (
-              <TouchableOpacity
-                key={area}
-                style={[
-                  styles.areaPill,
-                  isDark && !(selectedArea === area || (area === 'Tümü' && selectedArea === null)) && { backgroundColor: Colors.dark.card },
-                  !isDark && !(selectedArea === area || (area === 'Tümü' && selectedArea === null)) && { backgroundColor: 'rgba(244,114,182,0.18)' },
-                  (selectedArea === area || (area === 'Tümü' && selectedArea === null)) && (isDark ? styles.areaPillActive : { backgroundColor: TRANSPORT_ACCENT }),
-                ]}
-                onPress={() => setSelectedArea(area === 'Tümü' ? null : area)}
-              >
-                <Text
-                  style={[
-                    styles.areaPillText,
-                    !(selectedArea === area || (area === 'Tümü' && selectedArea === null)) && (isDark ? { color: '#94a3b8' } : { color: DribbbleColors.textSecondary }),
-                    (selectedArea === area || (area === 'Tümü' && selectedArea === null)) && (isDark ? styles.areaPillTextActive : { color: '#ffffff' }),
+            {['Tümü', 'Merkez', 'Osmanbey', 'Karaköprü', 'Eyyübiye', 'Balıklıgöl'].map((area) => {
+              const active = selectedArea === area || (area === 'Tümü' && selectedArea === null);
+              return (
+                <TouchableOpacity
+                  key={area}
+                  style={[styles.areaPill,
+                    active ? { backgroundColor: TRANSPORT_ACCENT } : { backgroundColor: cardBg, borderColor: cardBdr, borderWidth: 1 },
                   ]}
+                  onPress={() => setSelectedArea(area === 'Tümü' ? null : area)}
                 >
-                  {area}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text style={[styles.areaPillText, { color: active ? '#fff' : txt2 }]}>{area}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           {/* Favorite Stops */}
           <View style={styles.sectionHeaderRow}>
-            <Text style={[styles.sectionTitle, !isDark && { color: DribbbleColors.textPrimary }]}>Favori Duraklar</Text>
+            <Text style={[styles.sectionTitle, { color: txt2 }]}>FAVORİ DURAKLAR</Text>
             <TouchableOpacity>
-              <Text style={[styles.editText, !isDark && { color: TRANSPORT_ACCENT }]}>Düzenle</Text>
+              <Text style={[styles.editText, { color: TRANSPORT_ACCENT }]}>Düzenle</Text>
             </TouchableOpacity>
           </View>
 
@@ -588,7 +595,7 @@ const TransportScreen = () => {
                 return (
                   <TouchableOpacity
                     key={stop.id}
-                    style={[styles.favoriteCard, isDark && { backgroundColor: Colors.dark.card }, !isDark && { backgroundColor: DribbbleColors.cardWhite }]}
+                    style={[styles.favoriteCard, { backgroundColor: cardBg, borderColor: cardBdr, borderWidth: 1 }]}
                     onPress={() => {
                       setNearestStop(stop);
                       setMapRegion({
@@ -599,11 +606,11 @@ const TransportScreen = () => {
                       });
                     }}
                   >
-                    <View style={[styles.favoriteIconCircle, isDark && { backgroundColor: 'rgba(244,114,182,0.18)' }, !isDark && { backgroundColor: TRANSPORT_ACCENT_SOFT }]}>
+                    <View style={[styles.favoriteIconCircle, { backgroundColor: TRANSPORT_ACCENT_SOFT }]}>
                       <MapPin color={TRANSPORT_ACCENT} size={18} />
                     </View>
-                    <Text style={[styles.favoriteName, isDark && { color: '#f8fafc' }]}>{stop.name}</Text>
-                    <Text style={[styles.favoriteLines, isDark && { color: '#94a3b8' }]} numberOfLines={1}>
+                    <Text style={[styles.favoriteName, { color: txt1 }]}>{stop.name}</Text>
+                    <Text style={[styles.favoriteLines, { color: txt2 }]} numberOfLines={1}>
                       {stop.buses.map((b) => b.line).join(', ')}
                     </Text>
                     <TouchableOpacity
@@ -626,14 +633,13 @@ const TransportScreen = () => {
           {fromStop && toStop && fromStop.id !== toStop.id && (
             <View style={{ marginTop: 24 }}>
               <View style={styles.sectionHeaderRow}>
-                <Text style={[styles.sectionTitle, isDark && { color: '#f8fafc' }]}>Alternatif Rotolar</Text>
+                <Text style={[styles.sectionTitle, { color: txt2 }]}>ALTERNATİF ROTALAR</Text>
               </View>
-              
-              {/* Rota Bilgisi - Daha kompakt ve okunabilir */}
-              <View style={[styles.routeInfoCard, isDark && { backgroundColor: Colors.dark.card, borderColor: Colors.dark.border }]}>
+
+              <View style={[styles.routeInfoCard, { backgroundColor: cardBg, borderColor: cardBdr }]}>
                 <View style={styles.routeInfoRow}>
                   <Navigation color={TRANSPORT_ACCENT} size={18} />
-                  <Text style={[styles.routeInfoFrom, isDark && { color: '#f8fafc' }]} numberOfLines={1}>
+                  <Text style={[styles.routeInfoFrom, { color: txt1 }]} numberOfLines={1}>
                     {fromStop.name}
                   </Text>
                 </View>
@@ -642,15 +648,15 @@ const TransportScreen = () => {
                 </View>
                 <View style={styles.routeInfoRow}>
                   <MapPin color="#10b981" size={18} />
-                  <Text style={[styles.routeInfoTo, isDark && { color: '#f8fafc' }]} numberOfLines={1}>
+                  <Text style={[styles.routeInfoTo, { color: txt1 }]} numberOfLines={1}>
                     {toStop.name}
                   </Text>
                 </View>
               </View>
 
               {routes.length === 0 ? (
-                <View style={[styles.noRouteCard, isDark && { backgroundColor: Colors.dark.card }]}>
-                  <Text style={[styles.noRouteText, isDark && { color: '#94a3b8' }]}>
+                <View style={[styles.noRouteCard, { backgroundColor: cardBg, borderColor: cardBdr }]}>
+                  <Text style={[styles.noRouteText, { color: txt2 }]}>
                     Bu iki durak arasında direkt veya aktarmalı rota bulunamadı.
                   </Text>
                 </View>
@@ -660,7 +666,7 @@ const TransportScreen = () => {
                   {routes.filter(route => route.type === 'direct').map((route, index) => (
                     <View
                       key={`direct-${index}`}
-                      style={[styles.routeCard, isDark && { backgroundColor: Colors.dark.card, borderColor: Colors.dark.border }]}
+                      style={[styles.routeCard, { backgroundColor: cardBg, borderColor: cardBdr }]}
                     >
                       <View style={styles.routeCardContent}>
                         <View style={styles.routeDetails}>
@@ -693,7 +699,7 @@ const TransportScreen = () => {
                               </Text>
                             </View>
                             <View style={styles.routeTextContainer}>
-                              <Text style={[styles.routeDescription, isDark && { color: '#f8fafc' }]}>
+                              <Text style={[styles.routeDescription, { color: txt1 }]}>
                                 {fromStop.buses.find(b => b.line === route.directLine)?.route}
                               </Text>
                               <View style={styles.routeTypeInline}>
@@ -712,7 +718,7 @@ const TransportScreen = () => {
                   {routes.filter(route => route.type === 'transfer').map((route, index) => (
                     <View
                       key={`transfer-${index}`}
-                      style={[styles.routeCard, isDark && { backgroundColor: Colors.dark.card, borderColor: Colors.dark.border }]}
+                      style={[styles.routeCard, { backgroundColor: cardBg, borderColor: cardBdr }]}
                     >
                       <View style={styles.routeCardContent}>
                         <View style={styles.routeDetails}>
@@ -746,18 +752,18 @@ const TransportScreen = () => {
                               </Text>
                             </View>
                             <View style={styles.routeTextContainer}>
-                              <Text style={[styles.routeDescription, isDark && { color: '#f8fafc' }]}>
+                              <Text style={[styles.routeDescription, { color: txt1 }]}>
                                 {fromStop.buses.find(b => b.line === route.transferFromLine)?.route}
                               </Text>
                             </View>
                           </View>
                           
                           {/* Aktarma Noktası - Daha görsel */}
-                          <View style={[styles.routeTransferContainer, isDark && { backgroundColor: '#0f172a' }]}>
-                            <View style={[styles.routeTransferLine, isDark && { backgroundColor: TRANSPORT_ACCENT }]} />
+                          <View style={[styles.routeTransferContainer, { backgroundColor: isDark ? 'rgba(59,130,246,0.1)' : 'rgba(219,234,254,0.8)' }]}>
+                            <View style={[styles.routeTransferLine, { backgroundColor: TRANSPORT_ACCENT }]} />
                             <View style={styles.routeTransferContent}>
                               <MapPin color={TRANSPORT_ACCENT} size={16} />
-                              <Text style={[styles.routeTransferText, isDark && { color: '#fda4af' }]}>
+                              <Text style={[styles.routeTransferText, { color: isDark ? '#93C5FD' : '#1D4ED8' }]}>
                                 {route.transferStop?.name}
                               </Text>
                             </View>
@@ -794,7 +800,7 @@ const TransportScreen = () => {
                               </Text>
                             </View>
                             <View style={styles.routeTextContainer}>
-                              <Text style={[styles.routeDescription, isDark && { color: '#f8fafc' }]}>
+                              <Text style={[styles.routeDescription, { color: txt1 }]}>
                                 {toStop.buses.find(b => b.line === route.transferToLine)?.route}
                               </Text>
                             </View>
@@ -808,8 +814,9 @@ const TransportScreen = () => {
             </View>
           )}
 
-        </View>
-      </ScrollView>
+          </View>
+          </ScrollView>
+        </>
       )}
 
       {/* Durak seçim — tam opak tam ekran; gündüz ulaşım pembesi ile uyumlu */}
@@ -821,14 +828,11 @@ const TransportScreen = () => {
         onRequestClose={() => setShowStopPicker(null)}
       >
         <View
-          style={[
-            styles.modalRootFill,
-            isDark ? { backgroundColor: '#000000' } : { backgroundColor: DribbbleColors.cardWhite },
-          ]}
+          style={[styles.modalRootFill, { backgroundColor: pageBg }]}
         >
           <SafeAreaView style={styles.modalScreen} edges={['top', 'left', 'right', 'bottom']}>
-          <View style={[styles.modalHeader, isDark ? styles.modalHeaderDark : styles.modalHeaderLight]}>
-            <Text style={[styles.modalTitle, isDark && { color: '#f8fafc' }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: cardBdr, backgroundColor: pageBg }]}>
+            <Text style={[styles.modalTitle, { color: txt1 }]}>
               {showStopPicker === 'from' ? 'Nereden?' : 'Nereye?'}
             </Text>
             <TouchableOpacity onPress={() => setShowStopPicker(null)} style={styles.modalCloseButton}>
@@ -836,17 +840,11 @@ const TransportScreen = () => {
             </TouchableOpacity>
           </View>
 
-          <View
-            style={[
-              styles.modalSearchContainer,
-              isDark && { backgroundColor: '#0f172a' },
-              !isDark && { backgroundColor: TRANSPORT_ACCENT_SOFT },
-            ]}
-          >
+          <View style={[styles.modalSearchContainer, { backgroundColor: cardBg, borderColor: cardBdr, borderWidth: 1 }]}>
             <Search color={isDark ? '#94a3b8' : TRANSPORT_ACCENT} size={20} />
             <TextInput
               placeholder="Durak ara..."
-              style={[styles.modalSearchInput, isDark && { color: '#f8fafc' }]}
+              style={[styles.modalSearchInput, { color: txt1 }]}
               placeholderTextColor={isDark ? '#64748b' : '#9ca3af'}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -859,11 +857,9 @@ const TransportScreen = () => {
                 key={stop.id}
                 style={[
                   styles.modalStopItem,
-                  isDark && { borderBottomColor: 'rgba(255,255,255,0.08)' },
-                  !isDark && { borderBottomColor: 'rgba(244,114,182,0.18)' },
+                  { borderBottomColor: cardBdr },
                   ((showStopPicker === 'from' && fromStop?.id === stop.id) ||
-                    (showStopPicker === 'to' && toStop?.id === stop.id)) &&
-                    (isDark ? styles.modalStopItemSelectedDark : styles.modalStopItemSelected),
+                    (showStopPicker === 'to' && toStop?.id === stop.id)) && { backgroundColor: TRANSPORT_ACCENT_SOFT },
                 ]}
                 onPress={() => {
                   if (showStopPicker === 'from') {
@@ -876,17 +872,13 @@ const TransportScreen = () => {
                 }}
               >
                 <View
-                  style={[
-                    styles.modalStopIcon,
-                    isDark && { backgroundColor: 'rgba(244,114,182,0.2)' },
-                    !isDark && { backgroundColor: TRANSPORT_ACCENT_SOFT },
-                  ]}
+                  style={[styles.modalStopIcon, { backgroundColor: TRANSPORT_ACCENT_SOFT }]}
                 >
                   <MapPin size={18} color={showStopPicker === 'from' ? TRANSPORT_ACCENT : '#10b981'} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.modalStopName, isDark && { color: '#f8fafc' }]}>{stop.name}</Text>
-                  <Text style={[styles.modalStopLines, isDark && { color: '#94a3b8' }]}>
+                  <Text style={[styles.modalStopName, { color: txt1 }]}>{stop.name}</Text>
+                  <Text style={[styles.modalStopLines, { color: txt2 }]}>
                     {stop.buses.map((b) => b.line).join(', ')}
                   </Text>
                 </View>
@@ -901,59 +893,73 @@ const TransportScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: DribbbleColors.cardWhite,
-  },
+  root: { flex: 1 },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingVertical: 24,
-    paddingBottom: 110, // Tab Bar'ın altında kalmaması için ekstra boşluk
+    paddingTop: 24,
+    paddingBottom: 110,
   },
-  card: {
-    // backgroundColor: Colors.white,
-    // borderRadius: 32,
-    // padding: 20,
-    // shadowColor: '#000',
-    // shadowOffset: { width: 0, height: 18 },
-    // shadowOpacity: 0.16,
-    // shadowRadius: 30,
-    // elevation: 18,
-    // marginTop: 8,
-    // marginBottom: 16,
+  // Hero
+  hero: {
+    paddingHorizontal: 20,
+    paddingBottom: 28,
+    gap: 12,
   },
-  headerRow: {
+  heroTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: Colors.darkGray,
+  heroLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.4,
+    color: 'rgba(255,255,255,0.6)',
+    marginBottom: 4,
   },
-  subtitle: {
-    color: '#9ca3af',
-    marginTop: 4,
+  heroTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: -0.5,
   },
-  headerIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#fce7f3',
-    justifyContent: 'center',
+  heroIconWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
+  heroPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(147,197,253,0.3)',
+  },
+  heroPillTxt: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#93C5FD',
+  },
+  card: {},
   mapPreview: {
     height: 180,
-    borderRadius: 48, // Daha da oval (32 -> 48)
+    borderRadius: 24,
     marginBottom: 16,
     overflow: 'hidden',
-    backgroundColor: '#fde7ef',
+    backgroundColor: '#DBEAFE',
     position: 'relative',
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: 'rgba(59,130,246,0.2)',
   },
   mapExpanded: {
     position: 'absolute',
@@ -1112,9 +1118,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: Colors.darkGray,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.4,
   },
   editText: {
     color: TRANSPORT_ACCENT,

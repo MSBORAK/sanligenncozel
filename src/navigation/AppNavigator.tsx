@@ -37,6 +37,7 @@ import CreatePostScreen from '@/screens/CreatePostScreen';
 import SosyalProfileScreen from '@/screens/SosyalProfileScreen';
 import OnboardingNavigator from '@/navigation/OnboardingNavigator';
 import { hasCompletedOnboarding } from '@/utils/onboarding';
+import { supabase } from '@/lib/supabase';
 
 // Custom Tab Bar
 import CustomTabBar from './CustomTabBar';
@@ -139,16 +140,25 @@ const slideFromRight = ({ current }: any) => ({
 
 const AppNavigator = () => {
   const [isBootstrapping, setIsBootstrapping] = useState(true);
-  const [initialRouteName, setInitialRouteName] = useState<'OnboardingFlow' | 'Login'>('OnboardingFlow');
+  const [initialRouteName, setInitialRouteName] = useState<'OnboardingFlow' | 'Login' | 'Main'>('OnboardingFlow');
 
   useEffect(() => {
     let isMounted = true;
     const bootstrap = async () => {
       try {
+        // 1) Kayıtlı oturum var mı? Varsa (Instagram gibi) doğrudan ana ekrana geç
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!isMounted) return;
+        if (session?.user) {
+          setInitialRouteName('Main');
+          return;
+        }
+        // 2) Oturum yoksa: dev'de onboarding'i test edebilmek için ona git
         if (__DEV__) {
           setInitialRouteName('OnboardingFlow');
           return;
         }
+        // 3) Prod: onboarding tamamlandıysa Login, değilse OnboardingFlow
         const completed = await hasCompletedOnboarding();
         if (!isMounted) return;
         setInitialRouteName(completed ? 'Login' : 'OnboardingFlow');

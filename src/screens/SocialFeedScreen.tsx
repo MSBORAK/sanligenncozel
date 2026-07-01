@@ -31,15 +31,15 @@ const SANLIURFA_REGION = {
 };
 
 const SnapColors = {
-  yellow: '#FFFC00',
+  yellow: '#FF4500',
   black: '#000000',
   white: '#FFFFFF',
   gray: '#8E8E93',
   darkGray: '#1C1C1E',
   darkCard: '#2C2C2E',
-  blue: '#0FADFF',
+  blue: '#FF6B35',
   red: '#FF2D55',
-  orange: '#FF9500',
+  orange: '#FF4500',
   green: '#34C759',
   purple: '#AF52DE',
 };

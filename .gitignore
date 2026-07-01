@@ -15,9 +15,10 @@ dist/
 
 # Metro bundler
 .metro-bundler/
-/ios/Pods/
-/android/app/build/
-/android/.gradle/
+
+# Native build klasörleri (expo prebuild ile yeniden üretilir — repoya girmez)
+/ios/
+/android/
 
 # Secrets
 .env

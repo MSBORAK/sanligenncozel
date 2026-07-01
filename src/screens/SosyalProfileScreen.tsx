@@ -31,29 +31,29 @@ const { width: SCREEN_W } = Dimensions.get('window');
 // ─── Renk Sistemi ───────────────────────────────────────────────────────────
 
 const BLUE = {
-  vivid:  '#0ea5e9',
-  warm:   '#38bdf8',
-  glow:   'rgba(14,165,233,0.25)',
-  border: 'rgba(14,165,233,0.35)',
-  text:   '#7dd3fc',
-  deep:   'rgba(8,47,73,0.4)',
+  vivid:  '#FF4500',
+  warm:   '#FF6B35',
+  glow:   'rgba(255,69,0,0.25)',
+  border: 'rgba(255,69,0,0.35)',
+  text:   '#FF9166',
+  deep:   'rgba(120,20,0,0.4)',
 };
 
 const DARK = {
-  bg:       '#000000',
-  surface:  'rgba(255,255,255,0.06)',
-  border:   'rgba(255,255,255,0.10)',
+  bg:       '#0A0200',
+  surface:  'rgba(255,69,0,0.06)',
+  border:   'rgba(255,69,0,0.15)',
   text:     '#f1f5f9',
   textSub:  'rgba(241,245,249,0.55)',
 };
 
 const LIGHT = {
-  bg:       '#f8fafc',
-  surface:  'rgba(255,255,255,0.92)',
-  border:   'rgba(148,163,184,0.18)',
-  text:     '#1e293b',
-  textSub:  '#64748b',
-  accent:   '#60a5fa',
+  bg:       '#FFF8F5',
+  surface:  'rgba(255,255,255,0.95)',
+  border:   'rgba(255,69,0,0.12)',
+  text:     '#1a0800',
+  textSub:  '#7a5a50',
+  accent:   '#FF4500',
 };
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -127,9 +127,9 @@ const statusConfig = {
   },
   pending_received: {
     label: 'İstek Var',
-    bg: 'rgba(96,165,250,0.15)',
-    color: '#60a5fa',
-    icon: <UserPlus size={11} color="#60a5fa" strokeWidth={2.5} />,
+    bg: 'rgba(255,69,0,0.15)',
+    color: '#FF4500',
+    icon: <UserPlus size={11} color="#FF4500" strokeWidth={2.5} />,
   },
 };
 
@@ -145,7 +145,7 @@ const FriendRow = ({ entry, isDark, onPress }: FriendRowProps) => {
       style={[styles.friendRow, { borderBottomColor: theme.border }]}
     >
       {/* Avatar */}
-      <View style={[styles.friendAvatar, { backgroundColor: isDark ? BLUE.glow : 'rgba(96,165,250,0.15)' }]}>
+      <View style={[styles.friendAvatar, { backgroundColor: isDark ? BLUE.glow : 'rgba(255,69,0,0.1)' }]}>
         {entry.other_avatar ? (
           <Image
             source={{ uri: processImageUrl(entry.other_avatar) ?? undefined }}
@@ -197,6 +197,7 @@ const SosyalProfileScreen = ({ route }: any) => {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [isPublic, setIsPublic] = useState(true);
   const [privacyUpdating, setPrivacyUpdating] = useState(false);
+  const [reactionsEnabled, setReactionsEnabled] = useState(true);
 
   // Arkadaş profil modalı
   const [selectedFriend, setSelectedFriend] = useState<FriendEntry | null>(null);
@@ -596,15 +597,15 @@ const SosyalProfileScreen = ({ route }: any) => {
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       {/* Arka plan dekoratif gradyan */}
-      {isDark && (
-        <LinearGradient
-          colors={['rgba(120,53,15,0.18)', 'transparent', 'rgba(245,158,11,0.06)']}
-          style={StyleSheet.absoluteFill}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          pointerEvents="none"
-        />
-      )}
+      <LinearGradient
+        colors={isDark
+          ? ['rgba(255,69,0,0.12)', '#0A0200', 'rgba(255,69,0,0.05)']
+          : ['rgba(255,69,0,0.07)', '#FFF8F5', 'rgba(255,107,53,0.04)']}
+        style={StyleSheet.absoluteFill}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        pointerEvents="none"
+      />
 
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
         {/* Header */}
@@ -658,7 +659,7 @@ const SosyalProfileScreen = ({ route }: any) => {
                   />
                 ) : (
                   <LinearGradient
-                    colors={isDark ? ['#0369a1', '#0ea5e9'] : ['#60a5fa', '#3b82f6']}
+                    colors={isDark ? ['#CC3700', '#FF4500'] : ['#FF6B35', '#FF4500']}
                     style={styles.avatarGradient}
                   >
                     <Text style={styles.avatarInitial}>
@@ -683,7 +684,7 @@ const SosyalProfileScreen = ({ route }: any) => {
             </Text>
 
             {/* Platform rozeti */}
-            <View style={[styles.platformBadge, { backgroundColor: isDark ? BLUE.glow : 'rgba(96,165,250,0.12)', borderColor: isDark ? BLUE.border : 'rgba(96,165,250,0.25)' }]}>
+            <View style={[styles.platformBadge, { backgroundColor: isDark ? BLUE.glow : 'rgba(255,69,0,0.1)', borderColor: isDark ? BLUE.border : 'rgba(255,69,0,0.2)' }]}>
               <Star size={11} color={accentColor} strokeWidth={2.5} fill={accentColor} />
               <Text style={[styles.platformBadgeText, { color: accentColor }]}>ŞanlıSosyal Üyesi</Text>
             </View>
@@ -691,6 +692,7 @@ const SosyalProfileScreen = ({ route }: any) => {
 
           {/* Gizlilik Ayarı - Sadece kendi profilinde */}
           {isOwnProfile && (
+            <>
             <BlurView
               intensity={isDark ? 20 : 35}
               tint={isDark ? 'dark' : 'light'}
@@ -714,8 +716,8 @@ const SosyalProfileScreen = ({ route }: any) => {
                       {isPublic ? 'Herkese Açık' : 'Sadece Arkadaşlar'}
                     </Text>
                     <Text style={[styles.privacyDesc, { color: theme.textSub }]}>
-                      {isPublic 
-                        ? 'Snap\'lerin herkes tarafından görülebilir' 
+                      {isPublic
+                        ? 'Snap\'lerin herkes tarafından görülebilir'
                         : 'Snap\'lerin sadece arkadaşların tarafından görülebilir'}
                     </Text>
                   </View>
@@ -724,15 +726,55 @@ const SosyalProfileScreen = ({ route }: any) => {
                   value={isPublic}
                   onValueChange={handlePrivacyToggle}
                   disabled={privacyUpdating}
-                  trackColor={{ 
-                    false: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)', 
-                    true: accentColor 
+                  trackColor={{
+                    false: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
+                    true: accentColor
                   }}
                   thumbColor={Platform.OS === 'ios' ? '#fff' : (isPublic ? '#fff' : '#f4f3f4')}
                   ios_backgroundColor={isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}
                 />
               </View>
             </BlurView>
+
+            {/* Tepki Ayarı */}
+            <BlurView
+              intensity={isDark ? 20 : 35}
+              tint={isDark ? 'dark' : 'light'}
+              style={[
+                styles.privacyCard,
+                {
+                  borderColor: isDark ? BLUE.border : LIGHT.border,
+                  backgroundColor: isDark ? DARK.surface : LIGHT.surface,
+                },
+              ]}
+            >
+              <View style={styles.privacyRow}>
+                <View style={styles.privacyLeft}>
+                  <MessageCircle size={20} color={accentColor} strokeWidth={2} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.privacyTitle, { color: theme.text }]}>
+                      {reactionsEnabled ? 'Tepkiler Açık' : 'Tepkiler Kapalı'}
+                    </Text>
+                    <Text style={[styles.privacyDesc, { color: theme.textSub }]}>
+                      {reactionsEnabled
+                        ? 'Arkadaşların kıvılcımlarına emoji ve mesaj bırakabilir'
+                        : 'Kimse kıvılcımlarına tepki veremez'}
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={reactionsEnabled}
+                  onValueChange={setReactionsEnabled}
+                  trackColor={{
+                    false: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
+                    true: accentColor
+                  }}
+                  thumbColor={Platform.OS === 'ios' ? '#fff' : (reactionsEnabled ? '#fff' : '#f4f3f4')}
+                  ios_backgroundColor={isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}
+                />
+              </View>
+            </BlurView>
+            </>
           )}
 
           {/* Bento İstatistikler */}
@@ -806,7 +848,7 @@ const SosyalProfileScreen = ({ route }: any) => {
                         }}
                         style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
                       >
-                        <View style={[styles.friendAvatar, { backgroundColor: isDark ? BLUE.glow : 'rgba(96,165,250,0.15)' }]}>
+                        <View style={[styles.friendAvatar, { backgroundColor: isDark ? BLUE.glow : 'rgba(255,69,0,0.1)' }]}>
                           {entry.other_avatar ? (
                             <Image
                               source={{ uri: processImageUrl(entry.other_avatar) ?? undefined }}
@@ -878,7 +920,7 @@ const SosyalProfileScreen = ({ route }: any) => {
                 />
               ) : (
                 <LinearGradient
-                  colors={isDark ? ['#0369a1', '#0ea5e9'] : ['#60a5fa', '#3b82f6']}
+                  colors={isDark ? ['#CC3700', '#FF4500'] : ['#FF6B35', '#FF4500']}
                   style={styles.sheetAvatarGradient}
                 >
                   <Text style={styles.sheetAvatarInitial}>
@@ -943,7 +985,7 @@ const SosyalProfileScreen = ({ route }: any) => {
                       }}
                       style={[styles.friendsFriendRow, { borderBottomColor: isDark ? DARK.border : LIGHT.border }]}
                     >
-                      <View style={[styles.friendAvatar, { backgroundColor: isDark ? BLUE.glow : 'rgba(96,165,250,0.15)' }]}>
+                      <View style={[styles.friendAvatar, { backgroundColor: isDark ? BLUE.glow : 'rgba(255,69,0,0.1)' }]}>
                         {ff.other_avatar ? (
                           <Image source={{ uri: processImageUrl(ff.other_avatar) ?? undefined }} style={styles.friendAvatarImg} />
                         ) : (

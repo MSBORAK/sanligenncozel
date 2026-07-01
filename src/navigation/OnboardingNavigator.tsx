@@ -1,14 +1,10 @@
 import React from 'react';
 import { createStackNavigator, StackCardInterpolationProps, StackNavigationOptions } from '@react-navigation/stack';
-import Onboarding1Screen from '@/screens/Onboarding1Screen';
-import Onboarding2Screen from '@/screens/Onboarding2Screen';
-import Onboarding3Screen from '@/screens/Onboarding3Screen';
+import OnboardingScreen from '@/screens/OnboardingScreen';
 import LoginScreen from '@/screens/LoginScreen';
 
 export type OnboardingStackParamList = {
-  Onboarding1: undefined;
-  Onboarding2: undefined;
-  Onboarding3: undefined;
+  Onboarding: undefined;
   Login: undefined;
 };
 
@@ -47,10 +43,8 @@ const screenOptions: StackNavigationOptions = {
  */
 export const OnboardingNavigator: React.FC = () => {
   return (
-    <Stack.Navigator initialRouteName="Onboarding1" screenOptions={screenOptions}>
-      <Stack.Screen name="Onboarding1" component={Onboarding1Screen} />
-      <Stack.Screen name="Onboarding2" component={Onboarding2Screen} />
-      <Stack.Screen name="Onboarding3" component={Onboarding3Screen} />
+    <Stack.Navigator initialRouteName="Onboarding" screenOptions={screenOptions}>
+      <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
     </Stack.Navigator>
   );

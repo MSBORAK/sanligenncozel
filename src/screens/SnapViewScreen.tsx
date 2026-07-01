@@ -10,9 +10,13 @@ import {
   ActivityIndicator,
   Animated,
   FlatList,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X } from 'lucide-react-native';
+import { X, Send } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -36,7 +40,13 @@ interface RouteParams {
   canView: boolean;
   snapList?: SnapItem[];
   initialIndex?: number;
+  userId?: string;
+  userName?: string;
+  isOwnSnap?: boolean;
+  reactionsEnabled?: boolean;
 }
+
+const REACTION_EMOJIS = ['🔥', '❤️', '😍', '😂', '👏', '⚡'];
 
 const SNAP_DURATION = 10000; // 10 seconds in milliseconds
 
@@ -48,10 +58,17 @@ const SnapViewScreen = () => {
   const [loading, setLoading] = useState(true);
   const [remainingTime, setRemainingTime] = useState(10);
   const [currentIndex, setCurrentIndex] = useState(params.initialIndex || 0);
+  const [replyText, setReplyText] = useState('');
+  const [sentReaction, setSentReaction] = useState<string | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
   const progressAnim = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<FlatList>(null);
   const timeIntervalRef = useRef<any>(null);
   const closeTimerRef = useRef<any>(null);
+  const timerPausedRef = useRef(false);
+
+  const isOwnSnap = params.isOwnSnap === true;
+  const reactionsEnabled = true; // always show reactions
 
   // Snap listesi varsa kullan, yoksa tek snap göster
   const snapList: SnapItem[] = params.snapList || [{
@@ -62,6 +79,49 @@ const SnapViewScreen = () => {
   }];
 
   const currentSnap = snapList[currentIndex];
+
+  const pauseTimer = () => {
+    timerPausedRef.current = true;
+    setIsPaused(true);
+    if (timeIntervalRef.current) clearInterval(timeIntervalRef.current);
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    progressAnim.stopAnimation();
+  };
+
+  const resumeTimer = () => {
+    timerPausedRef.current = false;
+    setIsPaused(false);
+    const remaining = remainingTime;
+    if (remaining <= 0) return;
+    Animated.timing(progressAnim, {
+      toValue: 100,
+      duration: remaining * 1000,
+      useNativeDriver: false,
+    }).start();
+    timeIntervalRef.current = setInterval(() => {
+      setRemainingTime(prev => {
+        const newTime = prev - 1;
+        if (newTime <= 0) clearInterval(timeIntervalRef.current);
+        return newTime;
+      });
+    }, 1000);
+    closeTimerRef.current = setTimeout(() => {
+      if (currentIndex < snapList.length - 1) goToNextSnap();
+      else navigation.goBack();
+    }, remaining * 1000);
+  };
+
+  const handleReactionPress = (emoji: string) => {
+    setSentReaction(emoji);
+    setTimeout(() => setSentReaction(null), 1500);
+  };
+
+  const handleSendReply = () => {
+    if (!replyText.trim()) return;
+    setReplyText('');
+    Keyboard.dismiss();
+    resumeTimer();
+  };
 
   const startTimer = () => {
     // Önceki timer'ları temizle
@@ -250,6 +310,60 @@ const SnapViewScreen = () => {
           onPress={goToNextSnap}
         />
       </View>
+
+      {/* Reaction sent feedback */}
+      {sentReaction && (
+        <View style={styles.sentReactionOverlay} pointerEvents="none">
+          <Text style={styles.sentReactionText}>{sentReaction}</Text>
+        </View>
+      )}
+
+      {/* Bottom reaction bar */}
+      {reactionsEnabled && (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.reactionBarWrapper}
+        >
+          <SafeAreaView edges={['bottom']} style={styles.reactionBarInner}>
+            {/* Emoji row */}
+            <View style={styles.emojiRow}>
+              {REACTION_EMOJIS.map((emoji) => (
+                <TouchableOpacity
+                  key={emoji}
+                  style={styles.emojiBtn}
+                  onPress={() => handleReactionPress(emoji)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.emojiText}>{emoji}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {/* Text reply row — hidden for own snaps */}
+            {!isOwnSnap && (
+              <View style={styles.replyRow}>
+                <TextInput
+                  style={styles.replyInput}
+                  placeholder="Mesaj gönder..."
+                  placeholderTextColor="rgba(255,255,255,0.45)"
+                  value={replyText}
+                  onChangeText={setReplyText}
+                  onFocus={pauseTimer}
+                  onBlur={() => { if (!replyText.trim()) resumeTimer(); }}
+                  returnKeyType="send"
+                  onSubmitEditing={handleSendReply}
+                />
+                <TouchableOpacity
+                  style={[styles.sendBtn, !replyText.trim() && styles.sendBtnDisabled]}
+                  onPress={handleSendReply}
+                  disabled={!replyText.trim()}
+                >
+                  <Send size={18} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            )}
+          </SafeAreaView>
+        </KeyboardAvoidingView>
+      )}
     </View>
   );
 };
@@ -323,7 +437,11 @@ const styles = StyleSheet.create({
     zIndex: 101,
   },
   tapZonesContainer: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 120,
     flexDirection: 'row',
     zIndex: 1,
   },
@@ -355,6 +473,76 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: SnapColors.black,
+  },
+  reactionBarWrapper: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 200,
+  },
+  reactionBarBg: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  reactionBarInner: {
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 16,
+    gap: 12,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  emojiRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  emojiBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emojiText: {
+    fontSize: 22,
+  },
+  replyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  replyInput: {
+    flex: 1,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,69,0,0.4)',
+    paddingHorizontal: 16,
+    color: '#fff',
+    fontSize: 14,
+  },
+  sendBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FF4500',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sendBtnDisabled: {
+    backgroundColor: 'rgba(255,69,0,0.35)',
+  },
+  sentReactionOverlay: {
+    position: 'absolute',
+    top: '40%',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 200,
+  },
+  sentReactionText: {
+    fontSize: 80,
   },
 });
 

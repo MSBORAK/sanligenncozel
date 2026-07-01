@@ -37,7 +37,7 @@ export const PrimaryButton: React.FC<Props> = ({ label, onPress, style, variant 
         style={[styles.pressable, isOnboarding && styles.pressableOnboarding]}
       >
         <LinearGradient
-          colors={isOnboarding ? ['#8B5CF6', '#3B82F6'] : [colors.primary, colors.secondary]}
+          colors={isOnboarding ? ['#F59E0B', '#EF4444'] : [colors.primary, colors.secondary]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[styles.button, isOnboarding && styles.buttonOnboarding]}

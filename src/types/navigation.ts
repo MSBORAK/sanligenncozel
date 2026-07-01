@@ -35,7 +35,7 @@ export type RootStackParamList = {
   Sosyal: undefined;
   Chat: { userId?: string; userName?: string } | undefined;
   SendSnap: { recipientId?: string; imageUri?: string } | undefined;
-  SnapView: { snapId?: string; imageUrl?: string; messageId?: string; canView?: boolean } | undefined;
+  SnapView: { snapId?: string; imageUrl?: string; messageId?: string; canView?: boolean; snapList?: any[]; initialIndex?: number; userId?: string; userName?: string; isOwnSnap?: boolean; reactionsEnabled?: boolean } | undefined;
   SocialFeed: undefined;
   StoryView: { storyId?: string; userId?: string } | undefined;
   CompleteProfile: undefined;
