@@ -104,28 +104,21 @@ type MessageBubbleProps = {
 const MessageBubble: React.FC<MessageBubbleProps> = ({ item }) => {
   const { mode } = useThemeMode();
   const isDark = mode === 'dark';
-  const slideAnim = useRef(new Animated.Value(10)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
+  // Balonlar her zaman görünür (opacity 1) başlar; animasyon yalnızca hafif bir kayma —
+  // inverted FlatList sanallaştırmasında animasyon tamamlanmasa bile balon kaybolmaz.
+  const slideAnim = useRef(new Animated.Value(8)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(opacityAnim, {
-        toValue: 1,
-        duration: 180,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 180,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [opacityAnim, slideAnim]);
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 180,
+      useNativeDriver: true,
+    }).start();
+  }, [slideAnim]);
 
   return (
     <Animated.View
       style={{
-        opacity: opacityAnim,
         transform: [{ translateY: slideAnim }],
       }}
     >
@@ -375,7 +368,7 @@ const AssistantScreen = () => {
         <View style={styles.heroTop}>
           <View>
             <Text style={styles.heroLabel}>ŞANLI ASİSTAN</Text>
-            <Text style={styles.heroTitle}>Sana nasıl{'\n'}yardımcı olabilirim?</Text>
+            <Text style={styles.heroTitle}>Urfa'ya dair{'\n'}ne varsa sor.</Text>
           </View>
           <View style={styles.heroIconWrap}>
             <Bot color="#fff" size={22} strokeWidth={1.8}/>
@@ -431,10 +424,10 @@ const AssistantScreen = () => {
                   <Bot color="#8B5CF6" size={32} strokeWidth={1.5} />
                 </View>
                 <Text style={{ color: txt1, fontSize: 17, fontWeight: '700', textAlign: 'center', marginBottom: 8 }}>
-                  Merhaba! 👋
+                  Hoş geldin! 👋
                 </Text>
                 <Text style={{ color: txt2, fontSize: 14, textAlign: 'center', lineHeight: 22 }}>
-                  Yukarıdaki hızlı eylemlerden birini seçebilir veya dilediğin soruyu yazabilirsin.
+                  Aşağıdan bir soru seç ya da aklındakini yaz — otobüs saatinden Balıklıgöl'e kadar bilirim.
                 </Text>
               </View>
             }

@@ -298,7 +298,7 @@ export default function HomeScreen() {
             {/* Selamlama */}
             <View style={s.heroBody}>
               <Text style={s.heroGreet}>Selam, {profile?.name||'Şanlı Genç'} 👋</Text>
-              <Text style={s.heroSub}>Şehrin nabzı burada atıyor.</Text>
+              <Text style={s.heroSub}>Urfa'da bugün ne var ne yok, hepsi burada.</Text>
 
               {/* Hava + takvim pill */}
               <View style={s.heroPill}>
@@ -591,7 +591,7 @@ export default function HomeScreen() {
               <Image source={require('@/assets/images/_ (2).jpeg')} style={s.promoImg}/>
               <View style={s.promoBody}>
                 <Text style={[s.promoTitle,isDark&&{color:'#f8fafc'}]}>Bugüne Özel İndirim</Text>
-                <Text style={[s.promoSub,isDark&&{color:'#cbd5e1'}]}>Seçili kafelerde %20'ye varan öğrenci indirimi seni bekliyor.</Text>
+                <Text style={[s.promoSub,isDark&&{color:'#cbd5e1'}]}>Seçili kafelerde %20'ye varan öğrenci indirimi hazır.</Text>
               </View>
             </TouchableOpacity>
           </View>

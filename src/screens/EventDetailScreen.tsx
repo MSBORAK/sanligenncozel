@@ -22,6 +22,7 @@ import { useThemeMode } from '@/context/ThemeContext';
 import { Colors, DribbbleColors, Gradients } from '@/constants/Colors';
 import { FontFamily } from '@/constants/Typography';
 import { supabase, processImageUrl } from '@/lib/supabase';
+import { cityFallback } from '@/lib/imageFallback';
 
 const HERO_RATIO = 0.72;
 const RADIUS = 22;
@@ -84,7 +85,7 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation
 
   const heroHeight = Dimensions.get('window').width * HERO_RATIO;
   const imageUri = event
-    ? processImageUrl(event.resim_url, 'etkinlik_resimleri') || 'https://via.placeholder.com/800x600'
+    ? processImageUrl(event.resim_url, 'etkinlik_resimleri') || cityFallback(event.id)
     : '';
 
   const backButtonTop = insets.top + 10;

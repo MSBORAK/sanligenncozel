@@ -16,6 +16,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
 import { supabase, processImageUrl } from '@/lib/supabase';
+import { cityFallback } from '@/lib/imageFallback';
 import { LinearGradient } from 'expo-linear-gradient';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 
@@ -183,7 +184,7 @@ const SocialFeedScreen = () => {
             }}
           >
             <Image
-              source={{ uri: processImageUrl(post.image_url) ?? 'https://via.placeholder.com/300' }}
+              source={{ uri: processImageUrl(post.image_url) ?? cityFallback(post.id) }}
               style={styles.feedImage}
             />
             

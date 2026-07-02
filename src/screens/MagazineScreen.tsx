@@ -25,6 +25,7 @@ import type { RootStackParamList } from '@/types/navigation';
 import { useThemeMode } from '@/context/ThemeContext';
 import { useFavorites } from '@/context/FavoritesContext';
 import { supabase, processImageUrl } from '@/lib/supabase';
+import { cityFallback } from '@/lib/imageFallback';
 
 type Nav = StackNavigationProp<RootStackParamList>;
 type CatKey = 'all' | 'favorites' | 'historic' | 'museum' | 'nature';
@@ -108,7 +109,7 @@ const MagazineScreen = () => {
         title: mag.baslik,
         description: mag.aciklama,
         category: (mag.kategori as 'historic' | 'museum' | 'nature') || 'historic',
-        image: processImageUrl(mag.resim_url, 'kesfet_resimleri') || 'https://via.placeholder.com/400x300',
+        image: processImageUrl(mag.resim_url, 'kesfet_resimleri') || cityFallback(mag.id),
       })),
     [magazines]
   );

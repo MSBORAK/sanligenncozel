@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase, processImageUrl } from '@/lib/supabase';
+import { cityFallback } from '@/lib/imageFallback';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
@@ -174,7 +175,7 @@ const StoryViewScreen = () => {
       
       {/* Story Image */}
       <Image
-        source={{ uri: processImageUrl(currentStory.image_url) || 'https://via.placeholder.com/400' }}
+        source={{ uri: processImageUrl(currentStory.image_url) || cityFallback(currentStory.id) }}
         style={styles.storyImage}
         resizeMode="cover"
       />

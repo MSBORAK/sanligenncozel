@@ -23,6 +23,7 @@ import { Event } from '@/types';
 import { useThemeMode } from '@/context/ThemeContext';
 import { useFavorites } from '@/context/FavoritesContext';
 import { supabase, processImageUrl } from '@/lib/supabase';
+import { cityFallback } from '@/lib/imageFallback';
 
 const CATEGORIES = ['Tümü', 'Favorilerim', 'Konser', 'Gezi', 'Spor'];
 
@@ -93,7 +94,7 @@ const EventsScreen = () => {
       date: event.tarih,
       location: event.konum,
       category: (event.kategori as 'Konser' | 'Gezi' | 'Spor') || 'Gezi',
-      image: processImageUrl(event.resim_url, 'etkinlik_resimleri') || 'https://via.placeholder.com/400x300',
+      image: processImageUrl(event.resim_url, 'etkinlik_resimleri') || cityFallback(event.id),
     }),
     []
   );

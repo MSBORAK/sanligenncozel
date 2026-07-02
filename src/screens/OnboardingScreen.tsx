@@ -10,6 +10,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { Ticket, CreditCard, Bus, Bot, Zap, MapPin, ArrowRight } from 'lucide-react-native';
 import LottieView from 'lottie-react-native';
 import PagerView from 'react-native-pager-view';
 import { useNavigation } from '@react-navigation/native';
@@ -117,12 +118,25 @@ const Slide1: React.FC<{
             </Animated.Text>
 
             {/* Feature özet satırı */}
-            <Animated.Text style={[styles.featureLine, {
+            <Animated.View style={[styles.featureLineRow, {
               opacity: chipsAnim,
               transform: [{ translateY: chipsAnim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }],
             }]}>
-              🎟️ Etkinlik · 💳 Genç Kart · 🚌 Ulaşım · 🤖 Asistan
-            </Animated.Text>
+              {[
+                { Icon: Ticket, label: 'Etkinlik' },
+                { Icon: CreditCard, label: 'Genç Kart' },
+                { Icon: Bus, label: 'Ulaşım' },
+                { Icon: Bot, label: 'Asistan' },
+              ].map((f, i) => (
+                <React.Fragment key={f.label}>
+                  {i > 0 && <View style={styles.featureLineDot} />}
+                  <View style={styles.featureLineItem}>
+                    <f.Icon color="rgba(255,255,255,0.82)" size={13} strokeWidth={2.2} />
+                    <Text style={styles.featureLine}>{f.label}</Text>
+                  </View>
+                </React.Fragment>
+              ))}
+            </Animated.View>
 
             <View style={{ alignItems: 'center', marginTop: 18, marginBottom: 4 }}>
               <DotIndicator total={3} active={0} accentColor="#F59E0B" />
@@ -353,7 +367,7 @@ const Slide3: React.FC<{
           <Text style={[styles.inlineBadgeText, { color: '#FECDD3' }]}>TOPLULUK · KIVILCIM</Text>
         </View>
         <Text style={styles.splitTitle}>Kıvılcım At,{'\n'}Bağlantıda Kal</Text>
-        <Text style={styles.splitSubtitle}>Kıvılcım'da anlarını paylaş, yapay zeka asistanın her soruya hazır.</Text>
+        <Text style={styles.splitSubtitle}>Anını Kıvılcım'da at, 4 saatte kaybolsun. Merak ettiğini asistana sor.</Text>
       </Animated.View>
 
       {/* Features row */}
@@ -362,12 +376,12 @@ const Slide3: React.FC<{
         transform: [{ translateY: titleAnim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
       }]}>
         {[
-          { icon: '⚡', label: 'Kıvılcım', sub: 'Anları paylaş' },
-          { icon: '🤖', label: 'Asistan', sub: 'Her soruya hazır' },
-          { icon: '🗺️', label: 'Keşfet', sub: 'Şehri tanı' },
+          { Icon: Zap, label: 'Kıvılcım', sub: 'Anları paylaş' },
+          { Icon: Bot, label: 'Asistan', sub: 'Her soruya hazır' },
+          { Icon: MapPin, label: 'Keşfet', sub: 'Şehri tanı' },
         ].map(f => (
           <View key={f.label} style={styles.featureBlock}>
-            <Text style={{ fontSize: 22, marginBottom: 4 }}>{f.icon}</Text>
+            <f.Icon color="#FFFFFF" size={20} strokeWidth={2.2} style={{ marginBottom: 4 }} />
             <Text style={styles.featureBlockLabel}>{f.label}</Text>
             <Text style={styles.featureBlockSub}>{f.sub}</Text>
           </View>
@@ -386,7 +400,7 @@ const Slide3: React.FC<{
         <Pressable onPress={onFinish} onPressIn={onPressIn} onPressOut={onPressOut} style={[styles.pillBtn, { shadowColor: '#FB7185' }]}>
           <LinearGradient colors={['#FB7185', '#E11D48']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.pillGradient}>
             <Text style={styles.pillText}>Hemen Katıl</Text>
-            <View style={styles.arrowCircle}><Text style={{ fontSize: 18 }}>🎉</Text></View>
+            <View style={styles.arrowCircle}><ArrowRight color="#FFFFFF" size={16} strokeWidth={2.5} /></View>
           </LinearGradient>
         </Pressable>
         <View style={styles.linkRow}>
@@ -536,14 +550,31 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   featureChipLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 10, fontWeight: '600' },
-  featureLine: {
-    color: 'rgba(255,255,255,0.82)',
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
-    letterSpacing: 0.3,
+  featureLineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
     marginTop: 6,
     marginBottom: 2,
+  },
+  featureLineItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  featureLineDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: 'rgba(255,255,255,0.4)',
+    marginHorizontal: 10,
+  },
+  featureLine: {
+    color: 'rgba(255,255,255,0.82)',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
 
   // Slide 2

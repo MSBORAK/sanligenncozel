@@ -31,7 +31,6 @@ export const MOCK_PARTNERS: DiscountPartner[] = [
       name: 'Mırra Kahve Evi',
       offer: '%20 İndirim',
       description: 'Tüm kahve çeşitlerinde geçerli %20 indirim fırsatı!',
-      imageUrl: 'https://via.placeholder.com/400x200?text=Mirra+Kahve+Evi',
       url: 'https://mirrakahveevi.com',
       bgColor: '#ffedd5',
       iconColor: '#f97316',

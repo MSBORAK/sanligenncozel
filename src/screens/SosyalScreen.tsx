@@ -56,6 +56,7 @@ import {
   ZapOff,
   Grid3x3,
   Timer,
+  Eye,
 } from 'lucide-react-native';
 import MapView, { PROVIDER_DEFAULT, PROVIDER_GOOGLE, Heatmap, Marker } from 'react-native-maps';
 import { PinchGestureHandler, State } from 'react-native-gesture-handler';
@@ -459,21 +460,35 @@ function SnapGroupCard({ group, onPress, isDark, currentUserId, onAvatarPress }:
   const accentColor = isDark ? NIGHT.warm : LIGHT.accent;
   const [activeIdx, setActiveIdx] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
+  const [cardWidth, setCardWidth] = useState((SCREEN_W - 32 - 12) / 2);
 
   const activeSnap = group.snaps[activeIdx];
   const progress = getExpiryProgress(activeSnap);
   const timeLeft = formatTimeLeft(activeSnap);
-  
-  // Kart genişliği - 2 kolon için (%48 * ekran)
-  const cardWidth = SCREEN_W * 0.48;
+
+  const viewCount = group.snaps[activeIdx]?.viewedBy?.length ?? 0;
+  const isUrgent = progress > 0.75;
 
   return (
-    <View style={[
-      styles.snapCardOuter,
-      { borderColor: group.hasUnseen ? accentColor : theme.border, borderWidth: 1.5 },
-    ]}>
+    <View
+      style={{ width: '100%' }}
+      onLayout={(e) => {
+        const w = e.nativeEvent.layout.width;
+        if (w > 0 && Math.abs(w - cardWidth) > 1) setCardWidth(w);
+      }}
+    >
       {/* Fotoğraf alanı — yatay kaydırılabilir */}
-      <View style={[styles.snapImageContainer, { width: cardWidth, height: cardWidth * 1.2 }]}>
+      <View style={{
+        width: cardWidth,
+        height: cardWidth * 1.05,
+        borderRadius: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: isDark ? 0.35 : 0.1,
+        shadowRadius: 10,
+        elevation: 4,
+      }}>
+      <View style={[styles.snapImageContainer, { width: cardWidth, height: cardWidth * 1.05, borderWidth: 0, borderRadius: 20 }]}>
         <ScrollView
           ref={scrollRef}
           horizontal
@@ -491,24 +506,17 @@ function SnapGroupCard({ group, onPress, isDark, currentUserId, onAvatarPress }:
               key={snap.id}
               activeOpacity={0.92}
               onPress={() => onPress(snap)}
-              style={{ width: cardWidth, height: cardWidth * 1.2 }}
+              style={{ width: cardWidth, height: cardWidth * 1.05 }}
             >
               <SnapMediaThumb
                 uri={snap.imageUri}
                 isVideo={snap.isVideo}
-                style={{ width: cardWidth, height: cardWidth * 1.2 }}
+                style={{ width: cardWidth, height: cardWidth * 1.05 }}
                 imageResizeMode="cover"
               />
             </TouchableOpacity>
           ))}
         </ScrollView>
-
-        {/* Görüldü işareti */}
-        {group.snaps[activeIdx]?.viewedBy?.includes(currentUserId || '') && (
-          <View style={[styles.viewedBadge, { backgroundColor: isDark ? 'rgba(34,197,94,0.9)' : 'rgba(34,197,94,0.85)' }]}>
-            <Text style={styles.viewedBadgeText}>✓ Görüldü</Text>
-          </View>
-        )}
 
         {/* Birden fazla snap varsa üstte nokta göstergesi */}
         {group.snaps.length > 1 && (
@@ -524,45 +532,43 @@ function SnapGroupCard({ group, onPress, isDark, currentUserId, onAvatarPress }:
           </View>
         )}
 
-        {/* Alt gradient — kullanıcı bilgisi için zemin */}
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.72)']}
-          style={styles.snapImageOverlay}
-          pointerEvents="none"
-        />
-
-        {/* Kullanıcı Bilgisi — fotoğrafın üzerinde */}
-        <View style={styles.snapOverlayFooter}>
-          <TouchableOpacity
-            style={styles.snapAvatarWrapper}
-            onPress={() => onAvatarPress?.(group.userId)}
-          >
-            <CountdownRing progress={progress} size={34} seen={!group.hasUnseen} isDark={true} />
-            <View style={[styles.snapAvatar, { width: 28, height: 28, borderRadius: 14, backgroundColor: group.avatarColor + '44' }]}>
-              {group.snaps[0]?.user?.avatarUrl ? (
-                <Image
-                  source={{ uri: processImageUrl(group.snaps[0].user.avatarUrl) || undefined }}
-                  style={{ width: 28, height: 28, borderRadius: 14 }}
-                />
-              ) : (
-                <Text style={[styles.snapAvatarText, { color: '#fff', fontSize: 12 }]}>
-                  {group.userName.charAt(0)}
-                </Text>
-              )}
-            </View>
-          </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.snapOverlayName} numberOfLines={1}>{group.userName}</Text>
-            <Text style={styles.snapOverlayLocation} numberOfLines={1}>
-              {group.snaps.length > 1 ? `${activeIdx + 1}/${group.snaps.length}` : '@' + group.username}
-            </Text>
-          </View>
-        </View>
-
-        {/* Kalan süre etiketi — en son çizilir ki her şeyin üstünde kalsın */}
-        <View style={[styles.snapTimeTag, { zIndex: 999, elevation: 40 }]} pointerEvents="none">
+        {/* Kalan süre etiketi — sağ üst köşe pill */}
+        <View style={[
+          styles.snapTimeTagPill,
+          { backgroundColor: isUrgent ? 'rgba(220,38,38,0.92)' : 'rgba(0,0,0,0.55)' },
+        ]} pointerEvents="none">
           <Clock color="#fff" size={11} strokeWidth={2.5} />
           <Text style={styles.snapTimeText}>{timeLeft}</Text>
+        </View>
+      </View>
+      </View>
+
+      {/* Kullanıcı bilgisi — fotoğrafın ALTINDA, kart dışında */}
+      <View style={styles.snapMetaRow}>
+        <TouchableOpacity
+          style={styles.snapMetaLeft}
+          onPress={() => onAvatarPress?.(group.userId)}
+        >
+          <View style={[styles.snapMetaAvatar, { backgroundColor: group.avatarColor + '44', borderWidth: 1.5, borderColor: theme.border }]}>
+            {group.snaps[0]?.user?.avatarUrl ? (
+              <Image
+                source={{ uri: processImageUrl(group.snaps[0].user.avatarUrl) || undefined }}
+                style={{ width: 26, height: 26, borderRadius: 13 }}
+              />
+            ) : (
+              <Text style={[styles.snapAvatarText, { color: theme.text, fontSize: 11 }]}>
+                {group.userName.charAt(0)}
+              </Text>
+            )}
+          </View>
+          <Text style={[styles.snapMetaUsername, { color: theme.text }]} numberOfLines={1}>
+            @{group.username}
+          </Text>
+        </TouchableOpacity>
+
+        <View style={styles.snapMetaRight}>
+          <Eye color={theme.textSub} size={14} strokeWidth={2} />
+          <Text style={[styles.snapMetaCount, { color: theme.textSub }]}>{viewCount}</Text>
         </View>
       </View>
     </View>
@@ -822,7 +828,13 @@ function FeedView({
   }, [snaps, feedFilter, friendIds, currentUserId]);
 
   // Kullanıcı başına tek kart, kart içinde kullanıcının tüm snap'leri
-  const groups = useMemo(() => groupSnapsByUser(filteredSnaps), [filteredSnaps]);
+  const groups = useMemo(() => {
+    const g = groupSnapsByUser(filteredSnaps);
+    if (g.length % 2 !== 0) {
+      return [...g, { userId: '__placeholder__' } as SnapGroup];
+    }
+    return g;
+  }, [filteredSnaps]);
   
   const handleSnapPress = useCallback((snap: SnapPost) => {
     // Tıklanan kart sahibinin tüm snap'lerini sırayla aç
@@ -852,8 +864,12 @@ function FeedView({
     });
   }, [filteredSnaps, navigation]);
   
-  const renderGroup = useCallback(({ item }: { item: SnapGroup }) => (
-    <View style={{ width: '48%' }}>
+  const renderGroup = useCallback(({ item }: { item: SnapGroup }) => {
+    if (item.userId === '__placeholder__') {
+      return <View style={{ flex: 1 }} />;
+    }
+    return (
+    <View style={{ flex: 1 }}>
       <SnapGroupCard
         group={item}
         onPress={handleSnapPress}
@@ -864,7 +880,8 @@ function FeedView({
         }}
       />
     </View>
-  ), [handleSnapPress, isDark, currentUserId, navigation]);
+    );
+  }, [handleSnapPress, isDark, currentUserId, navigation]);
 
   return (
     <FlatList
@@ -873,7 +890,7 @@ function FeedView({
       keyExtractor={(item) => item.userId}
       extraData={refreshTick}
       numColumns={2}
-      columnWrapperStyle={{ justifyContent: 'space-between', paddingHorizontal: 16 }}
+      columnWrapperStyle={{ gap: 20 }}
       contentContainerStyle={styles.feedContent}
       showsVerticalScrollIndicator={false}
       ListHeaderComponent={
@@ -4025,7 +4042,7 @@ const styles = StyleSheet.create({
 
   // Feed
   feedContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 32,
     paddingBottom: 120,
     gap: 12,
   },
@@ -4136,6 +4153,51 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#fff',
     fontWeight: '700',
+  },
+  snapTimeTagPill: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  snapMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+    paddingHorizontal: 2,
+  },
+  snapMetaLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  snapMetaAvatar: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  snapMetaUsername: {
+    fontSize: 13,
+    fontWeight: '700',
+    flexShrink: 1,
+  },
+  snapMetaRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  snapMetaCount: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   viewedBadge: {
     position: 'absolute',

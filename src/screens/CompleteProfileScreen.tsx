@@ -173,7 +173,7 @@ const CompleteProfileScreen = () => {
           <View style={styles.header}>
             <Text style={styles.title}>Profilini Tamamla</Text>
             <Text style={styles.subtitle}>
-              Şanlı Genç topluluğuna hoş geldin! 🎉
+              Aramıza hoş geldin! Urfa'nın gençleri seni bekliyordu.
             </Text>
           </View>
 

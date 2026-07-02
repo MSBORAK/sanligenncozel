@@ -24,6 +24,7 @@ import { useFavorites } from '@/context/FavoritesContext';
 import { Colors, DribbbleColors } from '@/constants/Colors';
 import { FontFamily } from '@/constants/Typography';
 import { supabase, processImageUrl } from '@/lib/supabase';
+import { cityFallback } from '@/lib/imageFallback';
 import { MOCK_MAGAZINES } from '@/api/mockData';
 
 type Props = StackScreenProps<RootStackParamList, 'HeritageDetail'>;
@@ -68,7 +69,7 @@ function toPlaceFromRow(row: KesfetRow): PlaceView {
     title: row.baslik,
     description: row.aciklama,
     category: (row.kategori as PlaceView['category']) || 'historic',
-    image: processImageUrl(row.resim_url, 'kesfet_resimleri') || 'https://via.placeholder.com/800x600',
+    image: processImageUrl(row.resim_url, 'kesfet_resimleri') || cityFallback(row.id),
   };
 }
 
