@@ -7,7 +7,6 @@ import {
   Image,
   TouchableOpacity,
   Dimensions,
-  StatusBar,
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,10 +16,12 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
 import { supabase, processImageUrl } from '@/lib/supabase';
 import { cityFallback } from '@/lib/imageFallback';
-import { LinearGradient } from 'expo-linear-gradient';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import { Clean } from '@/constants/Colors';
+import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
+import { useThemeMode } from '@/context/ThemeContext';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2; // 2 columns with padding
 
 // Şanlıurfa koordinatları
@@ -29,20 +30,6 @@ const SANLIURFA_REGION = {
   longitude: 38.7969,
   latitudeDelta: 0.1,
   longitudeDelta: 0.1,
-};
-
-const SnapColors = {
-  yellow: '#FF4500',
-  black: '#000000',
-  white: '#FFFFFF',
-  gray: '#8E8E93',
-  darkGray: '#1C1C1E',
-  darkCard: '#2C2C2E',
-  blue: '#FF6B35',
-  red: '#FF2D55',
-  orange: '#FF4500',
-  green: '#34C759',
-  purple: '#AF52DE',
 };
 
 interface FeedPost {
@@ -62,10 +49,23 @@ interface FeedPost {
 
 const SocialFeedScreen = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+  const { mode } = useThemeMode();
+  const isDark = mode === 'dark';
   const [activeTab, setActiveTab] = useState<'feed' | 'map'>('feed');
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
+  const cardBg  = isDark ? '#18181B' : Clean.surface;
+  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
+  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
+  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
+  const ctaBg   = isDark ? '#F5F5F7' : Clean.ctaBg;
+  const ctaTxt  = isDark ? '#111114' : Clean.ctaText;
+  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
+  const amber   = Clean.accent;
+  const cardBorder = isDark ? cardBorderDark : cardBorderLight;
 
   useEffect(() => {
     fetchPosts();
@@ -110,11 +110,11 @@ const SocialFeedScreen = () => {
       // Post'ları formatla
       const formattedPosts: FeedPost[] = storiesData.map((story: any, index: number) => {
         const profile = profilesMap.get(story.user_id);
-        
+
         // Rastgele konum oluştur (Şanlıurfa merkez etrafında)
         const randomLat = SANLIURFA_REGION.latitude + (Math.random() - 0.5) * 0.08;
         const randomLng = SANLIURFA_REGION.longitude + (Math.random() - 0.5) * 0.08;
-        
+
         return {
           id: story.id,
           user_id: story.user_id,
@@ -157,88 +157,78 @@ const SocialFeedScreen = () => {
     return `${diffDays}g önce`;
   };
 
-  const getRandomColor = (index: number) => {
-    const colors = [SnapColors.orange, SnapColors.green, SnapColors.purple, SnapColors.blue, SnapColors.red];
-    return colors[index % colors.length];
-  };
-
   const renderFeedView = () => (
     <ScrollView
       style={styles.feedContainer}
       contentContainerStyle={styles.feedContent}
       showsVerticalScrollIndicator={false}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={SnapColors.white} />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={txt1} />
       }
     >
       <View style={styles.feedGrid}>
-        {posts.map((post, index) => (
-          <TouchableOpacity
-            key={post.id}
-            style={styles.feedCard}
-            activeOpacity={0.9}
-            onPress={() => {
-              navigation.navigate('StoryView', {
-                userId: post.user_id,
-              });
-            }}
-          >
-            <Image
-              source={{ uri: processImageUrl(post.image_url) ?? cityFallback(post.id) }}
-              style={styles.feedImage}
-            />
-            
-            {/* Gradient Overlay */}
-            <LinearGradient
-              colors={['transparent', 'rgba(0,0,0,0.8)']}
-              style={styles.feedGradient}
+        {posts.map((post) => (
+          <View key={post.id} style={[styles.feedCardOuter, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
+            <TouchableOpacity
+              style={[styles.feedCard, cardInnerClip]}
+              activeOpacity={0.9}
+              onPress={() => {
+                navigation.navigate('StoryView', {
+                  userId: post.user_id,
+                });
+              }}
             >
-              {/* Time Badge */}
-              <View style={styles.timeBadge}>
-                <Clock size={12} color={SnapColors.white} />
-                <Text style={styles.timeBadgeText}>{getTimeAgo(post.created_at)}</Text>
-              </View>
+              <Image
+                source={{ uri: processImageUrl(post.image_url) ?? cityFallback(post.id) }}
+                style={styles.feedImage}
+              />
 
-              {/* User Info */}
-              <View style={styles.feedUserInfo}>
-                <View style={[styles.feedAvatar, { borderColor: getRandomColor(index) }]}>
-                  {post.user.avatar_url ? (
-                    <Image
-                      source={{ uri: processImageUrl(post.user.avatar_url) ?? undefined }}
-                      style={styles.feedAvatarImage}
-                    />
-                  ) : (
-                    <View style={[styles.feedAvatarPlaceholder, { backgroundColor: getRandomColor(index) }]}>
-                      <Text style={styles.feedAvatarText}>
+              <View style={styles.feedOverlay}>
+                {/* Time Badge */}
+                <View style={[styles.timeBadge, { backgroundColor: cardBg }]}>
+                  <Clock size={12} color={txt1} />
+                  <Text style={[styles.timeBadgeText, { color: txt1 }]}>{getTimeAgo(post.created_at)}</Text>
+                </View>
+
+                {/* User Info */}
+                <View style={[styles.feedUserInfoBar, { backgroundColor: cardBg }]}>
+                  <View style={[styles.feedAvatar, { backgroundColor: chipBg }]}>
+                    {post.user.avatar_url ? (
+                      <Image
+                        source={{ uri: processImageUrl(post.user.avatar_url) ?? undefined }}
+                        style={styles.feedAvatarImage}
+                      />
+                    ) : (
+                      <Text style={[styles.feedAvatarText, { color: txt1 }]}>
                         {post.user.name.charAt(0).toUpperCase()}
                       </Text>
-                    </View>
-                  )}
-                </View>
-                <View style={styles.feedUserText}>
-                  <Text style={styles.feedUserName} numberOfLines={1}>
-                    {post.user.name}
-                  </Text>
-                  {post.location && (
-                    <View style={styles.feedLocation}>
-                      <MapPin size={10} color={SnapColors.gray} />
-                      <Text style={styles.feedLocationText} numberOfLines={1}>
-                        {post.location}
-                      </Text>
-                    </View>
-                  )}
+                    )}
+                  </View>
+                  <View style={styles.feedUserText}>
+                    <Text style={[styles.feedUserName, { color: txt1 }]} numberOfLines={1}>
+                      {post.user.name}
+                    </Text>
+                    {post.location && (
+                      <View style={styles.feedLocation}>
+                        <MapPin size={10} color={txt2} />
+                        <Text style={[styles.feedLocationText, { color: txt2 }]} numberOfLines={1}>
+                          {post.location}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
               </View>
-            </LinearGradient>
-          </TouchableOpacity>
+            </TouchableOpacity>
+          </View>
         ))}
       </View>
 
       {posts.length === 0 && !loading && (
         <View style={styles.emptyState}>
-          <Users size={48} color={SnapColors.gray} />
-          <Text style={styles.emptyStateTitle}>Henüz içerik yok</Text>
-          <Text style={styles.emptyStateText}>
+          <Users size={48} color={txt2} />
+          <Text style={[styles.emptyStateTitle, { color: txt1 }]}>Henüz içerik yok</Text>
+          <Text style={[styles.emptyStateText, { color: txt2 }]}>
             Arkadaşların hikaye paylaştığında burada görünecek
           </Text>
         </View>
@@ -252,13 +242,12 @@ const SocialFeedScreen = () => {
         style={styles.map}
         provider={PROVIDER_DEFAULT}
         initialRegion={SANLIURFA_REGION}
-        customMapStyle={darkMapStyle}
         showsUserLocation={false}
         showsMyLocationButton={false}
         showsCompass={false}
         toolbarEnabled={false}
       >
-        {posts.map((post, index) => (
+        {posts.map((post) => (
           <Marker
             key={post.id}
             coordinate={{
@@ -271,15 +260,15 @@ const SocialFeedScreen = () => {
               });
             }}
           >
-            <View style={[styles.markerContainer, { borderColor: getRandomColor(index) }]}>
+            <View style={[styles.markerContainer, { backgroundColor: cardBg, borderColor: cardBdr }]}>
               {post.user.avatar_url ? (
                 <Image
                   source={{ uri: processImageUrl(post.user.avatar_url) ?? undefined }}
                   style={styles.markerImage}
                 />
               ) : (
-                <View style={[styles.markerPlaceholder, { backgroundColor: getRandomColor(index) }]}>
-                  <Text style={styles.markerText}>
+                <View style={[styles.markerPlaceholder, { backgroundColor: chipBg }]}>
+                  <Text style={[styles.markerText, { color: txt1 }]}>
                     {post.user.name.charAt(0).toUpperCase()}
                   </Text>
                 </View>
@@ -290,14 +279,11 @@ const SocialFeedScreen = () => {
       </MapView>
 
       {/* Activity Indicator */}
-      <View style={styles.activityBar}>
-        <LinearGradient
-          colors={['rgba(0,0,0,0.8)', 'rgba(0,0,0,0.6)']}
-          style={styles.activityBarGradient}
-        >
-          <Radio size={16} color={SnapColors.green} />
-          <Text style={styles.activityText}>Son 4 saatteki hareketlilik</Text>
-        </LinearGradient>
+      <View style={[styles.activityBar, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
+        <View style={styles.activityBarInner}>
+          <Radio size={16} color={amber} />
+          <Text style={[styles.activityText, { color: txt1 }]}>Son 4 saatteki hareketlilik</Text>
+        </View>
         <View style={styles.heatBar}>
           <View style={[styles.heatSegment, { backgroundColor: '#34C759' }]} />
           <View style={[styles.heatSegment, { backgroundColor: '#FFCC00' }]} />
@@ -307,45 +293,43 @@ const SocialFeedScreen = () => {
       </View>
 
       {/* Live Badge */}
-      <View style={styles.liveBadge}>
-        <View style={styles.liveDot} />
-        <Text style={styles.liveText}>CANLI</Text>
+      <View style={[styles.liveBadge, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
+        <View style={[styles.liveDot, { backgroundColor: amber }]} />
+        <Text style={[styles.liveText, { color: txt1 }]}>CANLI</Text>
       </View>
     </View>
   );
 
   return (
-    <View style={styles.root}>
-      <StatusBar barStyle="light-content" />
-      
+    <View style={[styles.root, { backgroundColor: pageBg }]}>
       {/* Header */}
-      <SafeAreaView edges={['top']} style={styles.header}>
+      <SafeAreaView edges={['top']} style={[styles.header, { backgroundColor: pageBg }]}>
         <View style={styles.headerContent}>
           {/* Tabs */}
-          <View style={styles.tabs}>
+          <View style={[styles.tabs, { backgroundColor: chipBg }]}>
             <TouchableOpacity
-              style={[styles.tab, activeTab === 'feed' && styles.tabActive]}
+              style={[styles.tab, activeTab === 'feed' && { backgroundColor: ctaBg }]}
               onPress={() => setActiveTab('feed')}
             >
-              <Users size={20} color={activeTab === 'feed' ? SnapColors.yellow : SnapColors.gray} />
-              <Text style={[styles.tabText, activeTab === 'feed' && styles.tabTextActive]}>
+              <Users size={20} color={activeTab === 'feed' ? ctaTxt : txt2} />
+              <Text style={[styles.tabText, { color: activeTab === 'feed' ? ctaTxt : txt2 }]}>
                 Akış
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.tab, activeTab === 'map' && styles.tabActive]}
+              style={[styles.tab, activeTab === 'map' && { backgroundColor: ctaBg }]}
               onPress={() => setActiveTab('map')}
             >
-              <MapPin size={20} color={activeTab === 'map' ? SnapColors.yellow : SnapColors.gray} />
-              <Text style={[styles.tabText, activeTab === 'map' && styles.tabTextActive]}>
+              <MapPin size={20} color={activeTab === 'map' ? ctaTxt : txt2} />
+              <Text style={[styles.tabText, { color: activeTab === 'map' ? ctaTxt : txt2 }]}>
                 Şehir Radarı
               </Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        <Text style={styles.subtitle}>
+        <Text style={[styles.subtitle, { color: txt2 }]}>
           {activeTab === 'feed' ? 'Arkadaşlarının son 4 saati' : 'Şehirdeki son paylaşımlar'}
         </Text>
       </SafeAreaView>
@@ -356,144 +340,11 @@ const SocialFeedScreen = () => {
   );
 };
 
-// Dark map style (Snapchat tarzı)
-const darkMapStyle = [
-  {
-    "elementType": "geometry",
-    "stylers": [{ "color": "#1d2c4d" }]
-  },
-  {
-    "elementType": "labels.text.fill",
-    "stylers": [{ "color": "#8ec3b9" }]
-  },
-  {
-    "elementType": "labels.text.stroke",
-    "stylers": [{ "color": "#1a3646" }]
-  },
-  {
-    "featureType": "administrative.country",
-    "elementType": "geometry.stroke",
-    "stylers": [{ "color": "#4b6878" }]
-  },
-  {
-    "featureType": "administrative.land_parcel",
-    "elementType": "labels.text.fill",
-    "stylers": [{ "color": "#64779e" }]
-  },
-  {
-    "featureType": "administrative.province",
-    "elementType": "geometry.stroke",
-    "stylers": [{ "color": "#4b6878" }]
-  },
-  {
-    "featureType": "landscape.man_made",
-    "elementType": "geometry.stroke",
-    "stylers": [{ "color": "#334e87" }]
-  },
-  {
-    "featureType": "landscape.natural",
-    "elementType": "geometry",
-    "stylers": [{ "color": "#023e58" }]
-  },
-  {
-    "featureType": "poi",
-    "elementType": "geometry",
-    "stylers": [{ "color": "#283d6a" }]
-  },
-  {
-    "featureType": "poi",
-    "elementType": "labels.text.fill",
-    "stylers": [{ "color": "#6f9ba5" }]
-  },
-  {
-    "featureType": "poi",
-    "elementType": "labels.text.stroke",
-    "stylers": [{ "color": "#1d2c4d" }]
-  },
-  {
-    "featureType": "poi.park",
-    "elementType": "geometry.fill",
-    "stylers": [{ "color": "#023e58" }]
-  },
-  {
-    "featureType": "poi.park",
-    "elementType": "labels.text.fill",
-    "stylers": [{ "color": "#3C7680" }]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry",
-    "stylers": [{ "color": "#304a7d" }]
-  },
-  {
-    "featureType": "road",
-    "elementType": "labels.text.fill",
-    "stylers": [{ "color": "#98a5be" }]
-  },
-  {
-    "featureType": "road",
-    "elementType": "labels.text.stroke",
-    "stylers": [{ "color": "#1d2c4d" }]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "geometry",
-    "stylers": [{ "color": "#2c6675" }]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "geometry.stroke",
-    "stylers": [{ "color": "#255763" }]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "labels.text.fill",
-    "stylers": [{ "color": "#b0d5ce" }]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "labels.text.stroke",
-    "stylers": [{ "color": "#023e58" }]
-  },
-  {
-    "featureType": "transit",
-    "elementType": "labels.text.fill",
-    "stylers": [{ "color": "#98a5be" }]
-  },
-  {
-    "featureType": "transit",
-    "elementType": "labels.text.stroke",
-    "stylers": [{ "color": "#1d2c4d" }]
-  },
-  {
-    "featureType": "transit.line",
-    "elementType": "geometry.fill",
-    "stylers": [{ "color": "#283d6a" }]
-  },
-  {
-    "featureType": "transit.station",
-    "elementType": "geometry",
-    "stylers": [{ "color": "#3a4762" }]
-  },
-  {
-    "featureType": "water",
-    "elementType": "geometry",
-    "stylers": [{ "color": "#0e1626" }]
-  },
-  {
-    "featureType": "water",
-    "elementType": "labels.text.fill",
-    "stylers": [{ "color": "#4e6d70" }]
-  }
-];
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: SnapColors.black,
   },
   header: {
-    backgroundColor: SnapColors.darkCard,
     paddingHorizontal: 20,
     paddingBottom: 16,
   },
@@ -502,7 +353,6 @@ const styles = StyleSheet.create({
   },
   tabs: {
     flexDirection: 'row',
-    backgroundColor: SnapColors.darkGray,
     borderRadius: 24,
     padding: 4,
     gap: 4,
@@ -517,20 +367,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     gap: 8,
   },
-  tabActive: {
-    backgroundColor: SnapColors.darkCard,
-  },
   tabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: SnapColors.gray,
-  },
-  tabTextActive: {
-    color: SnapColors.yellow,
   },
   subtitle: {
     fontSize: 13,
-    color: SnapColors.gray,
     marginTop: 12,
     textAlign: 'center',
   },
@@ -545,18 +387,20 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 16,
   },
-  feedCard: {
+  feedCardOuter: {
     width: CARD_WIDTH,
     height: CARD_WIDTH * 1.5,
     borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: SnapColors.darkCard,
+  },
+  feedCard: {
+    flex: 1,
+    borderRadius: 16,
   },
   feedImage: {
     width: '100%',
     height: '100%',
   },
-  feedGradient: {
+  feedOverlay: {
     position: 'absolute',
     bottom: 0,
     left: 0,
@@ -569,7 +413,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(0,0,0,0.6)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -578,34 +421,30 @@ const styles = StyleSheet.create({
   timeBadgeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: SnapColors.white,
   },
-  feedUserInfo: {
+  feedUserInfoBar: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    borderRadius: 14,
+    padding: 6,
+    alignSelf: 'flex-start',
   },
   feedAvatar: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    borderWidth: 2,
     overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   feedAvatarImage: {
     width: '100%',
     height: '100%',
   },
-  feedAvatarPlaceholder: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   feedAvatarText: {
     fontSize: 16,
     fontWeight: '700',
-    color: SnapColors.white,
   },
   feedUserText: {
     flex: 1,
@@ -613,7 +452,6 @@ const styles = StyleSheet.create({
   feedUserName: {
     fontSize: 13,
     fontWeight: '600',
-    color: SnapColors.white,
   },
   feedLocation: {
     flexDirection: 'row',
@@ -623,7 +461,6 @@ const styles = StyleSheet.create({
   },
   feedLocationText: {
     fontSize: 11,
-    color: SnapColors.gray,
   },
   emptyState: {
     flex: 1,
@@ -635,26 +472,13 @@ const styles = StyleSheet.create({
   emptyStateTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: SnapColors.white,
     marginTop: 16,
     marginBottom: 8,
   },
   emptyStateText: {
     fontSize: 14,
-    color: SnapColors.gray,
     textAlign: 'center',
     lineHeight: 20,
-  },
-  mapPlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  mapPlaceholderText: {
-    fontSize: 16,
-    color: SnapColors.gray,
-    marginTop: 16,
   },
   mapContainer: {
     flex: 1,
@@ -668,9 +492,8 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    borderWidth: 3,
+    borderWidth: 2,
     overflow: 'hidden',
-    backgroundColor: SnapColors.white,
   },
   markerImage: {
     width: '100%',
@@ -685,7 +508,6 @@ const styles = StyleSheet.create({
   markerText: {
     fontSize: 20,
     fontWeight: '700',
-    color: SnapColors.white,
   },
   activityBar: {
     position: 'absolute',
@@ -693,9 +515,8 @@ const styles = StyleSheet.create({
     left: 20,
     right: 20,
     borderRadius: 16,
-    overflow: 'hidden',
   },
-  activityBarGradient: {
+  activityBarInner: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -705,7 +526,6 @@ const styles = StyleSheet.create({
   activityText: {
     fontSize: 13,
     fontWeight: '600',
-    color: SnapColors.white,
   },
   heatBar: {
     flexDirection: 'row',
@@ -720,7 +540,6 @@ const styles = StyleSheet.create({
     right: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.8)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 16,
@@ -730,12 +549,10 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: SnapColors.green,
   },
   liveText: {
     fontSize: 12,
     fontWeight: '700',
-    color: SnapColors.white,
   },
 });
 

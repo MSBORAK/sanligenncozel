@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, RefreshControl } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Bell, UserPlus, Check, X } from 'lucide-react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Bell, UserPlus, Check, X, MessageSquare, Sparkles, Calendar, Percent, ChevronLeft } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { Colors } from '@/constants/Colors';
+import { Clean } from '@/constants/Colors';
+import { cardOuterShadow, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { useThemeMode } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabase';
@@ -239,11 +240,25 @@ const NotificationsScreen = () => {
     }
   };
 
-  const bg = isDark ? '#0f172a' : Colors.lightGray;
-  const cardBg = isDark ? '#1e293b' : Colors.white;
-  const textColor = isDark ? '#f1f5f9' : Colors.darkGray;
-  const subColor = isDark ? '#94a3b8' : '#6b7280';
-  const accentColor = isDark ? Colors.dark.accent : Colors.primary.indigo;
+  const insets = useSafeAreaInsets();
+  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
+  const cardBg  = isDark ? '#18181B' : Clean.surface;
+  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
+  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
+  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
+  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
+  const cardBorder = isDark ? cardBorderDark : cardBorderLight;
+
+  const iconForType = (type: NotificationItem['type']) => {
+    switch (type) {
+      case 'friend_request': return UserPlus;
+      case 'message': return MessageSquare;
+      case 'snap': return Sparkles;
+      case 'event': return Calendar;
+      case 'discount': return Percent;
+      default: return Bell;
+    }
+  };
 
   const handleItemPress = (item: NotificationItem) => {
     if (item.type === 'message') {
@@ -267,17 +282,26 @@ const NotificationsScreen = () => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: bg }]} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: textColor }]}>Bildirimler</Text>
-        <View style={[styles.headerIcon, { backgroundColor: isDark ? 'rgba(56,189,248,0.14)' : '#EEF2FF' }]}>
-          <Bell size={20} color={accentColor} />
+    <View style={[styles.container, { backgroundColor: pageBg }]}>
+      {/* ── HERO — Home ekranındaki sade, düz zeminli başlık dili ── */}
+      <View style={[styles.hero, { paddingTop: insets.top + 18, backgroundColor: pageBg }]}>
+        <View style={styles.heroTop}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: chipBg }]} hitSlop={10}>
+            <ChevronLeft color={txt1} size={22} strokeWidth={2.2} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.heroLabel, { color: txt2 }]}>GÜNCEL</Text>
+            <Text style={[styles.heroTitle, { color: txt1 }]}>Bildirimler</Text>
+          </View>
+          <View style={[styles.heroIconWrap, { backgroundColor: txt1 }]}>
+            <Bell color={pageBg} size={20} strokeWidth={1.8} />
+          </View>
         </View>
       </View>
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={accentColor} />
+          <ActivityIndicator size="large" color={txt1} />
         </View>
       ) : (
         <FlatList
@@ -285,90 +309,98 @@ const NotificationsScreen = () => {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={accentColor} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={txt2} />}
           ListHeaderComponent={
             items.length > 0 ? (
-              <Text style={[styles.sectionTitle, { color: accentColor }]}>
+              <Text style={[styles.sectionTitle, { color: txt2 }]}>
                 Son Bildirimler ({items.length})
               </Text>
             ) : null
           }
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[
-                styles.card,
-                item.type === 'friend_request' ? styles.friendReqCard : null,
-                {
-                  backgroundColor: cardBg,
-                  borderColor: isDark ? 'rgba(56,189,248,0.22)' : 'rgba(99,102,241,0.2)',
-                },
-              ]}
-              onPress={() => handleItemPress(item)}
-              activeOpacity={item.type === 'event' || item.type === 'discount' || item.type === 'message' || item.type === 'snap' ? 0.82 : 1}
-            >
-              <View
-                style={[
-                  styles.iconWrapper,
-                  { backgroundColor: isDark ? 'rgba(56,189,248,0.16)' : 'rgba(99,102,241,0.1)' },
-                ]}
+          renderItem={({ item }) => {
+            const Icon = iconForType(item.type);
+            return (
+              <TouchableOpacity
+                style={[styles.card, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}
+                onPress={() => handleItemPress(item)}
+                activeOpacity={item.type === 'event' || item.type === 'discount' || item.type === 'message' || item.type === 'snap' ? 0.82 : 1}
               >
-                {item.type === 'friend_request' ? <UserPlus size={22} color={accentColor} /> : <Bell size={22} color={accentColor} />}
-              </View>
-              <View style={styles.textWrapper}>
-                <Text style={[styles.title, { color: textColor }]}>{item.title}</Text>
-                <Text style={[styles.message, { color: subColor }]}>{item.message}</Text>
-              </View>
-              {item.type === 'friend_request' && (
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <TouchableOpacity
-                    onPress={() => handleAccept(item.request)}
-                    style={{ backgroundColor: isDark ? Colors.dark.accent : '#10b981', borderRadius: 18, padding: 7 }}
-                  >
-                    <Check color="#fff" size={16} strokeWidth={2.5} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => handleReject(item.request.id)}
-                    style={{ backgroundColor: isDark ? '#334155' : '#f3f4f6', borderRadius: 18, padding: 7 }}
-                  >
-                    <X color={subColor} size={16} strokeWidth={2.5} />
-                  </TouchableOpacity>
+                <View style={[styles.iconWrapper, { backgroundColor: chipBg }]}>
+                  <Icon size={20} color={txt1} strokeWidth={2} />
                 </View>
-              )}
-            </TouchableOpacity>
-          )}
+                <View style={styles.textWrapper}>
+                  <Text style={[styles.title, { color: txt1 }]} numberOfLines={1}>{item.title}</Text>
+                  <Text style={[styles.message, { color: txt2 }]} numberOfLines={2}>{item.message}</Text>
+                </View>
+                {item.type === 'friend_request' && (
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity
+                      onPress={() => handleAccept(item.request)}
+                      style={[styles.actionBtn, { backgroundColor: txt1 }]}
+                    >
+                      <Check color={pageBg} size={16} strokeWidth={2.5} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleReject(item.request.id)}
+                      style={[styles.actionBtn, { backgroundColor: chipBg }]}
+                    >
+                      <X color={txt2} size={16} strokeWidth={2.5} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          }}
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Bell size={40} color="#d1d5db" />
-              <Text style={[styles.emptyTitle, { color: textColor }]}>Henüz bildirimin yok</Text>
-              <Text style={[styles.emptyText, { color: subColor }]}>
+              <View style={[styles.emptyIconWrap, { backgroundColor: chipBg }]}>
+                <Bell size={28} color={txt2} strokeWidth={1.8} />
+              </View>
+              <Text style={[styles.emptyTitle, { color: txt1 }]}>Henüz bildirimin yok</Text>
+              <Text style={[styles.emptyText, { color: txt2 }]}>
                 Arkadaşlık, mesaj, kıvılcım, etkinlik ve indirim bildirimlerini burada göreceksin.
               </Text>
             </View>
           }
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
+  hero: {
     paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 16,
+    paddingBottom: 24,
+  },
+  heroTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 14,
   },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: 'bold',
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  headerIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+  heroLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.4,
+    marginBottom: 4,
+  },
+  heroTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  heroIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -382,50 +414,63 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   sectionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '800',
     paddingVertical: 8,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 1.1,
     marginBottom: 4,
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: 14,
     borderRadius: 18,
     marginBottom: 12,
   },
-  friendReqCard: {
-    borderWidth: 1,
-  },
   iconWrapper: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
-  textWrapper: { flex: 1 },
+  textWrapper: { flex: 1, paddingRight: 8 },
   title: {
     fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    marginBottom: 3,
   },
   message: {
     fontSize: 13,
-    marginBottom: 2,
+    lineHeight: 18,
+  },
+  actionBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   emptyState: {
     marginTop: 60,
     alignItems: 'center',
     paddingHorizontal: 40,
   },
+  emptyIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
   emptyTitle: {
-    marginTop: 12,
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
   emptyText: {
     marginTop: 6,

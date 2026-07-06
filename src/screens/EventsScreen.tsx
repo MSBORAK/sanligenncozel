@@ -6,16 +6,14 @@ import {
   FlatList,
   TouchableOpacity,
   Image,
-  Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { Heart } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
-import { Colors, DribbbleColors } from '@/constants/Colors';
+import { Clean } from '@/constants/Colors';
+import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { FontFamily } from '@/constants/Typography';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import Skeleton from '@/components/Skeleton';
@@ -27,15 +25,21 @@ import { cityFallback } from '@/lib/imageFallback';
 
 const CATEGORIES = ['Tümü', 'Favorilerim', 'Konser', 'Gezi', 'Spor'];
 
-const CARD_RADIUS = 20;
+const MONTHS_SHORT = ['OCA', 'ŞUB', 'MAR', 'NİS', 'MAY', 'HAZ', 'TEM', 'AĞU', 'EYL', 'EKİ', 'KAS', 'ARA'];
+const WEEKDAYS_SHORT = ['PAZ', 'PZT', 'SAL', 'ÇAR', 'PER', 'CUM', 'CMT'];
 
-/** Ana sayfa Hızlı Erişim — Etkinlik kutusu (#EDE7F6) ile aynı hat */
-const EVENTS_LIGHT = {
-  pageBg: '#EDE7F6',
-  tabActive: ['#6d28d9', '#7c3aed', '#8b5cf6'] as const,
-  accent: '#7c3aed',
-  imageGlow: ['rgba(124,58,237,0.28)', 'transparent'] as const,
-};
+function parseEventDate(dateStr: string): Date | null {
+  const d = new Date(dateStr);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function isSameDay(a: Date, b: Date) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function dayKey(d: Date) {
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
 
 interface EventData {
   id: number;
@@ -57,9 +61,21 @@ const EventsScreen = () => {
   const route = useRoute();
   const initialTab = (route.params as { initialTab?: string } | undefined)?.initialTab;
   const [activeTab, setActiveTab] = useState(initialTab === 'Favorilerim' ? 'Favorilerim' : 'Tümü');
+  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
   const [events, setEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(true);
   const { favoriteEventIds, isFavoriteEvent, toggleFavorite } = useFavorites();
+
+  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
+  const cardBg  = isDark ? '#18181B' : Clean.surface;
+  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
+  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
+  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
+  const ctaBg   = isDark ? '#F5F5F7' : Clean.ctaBg;
+  const ctaTxt  = isDark ? '#111114' : Clean.ctaText;
+  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
+  const amber   = Clean.accent;
+  const cardBorder = isDark ? cardBorderDark : cardBorderLight;
 
   const fetchEvents = async () => {
     try {
@@ -81,11 +97,28 @@ const EventsScreen = () => {
     fetchEvents();
   }, []);
 
+  const availableDays = useMemo(() => {
+    const map = new Map<string, Date>();
+    events.forEach((e) => {
+      const d = parseEventDate(e.tarih);
+      if (d) map.set(dayKey(d), d);
+    });
+    return Array.from(map.values()).sort((a, b) => a.getTime() - b.getTime());
+  }, [events]);
+
   const filteredEvents = useMemo(() => {
-    if (activeTab === 'Tümü') return events;
-    if (activeTab === 'Favorilerim') return events.filter(e => favoriteEventIds.includes(e.id.toString()));
-    return events.filter(e => e.kategori === activeTab);
-  }, [events, activeTab, favoriteEventIds]);
+    let list = events;
+    if (activeTab === 'Favorilerim') list = list.filter(e => favoriteEventIds.includes(e.id.toString()));
+    else if (activeTab !== 'Tümü') list = list.filter(e => e.kategori === activeTab);
+
+    if (selectedDayKey) {
+      list = list.filter(e => {
+        const d = parseEventDate(e.tarih);
+        return d ? dayKey(d) === selectedDayKey : false;
+      });
+    }
+    return list;
+  }, [events, activeTab, favoriteEventIds, selectedDayKey]);
 
   const formatEvent = useCallback(
     (event: EventData): Event => ({
@@ -112,203 +145,152 @@ const EventsScreen = () => {
           activeOpacity={0.88}
           style={[
             styles.tabPill,
-            isDark && styles.tabPillDark,
-            !isDark && !active && styles.tabPillInactiveLight,
-            isDark && !active && styles.tabPillInactiveDark,
+            active ? { backgroundColor: ctaBg } : { backgroundColor: chipBg, borderWidth: 1, borderColor: cardBdr },
           ]}
         >
-          {!isDark && active && (
-            <LinearGradient
-              colors={[...EVENTS_LIGHT.tabActive]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
-          )}
-          {isDark && active && (
-            <LinearGradient
-              colors={['#075985', '#0369a1', '#0ea5e9']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
-          )}
-          {!isDark && !active && (
-            <>
-              {Platform.OS === 'ios' ? (
-                <BlurView intensity={50} tint="light" style={[StyleSheet.absoluteFill, { borderRadius: 22 }]} />
-              ) : null}
-              <View
-                style={[
-                  StyleSheet.absoluteFill,
-                  {
-                    backgroundColor: Platform.OS === 'ios' ? 'rgba(255,255,255,0.88)' : '#ffffff',
-                    borderRadius: 22,
-                  },
-                ]}
-              />
-            </>
-          )}
-          {isDark && !active && <View style={[StyleSheet.absoluteFill, { backgroundColor: '#1e293b', borderRadius: 22 }]} />}
-          <Text
-            style={[
-              styles.tabPillText,
-              !isDark && !active && { color: DribbbleColors.textSecondary },
-              isDark && !active && { color: '#94a3b8' },
-              active && { color: '#ffffff' },
-            ]}
-          >
+          <Text style={[styles.tabPillText, { color: active ? ctaTxt : txt2 }]}>
             {item}
           </Text>
         </TouchableOpacity>
       );
     },
-    [activeTab, isDark]
+    [activeTab, ctaBg, ctaTxt, chipBg, cardBdr, txt2]
   );
 
   const renderEventItem = useCallback(
-    ({ item, index }: { item: Event; index: number }) => (
-      <AnimatedListItem index={index} delay={60}>
-        <TouchableOpacity
-          style={[styles.eventCard, isDark && styles.eventCardDark]}
-          activeOpacity={0.92}
-          onPress={() => navigation.navigate('EventDetail', { eventId: item.id })}
-        >
-          <View style={[styles.imageSection, isDark && styles.imageSectionDark]}>
-            <Image source={{ uri: item.image }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-            <LinearGradient
-              colors={isDark ? ['rgba(245,158,11,0.22)', 'transparent'] : [...EVENTS_LIGHT.imageGlow]}
-              start={{ x: 1, y: 0 }}
-              end={{ x: 0.2, y: 0.45 }}
-              style={styles.amberGlow}
-              pointerEvents="none"
-            />
-            <View style={styles.categoryPill}>
-              <Text style={styles.categoryPillText}>{item.category}</Text>
+    ({ item, index }: { item: Event; index: number }) => {
+      const eventDate = parseEventDate(item.date);
+      const now = new Date();
+      const isToday = eventDate ? isSameDay(eventDate, now) : false;
+      const isTomorrow = eventDate
+        ? isSameDay(eventDate, new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1))
+        : false;
+
+      // İlk sıradaki etkinlik büyük "öne çıkan" kart olarak gösterilir
+      if (index === 0) {
+        const hoursLeft = eventDate ? Math.round((eventDate.getTime() - now.getTime()) / 3600000) : null;
+        const isUrgent = isToday && hoursLeft !== null && hoursLeft > 0 && hoursLeft <= 6;
+
+        return (
+          <AnimatedListItem index={index} delay={40}>
+            <View style={[styles.heroEventOuter, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
+              <TouchableOpacity
+                style={[styles.heroEventCard, cardInnerClip]}
+                activeOpacity={0.92}
+                onPress={() => navigation.navigate('EventDetail', { eventId: item.id })}
+              >
+                <Image source={{ uri: item.image }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+                <View style={styles.heroEventOverlay} pointerEvents="none" />
+
+                {eventDate && (isToday || isTomorrow) && (
+                  <View style={[styles.heroDateTag, { backgroundColor: isToday ? amber : cardBg }]}>
+                    <Text style={[styles.heroDateTagText, { color: isToday ? '#fff' : txt1 }]}>
+                      {isToday ? 'BUGÜN' : 'YARIN'}
+                    </Text>
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  style={[styles.heroHeartBtn, { backgroundColor: cardBg }]}
+                  onPress={() => onToggleFavorite(item.id)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Heart
+                    color={isFavoriteEvent(item.id) ? amber : txt1}
+                    size={18}
+                    strokeWidth={2}
+                    fill={isFavoriteEvent(item.id) ? amber : 'transparent'}
+                  />
+                </TouchableOpacity>
+
+                <View style={styles.heroTextBlock}>
+                  <Text style={styles.heroEventTitle} numberOfLines={2}>{item.title}</Text>
+                  <Text style={styles.heroEventMeta} numberOfLines={1}>{item.location}</Text>
+                </View>
+
+                {isUrgent && (
+                  <View style={[styles.heroUrgentTag, { backgroundColor: amber }]}>
+                    <Text style={styles.heroUrgentTagText}>SON {hoursLeft} SAAT</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
             </View>
+          </AnimatedListItem>
+        );
+      }
+
+      return (
+      <AnimatedListItem index={index} delay={40}>
+        <View style={[styles.eventRowOuter, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
+          <TouchableOpacity
+            style={[styles.eventRow, cardInnerClip]}
+            activeOpacity={0.9}
+            onPress={() => navigation.navigate('EventDetail', { eventId: item.id })}
+          >
+            {eventDate ? (
+              <View style={[styles.dateBadge, { backgroundColor: isToday ? amber : chipBg }]}>
+                {(isToday || isTomorrow) && (
+                  <Text style={[styles.dateBadgeTag, { color: isToday ? 'rgba(255,255,255,0.9)' : txt2 }]}>
+                    {isToday ? 'BUGÜN' : 'YARIN'}
+                  </Text>
+                )}
+                <Text style={[styles.dateBadgeDay, { color: isToday ? '#fff' : txt1 }]}>{eventDate.getDate()}</Text>
+                <Text style={[styles.dateBadgeMonth, { color: isToday ? 'rgba(255,255,255,0.85)' : txt2 }]}>
+                  {MONTHS_SHORT[eventDate.getMonth()]}
+                </Text>
+              </View>
+            ) : (
+              <View style={[styles.dateBadge, { backgroundColor: chipBg }]} />
+            )}
+
+            <Image source={{ uri: item.image }} style={styles.rowThumb} resizeMode="cover" />
+
+            <View style={styles.rowInfo}>
+              <Text style={[styles.rowTitle, { color: txt1 }]} numberOfLines={2}>
+                {item.title}
+              </Text>
+              <Text style={[styles.rowMeta, { color: txt2 }]} numberOfLines={1}>
+                {item.location}
+              </Text>
+            </View>
+
             <TouchableOpacity
-              style={styles.heartFab}
+              style={styles.rowHeartBtn}
               onPress={() => onToggleFavorite(item.id)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              {Platform.OS === 'ios' ? (
-                <BlurView intensity={55} tint="light" style={StyleSheet.absoluteFill} />
-              ) : null}
-              <View
-                style={[
-                  StyleSheet.absoluteFill,
-                  { backgroundColor: Platform.OS === 'ios' ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.5)' },
-                ]}
-              />
               <Heart
-                color={isDark ? '#f8fafc' : DribbbleColors.textPrimary}
+                color={isFavoriteEvent(item.id) ? amber : txt2}
                 size={18}
                 strokeWidth={2}
-                fill={
-                  isFavoriteEvent(item.id)
-                    ? isDark
-                      ? Colors.dark.accent
-                      : EVENTS_LIGHT.accent
-                    : 'transparent'
-                }
+                fill={isFavoriteEvent(item.id) ? amber : 'transparent'}
               />
             </TouchableOpacity>
-          </View>
-
-          {isDark ? (
-            <View style={styles.infoSectionDark}>
-              <Text style={styles.eventTitleDark} numberOfLines={2}>
-                {item.title}
-              </Text>
-              <Text style={styles.eventMetaDark} numberOfLines={2}>
-                {`${item.date} · ${item.location}`}
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.infoSectionLight}>
-              {Platform.OS === 'ios' ? (
-                <BlurView intensity={65} tint="light" style={StyleSheet.absoluteFill} />
-              ) : null}
-              <View
-                style={[
-                  StyleSheet.absoluteFill,
-                  {
-                    backgroundColor: Platform.OS === 'ios' ? 'rgba(255,255,255,0.78)' : '#ffffff',
-                  },
-                ]}
-              />
-              <View style={styles.infoInner}>
-                <Text style={styles.eventTitleLight} numberOfLines={2}>
-                  {item.title}
-                </Text>
-                <Text style={styles.eventMetaLight} numberOfLines={2}>
-                  {`${item.date} · ${item.location}`}
-                </Text>
-              </View>
-            </View>
-          )}
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </View>
       </AnimatedListItem>
-    ),
-    [isFavoriteEvent, isDark, navigation, onToggleFavorite]
+      );
+    },
+    [isFavoriteEvent, navigation, onToggleFavorite, cardBg, cardBdr, txt1, txt2, amber, chipBg]
   );
 
   return (
-    <SafeAreaView
-      style={[
-        styles.container,
-        isDark ? { backgroundColor: Colors.dark.background } : { backgroundColor: EVENTS_LIGHT.pageBg },
-      ]}
-      edges={['top']}
-    >
+    <SafeAreaView style={[styles.container, { backgroundColor: pageBg }]} edges={['top']}>
       <View style={styles.header}>
-        <Text style={[styles.headerTitle, isDark && styles.headerTitleDark]}>Etkinlikler</Text>
+        <Text style={[styles.headerTitle, { color: txt1 }]}>Etkinlikler</Text>
         <TouchableOpacity
           onPress={() => setActiveTab('Favorilerim')}
           activeOpacity={0.85}
-          style={[
-            styles.favBadgeOuter,
-            isDark && styles.favBadgeOuterDark,
-            !isDark && { borderColor: 'rgba(124,58,237,0.2)' },
-          ]}
+          style={[styles.favBadgeOuter, { backgroundColor: chipBg }]}
         >
-          {!isDark && Platform.OS === 'ios' ? (
-            <BlurView intensity={60} tint="light" style={StyleSheet.absoluteFill} />
-          ) : null}
-          <View
-            style={[
-              StyleSheet.absoluteFill,
-              {
-                backgroundColor:
-                  !isDark
-                    ? Platform.OS === 'ios'
-                      ? 'rgba(255,255,255,0.82)'
-                      : '#ffffff'
-                    : 'rgba(255,255,255,0.08)',
-                borderRadius: 22,
-              },
-            ]}
-          />
           <Heart
-            color={isDark ? '#f8fafc' : DribbbleColors.textPrimary}
+            color={activeTab === 'Favorilerim' ? amber : txt1}
             size={18}
             strokeWidth={2}
-            fill={
-              activeTab === 'Favorilerim'
-                ? isDark
-                  ? Colors.dark.accent
-                  : EVENTS_LIGHT.accent
-                : 'transparent'
-            }
+            fill={activeTab === 'Favorilerim' ? amber : 'transparent'}
           />
           {(hasFavorites || activeTab === 'Favorilerim') && (
-            <View
-              style={[
-                styles.favDot,
-                !isDark && { backgroundColor: EVENTS_LIGHT.accent },
-                isDark && { backgroundColor: Colors.dark.accent },
-              ]}
-            />
+            <View style={[styles.favDot, { backgroundColor: amber, borderColor: chipBg }]} />
           )}
         </TouchableOpacity>
       </View>
@@ -325,26 +307,60 @@ const EventsScreen = () => {
         />
       </View>
 
+      {availableDays.length > 0 && (
+        <View style={styles.dayStripRow}>
+          <FlatList
+            horizontal
+            data={availableDays}
+            keyExtractor={(d) => dayKey(d)}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.dayStripContent}
+            renderItem={({ item: d }) => {
+              const key = dayKey(d);
+              const active = selectedDayKey === key;
+              return (
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => setSelectedDayKey(active ? null : key)}
+                  style={[
+                    styles.dayChip,
+                    active ? { backgroundColor: ctaBg } : { backgroundColor: chipBg, borderWidth: 1, borderColor: cardBdr },
+                  ]}
+                >
+                  <Text style={[styles.dayChipWeekday, { color: active ? ctaTxt : txt2 }]}>
+                    {WEEKDAYS_SHORT[d.getDay()]}
+                  </Text>
+                  <Text style={[styles.dayChipNum, { color: active ? ctaTxt : txt1 }]}>{d.getDate()}</Text>
+                </TouchableOpacity>
+              );
+            }}
+          />
+        </View>
+      )}
+
       {loading ? (
         <View style={styles.loadingContainer}>
           {[1, 2, 3].map(i => (
-            <View key={i} style={[styles.eventCard, styles.skeletonCard, isDark && styles.eventCardDark]}>
-              <Skeleton width="100%" height={200} borderRadius={0} isDark={isDark} />
-              <View style={{ padding: 16, gap: 8 }}>
-                <Skeleton width="72%" height={18} borderRadius={6} isDark={isDark} />
-                <Skeleton width="55%" height={14} borderRadius={6} isDark={isDark} />
+            <View key={i} style={[styles.eventRowOuter, styles.skeletonCard, { backgroundColor: cardBg, flexDirection: 'row', alignItems: 'center', padding: 10, gap: 12 }]}>
+              <Skeleton width={52} height={52} borderRadius={14} isDark={isDark} />
+              <Skeleton width={56} height={56} borderRadius={12} isDark={isDark} />
+              <View style={{ flex: 1, gap: 8 }}>
+                <Skeleton width="80%" height={16} borderRadius={6} isDark={isDark} />
+                <Skeleton width="55%" height={12} borderRadius={6} isDark={isDark} />
               </View>
             </View>
           ))}
         </View>
       ) : filteredEvents.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, isDark && { color: '#94a3b8' }]}>
-            {activeTab === 'Tümü'
-              ? 'Henüz etkinlik bulunmuyor.'
-              : activeTab === 'Favorilerim'
-                ? 'Henüz favori etkinliğiniz bulunmuyor.'
-                : `${activeTab} kategorisinde etkinlik bulunmuyor.`}
+          <Text style={[styles.emptyText, { color: txt2 }]}>
+            {selectedDayKey
+              ? 'Seçili günde etkinlik bulunmuyor.'
+              : activeTab === 'Tümü'
+                ? 'Henüz etkinlik bulunmuyor.'
+                : activeTab === 'Favorilerim'
+                  ? 'Henüz favori etkinliğiniz bulunmuyor.'
+                  : `${activeTab} kategorisinde etkinlik bulunmuyor.`}
           </Text>
         </View>
       ) : (
@@ -367,7 +383,6 @@ const EventsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: DribbbleColors.background,
   },
   header: {
     paddingHorizontal: 20,
@@ -380,24 +395,13 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.semiBold,
     fontSize: 26,
     letterSpacing: -0.4,
-    color: DribbbleColors.textPrimary,
-  },
-  headerTitleDark: {
-    color: '#f8fafc',
-    fontFamily: FontFamily.semiBold,
   },
   favBadgeOuter: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
-  },
-  favBadgeOuterDark: {
-    borderColor: 'rgba(255,255,255,0.12)',
   },
   favDot: {
     position: 'absolute',
@@ -407,7 +411,6 @@ const styles = StyleSheet.create({
     height: 7,
     borderRadius: 4,
     borderWidth: 1.5,
-    borderColor: '#ffffff',
   },
   pillsRowFixed: {
     height: 52,
@@ -424,154 +427,181 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexGrow: 0,
   },
+  dayStripRow: {
+    marginBottom: 10,
+  },
+  dayStripContent: {
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  dayChip: {
+    width: 48,
+    paddingVertical: 8,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  dayChipWeekday: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 9,
+    letterSpacing: 0.3,
+    marginBottom: 2,
+  },
+  dayChipNum: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 15,
+  },
   tabPill: {
     paddingHorizontal: 18,
     height: 44,
     borderRadius: 22,
     marginRight: 10,
-    overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'center',
   },
-  tabPillDark: {
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  tabPillInactiveLight: {
-    borderWidth: 1,
-    borderColor: DribbbleColors.borderLight,
-  },
-  tabPillInactiveDark: {
-    backgroundColor: 'transparent',
-  },
   tabPillText: {
     fontFamily: FontFamily.semiBold,
     fontSize: 13,
-    zIndex: 1,
   },
   listContainer: {
     paddingHorizontal: 20,
     paddingTop: 6,
   },
-  eventCard: {
+  heroEventOuter: {
     marginBottom: 20,
-    borderRadius: CARD_RADIUS,
-    overflow: 'hidden',
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
-    shadowColor: Platform.OS === 'android' ? 'transparent' : '#0f172a',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: Platform.OS === 'android' ? 0 : 0.08,
-    shadowRadius: Platform.OS === 'android' ? 0 : 20,
-    elevation: Platform.OS === 'android' ? 0 : 6,
+    borderRadius: 22,
   },
-  eventCardDark: {
-    backgroundColor: Platform.OS === 'android' ? '#111827' : 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.1)',
-    shadowOpacity: Platform.OS === 'android' ? 0 : 0.2,
+  heroEventCard: {
+    borderRadius: 22,
+    height: 260,
+    justifyContent: 'flex-end',
+  },
+  heroEventOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.32)',
+  },
+  heroDateTag: {
+    position: 'absolute',
+    top: 14,
+    left: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  heroDateTagText: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 11,
+    letterSpacing: 0.4,
+  },
+  heroHeartBtn: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroTextBlock: {
+    padding: 18,
+    paddingBottom: 16,
+  },
+  heroEventTitle: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 20,
+    letterSpacing: -0.3,
+    color: '#fff',
+    lineHeight: 25,
+  },
+  heroEventMeta: {
+    fontFamily: FontFamily.medium,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.85)',
+    marginTop: 4,
+  },
+  heroUrgentTag: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  heroUrgentTagText: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 10,
+    letterSpacing: 0.4,
+    color: '#fff',
+  },
+  eventRowOuter: {
+    marginBottom: 12,
+    borderRadius: 18,
+  },
+  eventRow: {
+    borderRadius: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    gap: 12,
   },
   skeletonCard: {
     overflow: 'hidden',
   },
-  imageSection: {
-    width: '100%',
-    height: 220,
-    backgroundColor: '#e2e8f0',
-    position: 'relative',
-  },
-  imageSectionDark: {
-    backgroundColor: '#1e293b',
-  },
-  amberGlow: {
-    ...StyleSheet.absoluteFillObject,
-    borderTopRightRadius: CARD_RADIUS,
-  },
-  categoryPill: {
-    position: 'absolute',
-    top: 14,
-    left: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  dateBadge: {
+    width: 52,
+    height: 52,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.88)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.95)',
-  },
-  categoryPillText: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: 11,
-    color: DribbbleColors.textPrimary,
-    letterSpacing: 0.3,
-  },
-  heartFab: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    overflow: 'hidden',
-    justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.45)',
-  },
-  infoSectionLight: {
-    minHeight: 112,
-    position: 'relative',
-    overflow: 'hidden',
-    borderBottomLeftRadius: CARD_RADIUS,
-    borderBottomRightRadius: CARD_RADIUS,
     justifyContent: 'center',
   },
-  infoInner: {
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    zIndex: 1,
-  },
-  eventTitleLight: {
+  dateBadgeTag: {
     fontFamily: FontFamily.semiBold,
-    fontSize: 17,
+    fontSize: 7,
+    letterSpacing: 0.3,
+    marginBottom: 1,
+  },
+  dateBadgeDay: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 18,
+    lineHeight: 20,
+    letterSpacing: -0.3,
+  },
+  dateBadgeMonth: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 9,
+    letterSpacing: 0.4,
+  },
+  rowThumb: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+  },
+  rowInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  rowTitle: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 15,
     letterSpacing: -0.2,
-    color: DribbbleColors.textPrimary,
-    lineHeight: 22,
+    lineHeight: 19,
   },
-  eventMetaLight: {
+  rowMeta: {
     fontFamily: FontFamily.medium,
-    fontSize: 13,
-    color: DribbbleColors.textSecondary,
-    marginTop: 6,
-    lineHeight: 18,
+    fontSize: 12,
   },
-  infoSectionDark: {
-    minHeight: 112,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    backgroundColor: 'rgba(15,23,42,0.92)',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.08)',
+  rowHeartBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
     justifyContent: 'center',
-  },
-  eventTitleDark: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: 17,
-    color: '#f8fafc',
-    lineHeight: 22,
-  },
-  eventMetaDark: {
-    fontFamily: FontFamily.medium,
-    fontSize: 13,
-    color: '#94a3b8',
-    marginTop: 6,
-    lineHeight: 18,
   },
   loadingContainer: {
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 12,
-    gap: 20,
+    gap: 12,
   },
   emptyContainer: {
     flex: 1,
@@ -583,7 +613,6 @@ const styles = StyleSheet.create({
   emptyText: {
     fontFamily: FontFamily.medium,
     fontSize: 16,
-    color: '#64748b',
     textAlign: 'center',
   },
 });

@@ -15,12 +15,12 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GradientBackground } from '@/components/GradientBackground';
 import { DotIndicator } from '@/components/DotIndicator';
-import type { OnboardingStackParamList } from '../navigation/OnboardingNavigator';
+import type { RootStackParamList } from '@/types/navigation';
 import { markOnboardingCompleted } from '@/utils/onboarding';
 
 const jumpingLottie = require('@/assets/images/Jumping Lottie Animation.json');
 
-type NavProp = StackNavigationProp<OnboardingStackParamList, 'Onboarding2'>;
+type NavProp = StackNavigationProp<RootStackParamList, 'Onboarding2'>;
 
 const ACCENT = '#F97316';
 const ACCENT2 = '#FED7AA';

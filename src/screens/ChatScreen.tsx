@@ -26,6 +26,7 @@ import { notify } from '@/lib/notifications';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useThemeMode } from '@/context/ThemeContext';
+import { Clean } from '@/constants/Colors';
 
 // Snapchat Renk Paleti
 const SnapColors = {
@@ -34,7 +35,7 @@ const SnapColors = {
   white: '#FFFFFF',
   gray: '#8E8E93',
   lightGray: '#F2F2F7',
-  blue: '#FF4500',
+  blue: Clean.textPrimary,
   red: '#FF2D55',
   // Dark mode colors
   darkBg: '#000000',
@@ -775,25 +776,29 @@ const ChatScreen = () => {
   };
 
   /** Sağa kaydırınca yanıt (WhatsApp gibi) — ReanimatedSwipeable UI-thread'de çalışır, akıcı */
-  const wrapSwipeable = (item: Message, row: React.ReactElement) => (
-    <ReanimatedSwipeable
-      friction={1}
-      leftThreshold={28}
-      overshootLeft={false}
-      overshootFriction={8}
-      dragOffsetFromLeftEdge={12}
-      containerStyle={styles.swipeableRowContainer}
-      childrenContainerStyle={styles.swipeableRowChildren}
-      renderLeftActions={renderReplySwipeAction}
-      onSwipeableOpen={(direction, swipeable: SwipeableMethods) => {
-        if (direction !== 'left') return;
-        setReplyingTo(item);
-        requestAnimationFrame(() => swipeable.close());
-      }}
-    >
-      {row}
-    </ReanimatedSwipeable>
-  );
+  const wrapSwipeable = (item: Message, row: React.ReactElement) => {
+    const swipeableRef = React.createRef<SwipeableMethods>();
+    return (
+      <ReanimatedSwipeable
+        ref={swipeableRef}
+        friction={1}
+        leftThreshold={28}
+        overshootLeft={false}
+        overshootFriction={8}
+        dragOffsetFromLeftEdge={12}
+        containerStyle={styles.swipeableRowContainer}
+        childrenContainerStyle={styles.swipeableRowChildren}
+        renderLeftActions={renderReplySwipeAction}
+        onSwipeableOpen={(direction) => {
+          if (direction !== 'left') return;
+          setReplyingTo(item);
+          requestAnimationFrame(() => swipeableRef.current?.close());
+        }}
+      >
+        {row}
+      </ReanimatedSwipeable>
+    );
+  };
 
   return (
     <GestureHandlerRootView style={styles.gestureRoot}>
@@ -1016,12 +1021,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,69,0,0.1)',
+    borderBottomColor: 'rgba(0,0,0,0.06)',
     backgroundColor: '#FFF8F5',
   },
   headerDark: {
     backgroundColor: '#130500',
-    borderBottomColor: 'rgba(255,69,0,0.15)',
+    borderBottomColor: 'rgba(255,255,255,0.1)',
   },
   backButton: {
     marginRight: 12,
@@ -1167,11 +1172,11 @@ const styles = StyleSheet.create({
   },
   inputOuter: {
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,69,0,0.1)',
+    borderTopColor: 'rgba(0,0,0,0.06)',
     backgroundColor: '#FFF8F5',
   },
   inputOuterDark: {
-    borderTopColor: 'rgba(255,69,0,0.15)',
+    borderTopColor: 'rgba(255,255,255,0.1)',
     backgroundColor: '#130500',
   },
   replyBar: {
@@ -1309,20 +1314,20 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   myBubble: {
-    backgroundColor: '#FF4500',
+    backgroundColor: Clean.ctaBg,
     borderBottomRightRadius: 4,
   },
   theirBubble: {
     backgroundColor: '#fff',
     borderBottomLeftRadius: 4,
     borderWidth: 1,
-    borderColor: 'rgba(255,69,0,0.12)',
+    borderColor: Clean.border,
   },
   theirBubbleDark: {
-    backgroundColor: '#1C0800',
+    backgroundColor: '#18181B',
     borderBottomLeftRadius: 4,
     borderWidth: 1,
-    borderColor: 'rgba(255,69,0,0.18)',
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   messageText: {
     fontSize: 15,
@@ -1436,12 +1441,12 @@ const styles = StyleSheet.create({
     maxHeight: 100,
     color: '#1a0800',
     borderWidth: 1,
-    borderColor: 'rgba(255,69,0,0.15)',
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   inputDark: {
     backgroundColor: '#1C0800',
     color: '#fff',
-    borderColor: 'rgba(255,69,0,0.2)',
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   sendButton: {
     width: 40,

@@ -1,25 +1,11 @@
 import React, { useMemo, useCallback, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { StatusBar } from 'expo-status-bar';
 import { Pill, MapPin, Phone, Navigation } from 'lucide-react-native';
-import { Colors, DribbbleColors } from '@/constants/Colors';
+import { Clean } from '@/constants/Colors';
+import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { MOCK_PHARMACIES, Pharmacy } from '@/api/mockData';
 import { useThemeMode } from '@/context/ThemeContext';
-
-/** Nöbetçi eczaneler — ana sayfa eczane / pembe tonları ile uyumlu */
-const PHARM = {
-  rose800: '#9f1239',
-  rose700: '#be185d',
-  rose500: '#ec4899',
-  pink100: '#fce7f3',
-  pink50: '#fdf2f8',
-  red600: '#dc2626',
-  red500: '#ef4444',
-  iconDark: '#fda4af',
-  accentDark: '#fb7185',
-} as const;
 
 const DISTRICT_FILTERS = [
   'Tümü',
@@ -43,6 +29,17 @@ const PharmacyListScreen = () => {
   const isDark = mode === 'dark';
   const insets = useSafeAreaInsets();
   const [selectedDistrict, setSelectedDistrict] = useState<DistrictFilter>('Tümü');
+
+  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
+  const cardBg  = isDark ? '#18181B' : Clean.surface;
+  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
+  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
+  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
+  const ctaBg   = isDark ? '#F5F5F7' : Clean.ctaBg;
+  const ctaTxt  = isDark ? '#111114' : Clean.ctaText;
+  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
+  const amber   = Clean.accent;
+  const cardBorder = isDark ? cardBorderDark : cardBorderLight;
 
   const handleDirections = useCallback((pharmacy: Pharmacy) => {
     const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(pharmacy.address)}`;
@@ -88,91 +85,61 @@ const PharmacyListScreen = () => {
   }, [pharmacyDataWithDistrict, selectedDistrict]);
 
   const renderPharmacyItem = useCallback(({ item }: { item: Pharmacy & { district: DistrictFilter } }) => (
-    <TouchableOpacity
-      style={[
-        styles.pharmacyCard,
-        isDark
-          ? { backgroundColor: Colors.dark.card, borderWidth: 1, borderColor: Colors.dark.border }
-          : {
-              backgroundColor: DribbbleColors.cardWhite,
-              borderWidth: 1,
-              borderColor: 'rgba(190, 24, 93, 0.12)',
-            },
-      ]}
-      activeOpacity={0.9}
-    >
-      <View
-        style={[
-          styles.iconContainer,
-          !isDark && { backgroundColor: PHARM.pink100 },
-          isDark && { backgroundColor: 'rgba(251, 113, 133, 0.12)' },
-        ]}
-      >
-        <Pill color={isDark ? PHARM.iconDark : PHARM.red500} size={24} />
-      </View>
-      <View style={styles.infoContainer}>
-        <View style={styles.nameRow}>
-          <Text style={[styles.pharmacyName, isDark && { color: '#f8fafc' }]}>{item.name}</Text>
-          {item.isOnDuty && (
-            <View
-              style={[
-                styles.dutyBadge,
-                isDark && { backgroundColor: 'rgba(239, 68, 68, 0.2)' },
-              ]}
-            >
-              <Text style={[styles.dutyText, isDark && { color: PHARM.iconDark }]}>Nöbetçi</Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.addressRow}>
-          <MapPin color={isDark ? '#94a3b8' : DribbbleColors.textSecondary} size={14} />
-          <Text style={[styles.address, isDark && { color: '#94a3b8' }]} numberOfLines={1}>
-            {item.address}
-          </Text>
-        </View>
-        <Text style={[styles.districtText, isDark && { color: PHARM.iconDark }]}>{item.district}</Text>
-        <View style={styles.distanceRow}>
-          <Text style={[styles.distance, isDark && { color: PHARM.accentDark }]}>{item.distance.toFixed(1)} km</Text>
-          <TouchableOpacity style={styles.phoneButton} onPress={() => handleCall(item.phone)} activeOpacity={0.7}>
-            <Phone color={isDark ? PHARM.iconDark : PHARM.rose700} size={16} />
-            <Text style={[styles.phoneText, isDark && { color: PHARM.accentDark }]}>{item.phone}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+    <View style={[styles.pharmacyCardOuter, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
       <TouchableOpacity
-        style={[
-          styles.directionsButton,
-          !isDark && { backgroundColor: PHARM.pink100 },
-          isDark && { backgroundColor: 'rgba(251, 113, 133, 0.15)' },
-        ]}
-        onPress={() => handleDirections(item)}
+        style={[styles.pharmacyCard, cardInnerClip]}
         activeOpacity={0.9}
       >
-        <Navigation color={isDark ? PHARM.iconDark : PHARM.rose700} size={20} />
+        <View style={[styles.iconContainer, { backgroundColor: chipBg }]}>
+          <Pill color={txt1} size={24} />
+        </View>
+        <View style={styles.infoContainer}>
+          <View style={styles.nameRow}>
+            <Text style={[styles.pharmacyName, { color: txt1 }]}>{item.name}</Text>
+            {item.isOnDuty && (
+              <View style={styles.dutyBadge}>
+                <Text style={styles.dutyText}>Nöbetçi</Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.addressRow}>
+            <MapPin color={txt2} size={14} />
+            <Text style={[styles.address, { color: txt2 }]} numberOfLines={1}>
+              {item.address}
+            </Text>
+          </View>
+          <Text style={[styles.districtText, { color: txt2 }]}>{item.district}</Text>
+          <View style={styles.distanceRow}>
+            <Text style={[styles.distance, { color: txt1 }]}>{item.distance.toFixed(1)} km</Text>
+            <TouchableOpacity style={styles.phoneButton} onPress={() => handleCall(item.phone)} activeOpacity={0.7}>
+              <Phone color={txt1} size={16} />
+              <Text style={[styles.phoneText, { color: txt1 }]}>{item.phone}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        <TouchableOpacity
+          style={[styles.directionsButton, { backgroundColor: chipBg }]}
+          onPress={() => handleDirections(item)}
+          activeOpacity={0.9}
+        >
+          <Navigation color={txt1} size={20} />
+        </TouchableOpacity>
       </TouchableOpacity>
-    </TouchableOpacity>
-  ), [isDark, handleCall, handleDirections]);
+    </View>
+  ), [cardBg, cardBdr, chipBg, txt1, txt2, amber, handleCall, handleDirections]);
 
   const nöbetçiCount = useMemo(() => filteredPharmacies.filter(p => p.isOnDuty).length, [filteredPharmacies]);
   const listBottomPad = Math.max(insets.bottom, 20);
 
   return (
-    <View
-      style={[
-        styles.container,
-        isDark ? { backgroundColor: Colors.dark.background } : { backgroundColor: PHARM.pink50 },
-      ]}
-    >
-      <StatusBar style="light" />
-      <LinearGradient
-        colors={isDark ? ['#500724', '#831843'] : [PHARM.rose800, PHARM.rose500]}
-        style={[styles.header, { paddingTop: insets.top + 16 }]}
-      >
-        <Text style={styles.headerTitle}>Nöbetçi Eczaneler</Text>
-        <Text style={styles.headerSubtitle}>
-          {selectedDistrict === 'Tümü' ? 'Tum ilceler' : selectedDistrict} · {nöbetçiCount} nöbetçi eczane
+    <View style={[styles.container, { backgroundColor: pageBg }]}>
+      <View style={[styles.header, { backgroundColor: pageBg, paddingTop: insets.top + 18 }]}>
+        <Text style={[styles.headerLabel, { color: txt2 }]}>KEŞFET</Text>
+        <Text style={[styles.headerTitle, { color: txt1 }]}>Nöbetçi Eczaneler</Text>
+        <Text style={[styles.headerSubtitle, { color: txt2 }]}>
+          {selectedDistrict === 'Tümü' ? 'Tüm ilçeler' : selectedDistrict} · {nöbetçiCount} nöbetçi eczane
         </Text>
-      </LinearGradient>
+      </View>
 
       <FlatList
         data={filteredPharmacies}
@@ -197,21 +164,12 @@ const PharmacyListScreen = () => {
                   key={district}
                   style={[
                     styles.filterChip,
-                    active
-                      ? (isDark ? styles.filterChipActiveDark : styles.filterChipActive)
-                      : (isDark ? styles.filterChipDark : styles.filterChipLight),
+                    active ? { backgroundColor: ctaBg } : { backgroundColor: chipBg, borderColor: cardBdr, borderWidth: 1 },
                   ]}
                   onPress={() => setSelectedDistrict(district)}
                   activeOpacity={0.85}
                 >
-                  <Text
-                    style={[
-                      styles.filterChipText,
-                      active
-                        ? styles.filterChipTextActive
-                        : (isDark ? styles.filterChipTextDark : styles.filterChipTextLight),
-                    ]}
-                  >
+                  <Text style={[styles.filterChipText, { color: active ? ctaTxt : txt2, fontWeight: active ? '700' : '500' }]}>
                     {district}
                   </Text>
                 </TouchableOpacity>
@@ -227,26 +185,30 @@ const PharmacyListScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: PHARM.pink50,
   },
   header: {
     paddingHorizontal: 20,
-    paddingBottom: 30,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    paddingBottom: 20,
+    gap: 4,
+  },
+  headerLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.4,
+    marginBottom: 2,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: Colors.white,
-    marginBottom: 4,
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.9)',
+    fontWeight: '500',
   },
   listContent: {
     padding: 20,
+    paddingTop: 4,
   },
   filterRow: {
     paddingBottom: 12,
@@ -256,49 +218,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 999,
-    borderWidth: 1,
-  },
-  filterChipLight: {
-    backgroundColor: '#fff',
-    borderColor: 'rgba(190, 24, 93, 0.16)',
-  },
-  filterChipDark: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderColor: 'rgba(251,113,133,0.24)',
-  },
-  filterChipActive: {
-    backgroundColor: '#fbcfe8',
-    borderColor: '#ec4899',
-  },
-  filterChipActiveDark: {
-    backgroundColor: 'rgba(251,113,133,0.22)',
-    borderColor: '#fb7185',
   },
   filterChipText: {
     fontSize: 12,
-    fontWeight: '700',
   },
-  filterChipTextLight: {
-    color: '#9f1239',
-  },
-  filterChipTextDark: {
-    color: '#fda4af',
-  },
-  filterChipTextActive: {
-    color: '#831843',
+  pharmacyCardOuter: {
+    borderRadius: 20,
+    marginBottom: 15,
   },
   pharmacyCard: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 20,
-    overflow: 'hidden',
     padding: 15,
-    marginBottom: 15,
-    shadowColor: Platform.OS === 'android' ? 'transparent' : PHARM.rose800,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: Platform.OS === 'android' ? 0 : 0.08,
-    shadowRadius: Platform.OS === 'android' ? 0 : 12,
-    elevation: Platform.OS === 'android' ? 0 : 3,
   },
   iconContainer: {
     width: 50,
@@ -306,7 +238,6 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: PHARM.pink100,
   },
   infoContainer: {
     flex: 1,
@@ -322,7 +253,6 @@ const styles = StyleSheet.create({
   pharmacyName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: DribbbleColors.textPrimary,
     marginRight: 8,
     flexShrink: 1,
   },
@@ -335,7 +265,7 @@ const styles = StyleSheet.create({
   dutyText: {
     fontSize: 10,
     fontWeight: '600',
-    color: PHARM.red600,
+    color: '#dc2626',
   },
   addressRow: {
     flexDirection: 'row',
@@ -344,7 +274,6 @@ const styles = StyleSheet.create({
   },
   address: {
     fontSize: 13,
-    color: DribbbleColors.textSecondary,
     marginLeft: 4,
     flex: 1,
   },
@@ -354,7 +283,6 @@ const styles = StyleSheet.create({
     marginLeft: 18,
     fontSize: 11,
     fontWeight: '700',
-    color: PHARM.rose700,
   },
   distanceRow: {
     flexDirection: 'row',
@@ -364,7 +292,6 @@ const styles = StyleSheet.create({
   distance: {
     fontSize: 14,
     fontWeight: '600',
-    color: PHARM.rose700,
   },
   phoneButton: {
     flexDirection: 'row',
@@ -373,14 +300,12 @@ const styles = StyleSheet.create({
   },
   phoneText: {
     fontSize: 12,
-    color: PHARM.rose700,
     fontWeight: '500',
   },
   directionsButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: PHARM.pink100,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 10,

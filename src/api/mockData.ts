@@ -107,9 +107,9 @@ export const MOCK_EVENTS: Event[] = [
 
 export const MOCK_MAGAZINES: Magazine[] = [
     {
-      id: '1',
+      id: 'm1',
       title: 'Göbeklitepe',
-      image: require('@/assets/images/indir.jpeg'),
+      image: require('@/assets/images/gobeklitepe.jpg'),
       category: 'historic',
       description:
         'Göbeklitepe, insanlık tarihinin bilinen en eski tapınak alanlarından biridir ve Şanlıurfa\'nın kuzeydoğusunda yer alır. ' +
@@ -117,54 +117,126 @@ export const MOCK_MAGAZINES: Magazine[] = [
         'inanç dünyasına dair benzersiz ipuçları sunar. Bugün UNESCO Dünya Mirası listesinde yer alan Göbeklitepe, "tarihin sıfır noktası" olarak anılır.'
     },
     {
-      id: '2',
+      id: 'm2',
       title: 'Balıklıgöl',
-      image: require('@/assets/images/indir 3.jpeg'),
-      category: 'historic',
+      image: require('@/assets/images/balikligol.jpg'),
+      category: 'faith',
       description:
         'Balıklıgöl, Şanlıurfa şehir merkezinde yer alan ve Hz. İbrahim\'in ateşe atıldığı yer olarak rivayet edilen kutsal bir mekândır. ' +
         'Efsaneye göre ateş suya, odunlar ise balığa dönüşür; bu yüzden göldeki sazan balıkları kutsal kabul edilir ve avlanmaz. ' +
         'Çevresindeki tarihi camiler, medreseler ve çarşılarla birlikte Balıklıgöl, hem manevi atmosferi hem de mimarisiyle kentin simgelerindendir.'
     },
     {
-      id: '3',
-      title: 'Şanlıurfa Kalesi',
-      image: 'https://images.unsplash.com/photo-1526481280695-3c687fd543c0?q=80&w=2400&auto=format&fit=crop',
+      id: 'm3',
+      title: 'Urfa Kalesi',
+      image: require('@/assets/images/urfakalesi.jpg'),
       category: 'historic',
       description:
-        'Şehrin merkezindeki tepe üzerinde yer alan Şanlıurfa Kalesi, bölgenin savunma tarihine ışık tutan önemli bir yapıdır.',
+        'Şehrin merkezindeki tepe üzerinde yer alan Urfa Kalesi, farklı dönemlerden izler taşıyan ve şehir manzarasına hâkim tarihi bir yapıdır.',
     },
     {
-      id: '4',
-      title: 'Arkeoloji Müzesi',
-      image: 'https://images.unsplash.com/photo-1545239351-1141bd82e8a6?q=80&w=2400&auto=format&fit=crop',
+      id: 'm4',
+      title: 'Harran Ören Yeri',
+      image: require('@/assets/images/harran.jpg'),
+      category: 'historic',
+      description:
+        'Konik kubbeli evleri ve antik geçmişiyle Harran, bölgenin en önemli kültürel miraslarından biridir.',
+    },
+    {
+      id: 'm5',
+      title: 'Harran Ulu Camii',
+      image: require('@/assets/images/harran_ulu_cami.jpg'),
+      category: 'faith',
+      description:
+        'Anadolu\'nun en eski camilerinden biri kabul edilen Harran Ulu Camii, Harran antik kentinin önemli bir parçasıdır.',
+    },
+    {
+      id: 'm6',
+      title: 'Soğmatar Antik Kenti',
+      image: require('@/assets/images/sogmatar.jpg'),
+      category: 'historic',
+      description:
+        'Kaya kabartmaları ve ay kültü kalıntılarıyla dikkat çeken, Şuayb Şehri yakınındaki antik yerleşim.',
+    },
+    {
+      id: 'm7',
+      title: 'Bazda Mağaraları',
+      image: require('@/assets/images/bazda_magaralari.jpg'),
+      category: 'historic',
+      description:
+        'Antik taş ocakları olarak kullanılan, etkileyici kaya oluşumlarına sahip tarihi bir alan.',
+    },
+    {
+      id: 'm8',
+      title: 'Rumkale',
+      image: require('@/assets/images/rumkale.jpg'),
+      category: 'historic',
+      description:
+        'Fırat kıyısında, çoğunlukla Halfeti tekne turlarıyla görülebilen tarihi bir kale.',
+    },
+    {
+      id: 'm9',
+      title: 'Birecik Kelaynak Üretme İstasyonu',
+      image: require('@/assets/images/kelaynak.jpg'),
+      category: 'nature',
+      description:
+        'Nesli tehlike altındaki kelaynak kuşlarının gözlemlenebildiği bir koruma merkezi.',
+    },
+    {
+      id: 'm10',
+      title: 'Şanlıurfa Arkeoloji Müzesi',
+      image: require('@/assets/images/arkeoloji_muzesi.jpg'),
       category: 'museum',
       description:
-        'Şanlıurfa Arkeoloji Müzesi, Göbeklitepe başta olmak üzere bölgenin binlerce yıllık arkeolojik mirasını sergiler.',
+        'Göbeklitepe ve Taş Tepeler buluntularını barındıran, Türkiye\'nin en zengin arkeoloji müzelerinden biri.',
     },
     {
-      id: '5',
-      title: 'Mozaik Müzesi',
-      image: 'https://images.unsplash.com/photo-1533659828870-3cf1f7c9fc02?q=80&w=2400&auto=format&fit=crop',
+      id: 'm11',
+      title: 'Haleplibahçe Mozaik Müzesi',
+      image: require('@/assets/images/mozaik_muzesi.jpg'),
       category: 'museum',
       description:
-        'Haleplibahçe Mozaik Müzesi, Roma dönemine ait benzersiz mozaikleri ile sanat ve tarih tutkunlarının uğrak noktasıdır.',
+        'Amazon Kraliçeleri mozaiği başta olmak üzere önemli Roma dönemi eserlerine ev sahipliği yapan müze.',
     },
     {
-      id: '6',
+      id: 'm12',
+      title: 'Gümrük Hanı',
+      image: require('@/assets/images/gumruk_hani.jpg'),
+      category: 'bazaar',
+      description:
+        'Tarihi atmosferi ve geleneksel kahveleriyle dinlenmek için ideal, tarihi bir han.',
+    },
+    {
+      id: 'm13',
+      title: 'Tarihi Urfa Çarşıları',
+      image: require('@/assets/images/urfa_carsi.jpg'),
+      category: 'bazaar',
+      description:
+        'Bakırcılar, isot ve yöresel ürün çarşılarıyla canlı bir alışveriş deneyimi sunan tarihi çarşı bölgesi.',
+    },
+    {
+      id: 'm14',
       title: 'Karaali Parkı',
-      image: 'https://images.unsplash.com/photo-1527708678327-8c04c1f9c3a9?q=80&w=2400&auto=format&fit=crop',
+      image: require('@/assets/images/karaali_parki.jpg'),
       category: 'nature',
       description:
         'Karaali Parkı, yeşil alanları ve yürüyüş yolları ile şehir merkezine çok yakın bir nefes alma noktasıdır.',
     },
     {
-      id: '7',
+      id: 'm15',
       title: 'Fırat Nehri Kıyısı',
-      image: 'https://images.unsplash.com/photo-1502904550040-7534597429ae?q=80&w=2400&auto=format&fit=crop',
+      image: require('@/assets/images/firat_kiyisi.jpg'),
       category: 'nature',
       description:
-        'Fırat Nehri kıyısında gün batımını izlemek, Şanlıurfa’da doğayla baş başa kalmanın en keyifli yollarından biridir.',
+        'Fırat Nehri kıyısında gün batımını izlemek, Şanlıurfa\'da doğayla baş başa kalmanın en keyifli yollarından biridir.',
+    },
+    {
+      id: 'm16',
+      title: 'Saklı Cennet',
+      image: require('@/assets/images/sakli_cennet.jpg'),
+      category: 'nature',
+      description:
+        'Halfeti çevresinde doğal manzaralarıyla öne çıkan sakin bir gezi noktası.',
     },
 ];
 
@@ -329,7 +401,7 @@ export interface WeekendPlan {
   activities: string[]; // Aktivite listesi
   duration: string; // tahmini süre
   category: 'tam-gün' | 'yarım-gün' | 'akşam';
-  image?: string;
+  image?: any; // URL string veya yerel require kaynağı
   tips?: string; // İpuçları
 }
 
@@ -346,6 +418,7 @@ export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
     ],
     duration: 'Tam Gün',
     category: 'tam-gün',
+    image: require('@/assets/images/gobeklitepe.jpg'),
     tips: 'Yoğun saatlerden kaçınmak için sabah erken başlamanız önerilir.',
   },
   {
@@ -360,6 +433,7 @@ export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
     ],
     duration: 'Yarım Gün',
     category: 'yarım-gün',
+    image: require('@/assets/images/urfakalesi.jpg'),
     tips: 'Müzelerin güncel ziyaret saatlerini gitmeden önce kontrol etmeniz faydalı olur.',
   },
   {
@@ -375,6 +449,7 @@ export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
     ],
     duration: 'Tam Gün',
     category: 'tam-gün',
+    image: require('@/assets/images/harran.jpg'),
     tips: 'Yaz aylarında sıcaklık yüksek olabildiği için su ve şapka bulundurmanız önerilir.',
   },
   {
@@ -390,6 +465,7 @@ export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
     ],
     duration: 'Yarım Gün',
     category: 'yarım-gün',
+    image: require('@/assets/images/balikligol.jpg'),
     tips: 'Merkez rotası için rahat yürüyüş ayakkabısı tercih etmeniz konfor sağlar.',
   },
   {
@@ -404,20 +480,62 @@ export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
     ],
     duration: 'Akşam',
     category: 'akşam',
+    image: require('@/assets/images/balikligol.jpg'),
     tips: 'Program ve mekan müsaitliği günlere göre değişebildiği için önceden kontrol etmeniz önerilir.',
   },
   {
     id: '6',
-    title: 'Halfeti Tekne + Merkez',
-    description: 'İlçe deneyimi ve şehir merkezi gezisini birleştiren tam günlük rota',
+    title: 'Halfeti Tekne Turu',
+    description: 'Fırat Nehri kıyısında yer alan Halfeti, sular altında kalan eski yerleşimi, tekne turları ve eşsiz manzarasıyla bölgenin en özel gezi rotalarından biridir.',
     activities: [
-      'Halfeti tekne turu planı',
+      'Halfeti tekne turu (batık cami ve Rumkale manzarası)',
+      'Eski taş evler arasında yürüyüş',
       'Fotoğraf molaları',
       'Öğle yemeği',
-      'Merkeze dönüşte Balıklıgöl çevresi'
+      'Merkeze dönüş'
     ],
     duration: 'Tam Gün',
     category: 'tam-gün',
     tips: 'Tekne turu ve ulaşım saatlerini gitmeden önce doğrulamanız önerilir.',
+  },
+  {
+    id: '7',
+    title: 'Karahantepe Rotası',
+    description: "Göbeklitepe ile aynı kültürel çevreye ait, yaklaşık 12 bin yıl öncesine tarihlenen Neolitik yerleşim ve arkeolojik kazı alanı. \"Taş Tepeler\" projesinin en önemli merkezlerinden biri.",
+    activities: [
+      'Karahantepe kazı alanı ziyareti',
+      'Anıtsal taş yapılar ve heykeller',
+      'Öğle molası'
+    ],
+    duration: 'Yarım Gün',
+    category: 'yarım-gün',
+    tips: 'Alan açık hava müzesi niteliğinde olduğu için yaz aylarında sabah erken saatler tercih edilmelidir.',
+  },
+  {
+    id: '8',
+    title: 'Şuayb Şehri + Soğmatar',
+    description: 'Tek Tek Dağları Milli Parkı\'nın doğal manzarası içinde yer alan, kaya oyma yapıları ve antik yerleşim kalıntılarıyla öne çıkan tarihi bir alan. Soğmatar Antik Kenti ve Senem Mağarası ile birlikte gezilir.',
+    activities: [
+      'Şuayb Şehri kaya oyma yapıları',
+      'Soğmatar Antik Kenti',
+      'Senem Mağarası',
+      'Tek Tek Dağları manzara molası'
+    ],
+    duration: 'Tam Gün',
+    category: 'tam-gün',
+    tips: 'Bölgeye özel araç olmadan ulaşım zor olduğundan araçlı gitmeniz önerilir.',
+  },
+  {
+    id: '9',
+    title: 'Kızılkoyun Nekropolü',
+    description: "Şehir merkezi girişinde, Roma dönemine ait kaya mezarlarından oluşan Şanlıurfa'nın en dikkat çekici arkeolojik miraslarından biri.",
+    activities: [
+      'Kızılkoyun kaya mezarları gezisi',
+      'Balıklıgöl çevresinde kısa yürüyüş'
+    ],
+    duration: 'Yarım Gün',
+    category: 'yarım-gün',
+    image: require('@/assets/images/balikligol.jpg'),
+    tips: 'Şehir merkezine yakın olduğu için diğer merkez gezileriyle birlikte planlanabilir.',
   },
 ];

@@ -15,8 +15,6 @@ import {
   Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { ArrowLeft, Users, Camera, Clock, Star, UserCheck, UserPlus, Hourglass, MessageCircle, X, Globe, Lock } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -25,36 +23,10 @@ import { useThemeMode } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
 import { supabase, processImageUrl, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
+import { Clean } from '@/constants/Colors';
+import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 
 const { width: SCREEN_W } = Dimensions.get('window');
-
-// ─── Renk Sistemi ───────────────────────────────────────────────────────────
-
-const BLUE = {
-  vivid:  '#FF4500',
-  warm:   '#FF6B35',
-  glow:   'rgba(255,69,0,0.25)',
-  border: 'rgba(255,69,0,0.35)',
-  text:   '#FF9166',
-  deep:   'rgba(120,20,0,0.4)',
-};
-
-const DARK = {
-  bg:       '#0A0200',
-  surface:  'rgba(255,69,0,0.06)',
-  border:   'rgba(255,69,0,0.15)',
-  text:     '#f1f5f9',
-  textSub:  'rgba(241,245,249,0.55)',
-};
-
-const LIGHT = {
-  bg:       '#FFF8F5',
-  surface:  'rgba(255,255,255,0.95)',
-  border:   'rgba(255,69,0,0.12)',
-  text:     '#1a0800',
-  textSub:  '#7a5a50',
-  accent:   '#FF4500',
-};
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -79,28 +51,28 @@ interface BentoCardProps {
 }
 
 const BentoCard = ({ icon, value, label, isDark, accent, flex = 1 }: BentoCardProps) => {
-  const theme = isDark ? DARK : LIGHT;
-  const accentColor = accent ?? (isDark ? BLUE.warm : LIGHT.accent);
+  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
+  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
+  const cardBg  = isDark ? '#18181B' : Clean.surface;
+  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
+  const cardBorder = isDark ? cardBorderDark : cardBorderLight;
+  const valueColor = accent ?? txt1;
 
   return (
-    <BlurView
-      intensity={isDark ? 18 : 30}
-      tint={isDark ? 'dark' : 'light'}
+    <View
       style={[
         styles.bentoCard,
-        {
-          flex,
-          borderColor: isDark ? BLUE.border : LIGHT.border,
-          backgroundColor: isDark ? DARK.surface : LIGHT.surface,
-        },
+        cardOuterShadow,
+        cardBorder,
+        { flex, backgroundColor: cardBg },
       ]}
     >
-      <View style={[styles.bentoIconWrap, { backgroundColor: isDark ? BLUE.glow : `${accentColor}18` }]}>
+      <View style={[styles.bentoIconWrap, { backgroundColor: chipBg }]}>
         {icon}
       </View>
-      <Text style={[styles.bentoValue, { color: accentColor }]}>{value}</Text>
-      <Text style={[styles.bentoLabel, { color: theme.textSub }]}>{label}</Text>
-    </BlurView>
+      <Text style={[styles.bentoValue, { color: valueColor }]}>{value}</Text>
+      <Text style={[styles.bentoLabel, { color: txt2 }]}>{label}</Text>
+    </View>
   );
 };
 
@@ -127,14 +99,17 @@ const statusConfig = {
   },
   pending_received: {
     label: 'İstek Var',
-    bg: 'rgba(255,69,0,0.15)',
-    color: '#FF4500',
-    icon: <UserPlus size={11} color="#FF4500" strokeWidth={2.5} />,
+    bg: 'rgba(37,99,235,0.15)',
+    color: '#2563eb',
+    icon: <UserPlus size={11} color="#2563eb" strokeWidth={2.5} />,
   },
 };
 
 const FriendRow = ({ entry, isDark, onPress }: FriendRowProps) => {
-  const theme = isDark ? DARK : LIGHT;
+  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
+  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
+  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
+  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
   const cfg = statusConfig[entry.status];
   const initial = entry.other_name.charAt(0).toUpperCase();
 
@@ -142,17 +117,17 @@ const FriendRow = ({ entry, isDark, onPress }: FriendRowProps) => {
     <TouchableOpacity
       activeOpacity={0.75}
       onPress={() => onPress(entry)}
-      style={[styles.friendRow, { borderBottomColor: theme.border }]}
+      style={[styles.friendRow, { borderBottomColor: cardBdr }]}
     >
       {/* Avatar */}
-      <View style={[styles.friendAvatar, { backgroundColor: isDark ? BLUE.glow : 'rgba(255,69,0,0.1)' }]}>
+      <View style={[styles.friendAvatar, { backgroundColor: chipBg }]}>
         {entry.other_avatar ? (
           <Image
             source={{ uri: processImageUrl(entry.other_avatar) ?? undefined }}
             style={styles.friendAvatarImg}
           />
         ) : (
-          <Text style={[styles.friendAvatarText, { color: isDark ? BLUE.warm : LIGHT.accent }]}>
+          <Text style={[styles.friendAvatarText, { color: txt1 }]}>
             {initial}
           </Text>
         )}
@@ -160,8 +135,8 @@ const FriendRow = ({ entry, isDark, onPress }: FriendRowProps) => {
 
       {/* İsim + kullanıcı adı */}
       <View style={styles.friendInfo}>
-        <Text style={[styles.friendName, { color: theme.text }]}>{entry.other_name}</Text>
-        <Text style={[styles.friendUsername, { color: theme.textSub }]}>@{entry.other_username}</Text>
+        <Text style={[styles.friendName, { color: txt1 }]}>{entry.other_name}</Text>
+        <Text style={[styles.friendUsername, { color: txt2 }]}>@{entry.other_username}</Text>
       </View>
 
       {/* Durum rozeti */}
@@ -180,7 +155,16 @@ const SosyalProfileScreen = ({ route }: any) => {
   const { mode } = useThemeMode();
   const isDark = mode === 'dark';
   const { profile: currentUserProfile, refreshProfile } = useUser();
-  const theme = isDark ? DARK : LIGHT;
+  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
+  const cardBg  = isDark ? '#18181B' : Clean.surface;
+  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
+  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
+  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
+  const ctaBg   = isDark ? '#F5F5F7' : Clean.ctaBg;
+  const ctaTxt  = isDark ? '#111114' : Clean.ctaText;
+  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
+  const amber   = Clean.accent;
+  const cardBorder = isDark ? cardBorderDark : cardBorderLight;
 
   // Route'dan gelen userId varsa onu kullan, yoksa kendi profilimiz
   const viewingUserId = route?.params?.userId || currentUserProfile?.userId;
@@ -280,6 +264,100 @@ const SosyalProfileScreen = ({ route }: any) => {
       setFriendStatsLoading(false);
     }
   }, []);
+
+  const fetchData = useCallback(async () => {
+    if (!viewingUserId) return;
+
+    try {
+      // Eğer başka kullanıcının profilini görüyorsak, önce profil bilgilerini çek
+      if (!isOwnProfile) {
+        const { data: profileData } = await supabase
+          .from('user_profiles')
+          .select('user_id, name, username, avatar_url, is_public')
+          .eq('user_id', viewingUserId)
+          .single();
+
+        if (profileData) {
+          setViewedProfile({
+            userId: profileData.user_id,
+            name: profileData.name,
+            username: profileData.username,
+            avatarUrl: profileData.avatar_url,
+          });
+        }
+      } else {
+        // Kendi profilimiz için is_public değerini çek
+        const { data: profileData } = await supabase
+          .from('user_profiles')
+          .select('is_public')
+          .eq('user_id', viewingUserId)
+          .single();
+
+        if (profileData) {
+          setIsPublic(profileData.is_public ?? true);
+        }
+      }
+
+      // Snap sayısı
+      const { count: snaps } = await supabase
+        .from('social_posts')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', viewingUserId);
+
+      setSnapCount(snaps ?? 0);
+
+      // Arkadaşlık listesi
+      const { data: friendships } = await supabase
+        .from('friendships')
+        .select('id, sender_id, receiver_id, status')
+        .or(`sender_id.eq.${viewingUserId},receiver_id.eq.${viewingUserId}`)
+        .neq('status', 'rejected');
+
+      if (friendships && friendships.length > 0) {
+        // Karşı taraf user_id'lerini topla
+        const otherIds = friendships.map((f: any) =>
+          f.sender_id === viewingUserId ? f.receiver_id : f.sender_id
+        );
+
+        // Profilleri tek sorguda çek
+        const { data: profiles } = await supabase
+          .from('user_profiles')
+          .select('user_id, name, username, avatar_url')
+          .in('user_id', otherIds);
+
+        const profileMap: Record<string, any> = {};
+        (profiles ?? []).forEach((p: any) => { profileMap[p.user_id] = p; });
+
+        const mapped: FriendEntry[] = friendships.map((f: any) => {
+          const isSender = f.sender_id === viewingUserId;
+          const otherId = isSender ? f.receiver_id : f.sender_id;
+          const otherProfile = profileMap[otherId];
+
+          let status: FriendEntry['status'] = 'accepted';
+          if (f.status === 'pending') {
+            status = isSender ? 'pending_sent' : 'pending_received';
+          }
+
+          return {
+            id: f.id,
+            other_user_id: otherId,
+            other_name: otherProfile?.name ?? 'Kullanıcı',
+            other_username: otherProfile?.username ?? '',
+            other_avatar: otherProfile?.avatar_url,
+            status,
+          };
+        });
+        setFriends(mapped);
+      } else {
+        setFriends([]);
+      }
+    } catch (e) {
+      console.error('SosyalProfile fetchData error:', e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [viewingUserId, isOwnProfile]);
 
   const handleRemoveFriend = useCallback(async (friendshipId: string, friendName: string) => {
     Alert.alert(
@@ -486,100 +564,6 @@ const SosyalProfileScreen = ({ route }: any) => {
     }
   }, [profile?.userId]);
 
-  const fetchData = useCallback(async () => {
-    if (!viewingUserId) return;
-    
-    try {
-      // Eğer başka kullanıcının profilini görüyorsak, önce profil bilgilerini çek
-      if (!isOwnProfile) {
-        const { data: profileData } = await supabase
-          .from('user_profiles')
-          .select('user_id, name, username, avatar_url, is_public')
-          .eq('user_id', viewingUserId)
-          .single();
-        
-        if (profileData) {
-          setViewedProfile({
-            userId: profileData.user_id,
-            name: profileData.name,
-            username: profileData.username,
-            avatarUrl: profileData.avatar_url,
-          });
-        }
-      } else {
-        // Kendi profilimiz için is_public değerini çek
-        const { data: profileData } = await supabase
-          .from('user_profiles')
-          .select('is_public')
-          .eq('user_id', viewingUserId)
-          .single();
-        
-        if (profileData) {
-          setIsPublic(profileData.is_public ?? true);
-        }
-      }
-      
-      // Snap sayısı
-      const { count: snaps } = await supabase
-        .from('social_posts')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', viewingUserId);
-
-      setSnapCount(snaps ?? 0);
-
-      // Arkadaşlık listesi
-      const { data: friendships } = await supabase
-        .from('friendships')
-        .select('id, sender_id, receiver_id, status')
-        .or(`sender_id.eq.${viewingUserId},receiver_id.eq.${viewingUserId}`)
-        .neq('status', 'rejected');
-
-      if (friendships && friendships.length > 0) {
-        // Karşı taraf user_id'lerini topla
-        const otherIds = friendships.map((f: any) =>
-          f.sender_id === viewingUserId ? f.receiver_id : f.sender_id
-        );
-
-        // Profilleri tek sorguda çek
-        const { data: profiles } = await supabase
-          .from('user_profiles')
-          .select('user_id, name, username, avatar_url')
-          .in('user_id', otherIds);
-
-        const profileMap: Record<string, any> = {};
-        (profiles ?? []).forEach((p: any) => { profileMap[p.user_id] = p; });
-
-        const mapped: FriendEntry[] = friendships.map((f: any) => {
-          const isSender = f.sender_id === viewingUserId;
-          const otherId = isSender ? f.receiver_id : f.sender_id;
-          const otherProfile = profileMap[otherId];
-
-          let status: FriendEntry['status'] = 'accepted';
-          if (f.status === 'pending') {
-            status = isSender ? 'pending_sent' : 'pending_received';
-          }
-
-          return {
-            id: f.id,
-            other_user_id: otherId,
-            other_name: otherProfile?.name ?? 'Kullanıcı',
-            other_username: otherProfile?.username ?? '',
-            other_avatar: otherProfile?.avatar_url,
-            status,
-          };
-        });
-        setFriends(mapped);
-      } else {
-        setFriends([]);
-      }
-    } catch (e) {
-      console.error('SosyalProfile fetchData error:', e);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [viewingUserId, isOwnProfile]);
-
   useEffect(() => {
     fetchData();
   }, [fetchData]);
@@ -592,28 +576,17 @@ const SosyalProfileScreen = ({ route }: any) => {
   const acceptedCount = friends.filter(f => f.status === 'accepted').length;
   const pendingCount = friends.filter(f => f.status !== 'accepted').length;
 
-  const accentColor = isDark ? BLUE.warm : LIGHT.accent;
+  const accentColor = txt1;
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      {/* Arka plan dekoratif gradyan */}
-      <LinearGradient
-        colors={isDark
-          ? ['rgba(255,69,0,0.12)', '#0A0200', 'rgba(255,69,0,0.05)']
-          : ['rgba(255,69,0,0.07)', '#FFF8F5', 'rgba(255,107,53,0.04)']}
-        style={StyleSheet.absoluteFill}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        pointerEvents="none"
-      />
-
+    <View style={[styles.container, { backgroundColor: pageBg }]}>
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <ArrowLeft size={22} color={accentColor} strokeWidth={2} />
+          <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: chipBg }]}>
+            <ArrowLeft size={22} color={txt1} strokeWidth={2} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: theme.text }]}>ŞanlıSosyal Profilim</Text>
+          <Text style={[styles.headerTitle, { color: txt1 }]}>ŞanlıSosyal Profilim</Text>
           <View style={{ width: 38 }} />
         </View>
 
@@ -624,20 +597,17 @@ const SosyalProfileScreen = ({ route }: any) => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={accentColor}
+              tintColor={txt1}
             />
           }
         >
           {/* Profil Kartı */}
-          <BlurView
-            intensity={isDark ? 20 : 35}
-            tint={isDark ? 'dark' : 'light'}
+          <View
             style={[
               styles.profileCard,
-              {
-                borderColor: isDark ? BLUE.border : LIGHT.border,
-                backgroundColor: isDark ? DARK.surface : LIGHT.surface,
-              },
+              cardOuterShadow,
+              cardBorder,
+              { backgroundColor: cardBg },
             ]}
           >
             {/* Avatar — tıklanabilir */}
@@ -647,10 +617,10 @@ const SosyalProfileScreen = ({ route }: any) => {
               style={{ marginBottom: 14 }}
               disabled={avatarUploading || !isOwnProfile}
             >
-              <View style={[styles.avatarCircle, { borderColor: isDark ? BLUE.vivid : LIGHT.accent, marginBottom: 0 }]}>
+              <View style={[styles.avatarCircle, { borderColor: cardBdr, marginBottom: 0 }]}>
                 {avatarUploading ? (
-                  <View style={[styles.avatarGradient, { backgroundColor: isDark ? '#1e293b' : '#e2e8f0' }]}>
-                    <ActivityIndicator color={isDark ? BLUE.warm : LIGHT.accent} />
+                  <View style={[styles.avatarGradient, { backgroundColor: chipBg }]}>
+                    <ActivityIndicator color={txt1} />
                   </View>
                 ) : profile?.avatarUrl ? (
                   <Image
@@ -658,64 +628,58 @@ const SosyalProfileScreen = ({ route }: any) => {
                     style={styles.avatarImg}
                   />
                 ) : (
-                  <LinearGradient
-                    colors={isDark ? ['#CC3700', '#FF4500'] : ['#FF6B35', '#FF4500']}
-                    style={styles.avatarGradient}
-                  >
-                    <Text style={styles.avatarInitial}>
+                  <View style={[styles.avatarGradient, { backgroundColor: ctaBg }]}>
+                    <Text style={[styles.avatarInitial, { color: ctaTxt }]}>
                       {profile?.name?.charAt(0).toUpperCase() ?? 'S'}
                     </Text>
-                  </LinearGradient>
+                  </View>
                 )}
               </View>
               {/* Kamera ikonu rozeti - sadece kendi profilinde */}
               {isOwnProfile && (
-                <View style={[styles.avatarCameraBtn, { backgroundColor: isDark ? BLUE.vivid : LIGHT.accent }]}>
-                  <Camera size={12} color="#fff" strokeWidth={2.5} />
+                <View style={[styles.avatarCameraBtn, { backgroundColor: ctaBg, borderColor: cardBg }]}>
+                  <Camera size={12} color={ctaTxt} strokeWidth={2.5} />
                 </View>
               )}
             </TouchableOpacity>
 
-            <Text style={[styles.profileName, { color: theme.text }]}>
+            <Text style={[styles.profileName, { color: txt1 }]}>
               {profile?.name ?? 'Kullanıcı'}
             </Text>
-            <Text style={[styles.profileUsername, { color: accentColor }]}>
+            <Text style={[styles.profileUsername, { color: txt2 }]}>
               @{profile?.username ?? ''}
             </Text>
 
             {/* Platform rozeti */}
-            <View style={[styles.platformBadge, { backgroundColor: isDark ? BLUE.glow : 'rgba(255,69,0,0.1)', borderColor: isDark ? BLUE.border : 'rgba(255,69,0,0.2)' }]}>
-              <Star size={11} color={accentColor} strokeWidth={2.5} fill={accentColor} />
-              <Text style={[styles.platformBadgeText, { color: accentColor }]}>ŞanlıSosyal Üyesi</Text>
+            <View style={[styles.platformBadge, { backgroundColor: chipBg, borderWidth: 0 }]}>
+              <Star size={11} color={amber} strokeWidth={2.5} fill={amber} />
+              <Text style={[styles.platformBadgeText, { color: txt1 }]}>ŞanlıSosyal Üyesi</Text>
             </View>
-          </BlurView>
+          </View>
 
           {/* Gizlilik Ayarı - Sadece kendi profilinde */}
           {isOwnProfile && (
             <>
-            <BlurView
-              intensity={isDark ? 20 : 35}
-              tint={isDark ? 'dark' : 'light'}
+            <View
               style={[
                 styles.privacyCard,
-                {
-                  borderColor: isDark ? BLUE.border : LIGHT.border,
-                  backgroundColor: isDark ? DARK.surface : LIGHT.surface,
-                },
+                cardOuterShadow,
+                cardBorder,
+                { backgroundColor: cardBg },
               ]}
             >
               <View style={styles.privacyRow}>
                 <View style={styles.privacyLeft}>
                   {isPublic ? (
-                    <Globe size={20} color={accentColor} strokeWidth={2} />
+                    <Globe size={20} color={txt1} strokeWidth={2} />
                   ) : (
-                    <Lock size={20} color={accentColor} strokeWidth={2} />
+                    <Lock size={20} color={txt1} strokeWidth={2} />
                   )}
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.privacyTitle, { color: theme.text }]}>
+                    <Text style={[styles.privacyTitle, { color: txt1 }]}>
                       {isPublic ? 'Herkese Açık' : 'Sadece Arkadaşlar'}
                     </Text>
-                    <Text style={[styles.privacyDesc, { color: theme.textSub }]}>
+                    <Text style={[styles.privacyDesc, { color: txt2 }]}>
                       {isPublic
                         ? 'Snap\'lerin herkes tarafından görülebilir'
                         : 'Snap\'lerin sadece arkadaşların tarafından görülebilir'}
@@ -727,35 +691,32 @@ const SosyalProfileScreen = ({ route }: any) => {
                   onValueChange={handlePrivacyToggle}
                   disabled={privacyUpdating}
                   trackColor={{
-                    false: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
-                    true: accentColor
+                    false: isDark ? '#2c2c2e' : '#e2e8f0',
+                    true: amber
                   }}
-                  thumbColor={Platform.OS === 'ios' ? '#fff' : (isPublic ? '#fff' : '#f4f3f4')}
-                  ios_backgroundColor={isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}
+                  thumbColor="#fff"
+                  ios_backgroundColor={isDark ? '#2c2c2e' : '#e2e8f0'}
                 />
               </View>
-            </BlurView>
+            </View>
 
             {/* Tepki Ayarı */}
-            <BlurView
-              intensity={isDark ? 20 : 35}
-              tint={isDark ? 'dark' : 'light'}
+            <View
               style={[
                 styles.privacyCard,
-                {
-                  borderColor: isDark ? BLUE.border : LIGHT.border,
-                  backgroundColor: isDark ? DARK.surface : LIGHT.surface,
-                },
+                cardOuterShadow,
+                cardBorder,
+                { backgroundColor: cardBg },
               ]}
             >
               <View style={styles.privacyRow}>
                 <View style={styles.privacyLeft}>
-                  <MessageCircle size={20} color={accentColor} strokeWidth={2} />
+                  <MessageCircle size={20} color={txt1} strokeWidth={2} />
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.privacyTitle, { color: theme.text }]}>
+                    <Text style={[styles.privacyTitle, { color: txt1 }]}>
                       {reactionsEnabled ? 'Tepkiler Açık' : 'Tepkiler Kapalı'}
                     </Text>
-                    <Text style={[styles.privacyDesc, { color: theme.textSub }]}>
+                    <Text style={[styles.privacyDesc, { color: txt2 }]}>
                       {reactionsEnabled
                         ? 'Arkadaşların kıvılcımlarına emoji ve mesaj bırakabilir'
                         : 'Kimse kıvılcımlarına tepki veremez'}
@@ -766,14 +727,14 @@ const SosyalProfileScreen = ({ route }: any) => {
                   value={reactionsEnabled}
                   onValueChange={setReactionsEnabled}
                   trackColor={{
-                    false: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
-                    true: accentColor
+                    false: isDark ? '#2c2c2e' : '#e2e8f0',
+                    true: amber
                   }}
-                  thumbColor={Platform.OS === 'ios' ? '#fff' : (reactionsEnabled ? '#fff' : '#f4f3f4')}
-                  ios_backgroundColor={isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}
+                  thumbColor="#fff"
+                  ios_backgroundColor={isDark ? '#2c2c2e' : '#e2e8f0'}
                 />
               </View>
-            </BlurView>
+            </View>
             </>
           )}
 
@@ -784,7 +745,7 @@ const SosyalProfileScreen = ({ route }: any) => {
             <>
               <View style={styles.bentoRow}>
                 <BentoCard
-                  icon={<Camera size={20} color={isDark ? BLUE.warm : LIGHT.accent} strokeWidth={2} />}
+                  icon={<Camera size={20} color={txt1} strokeWidth={2} />}
                   value={snapCount}
                   label="Kıvılcım"
                   isDark={isDark}
@@ -796,7 +757,7 @@ const SosyalProfileScreen = ({ route }: any) => {
                   style={{ flex: 1 }}
                 >
                   <BentoCard
-                    icon={<Users size={20} color={isDark ? BLUE.warm : LIGHT.accent} strokeWidth={2} />}
+                    icon={<Users size={20} color={txt1} strokeWidth={2} />}
                     value={acceptedCount}
                     label="Arkadaş"
                     isDark={isDark}
@@ -814,31 +775,30 @@ const SosyalProfileScreen = ({ route }: any) => {
                 />
                 <View style={{ width: 10 }} />
                 <BentoCard
-                  icon={<Star size={20} color={isDark ? '#fb923c' : '#f97316'} strokeWidth={2} />}
+                  icon={<Star size={20} color={txt1} strokeWidth={2} />}
                   value="Anlık"
                   label="İçerik Modu"
                   isDark={isDark}
-                  accent={isDark ? '#fb923c' : '#f97316'}
                 />
               </View>
 
               {/* Kendi Arkadaş Listesi Modal */}
               {showOwnFriends && isOwnProfile && (
-                <View style={[styles.friendsFriendsContainer, { backgroundColor: isDark ? DARK.surface : LIGHT.surface, borderColor: isDark ? DARK.border : LIGHT.border, marginTop: 16 }]}>
+                <View style={[styles.friendsFriendsContainer, cardOuterShadow, cardBorder, { backgroundColor: cardBg, marginTop: 16 }]}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-                      <Users size={18} color={accentColor} strokeWidth={2} />
-                      <Text style={[styles.friendsFriendsTitle, { color: theme.text }]}>Arkadaş Listem</Text>
-                      <View style={[styles.countPill, { backgroundColor: isDark ? BLUE.glow : 'rgba(96,165,250,0.12)' }]}>
-                        <Text style={[styles.countPillText, { color: accentColor }]}>{acceptedCount}</Text>
+                      <Users size={18} color={txt1} strokeWidth={2} />
+                      <Text style={[styles.friendsFriendsTitle, { color: txt1 }]}>Arkadaş Listem</Text>
+                      <View style={[styles.countPill, { backgroundColor: chipBg }]}>
+                        <Text style={[styles.countPillText, { color: txt1 }]}>{acceptedCount}</Text>
                       </View>
                     </View>
                     <TouchableOpacity onPress={() => setShowOwnFriends(false)}>
-                      <X size={20} color={theme.textSub} strokeWidth={2} />
+                      <X size={20} color={txt2} strokeWidth={2} />
                     </TouchableOpacity>
                   </View>
                   {friends.filter(f => f.status === 'accepted').map(entry => (
-                    <View key={entry.id} style={[styles.friendRow, { borderBottomColor: theme.border }]}>
+                    <View key={entry.id} style={[styles.friendRow, { borderBottomColor: cardBdr }]}>
                       {/* Avatar */}
                       <TouchableOpacity
                         activeOpacity={0.7}
@@ -848,24 +808,24 @@ const SosyalProfileScreen = ({ route }: any) => {
                         }}
                         style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
                       >
-                        <View style={[styles.friendAvatar, { backgroundColor: isDark ? BLUE.glow : 'rgba(255,69,0,0.1)' }]}>
+                        <View style={[styles.friendAvatar, { backgroundColor: chipBg }]}>
                           {entry.other_avatar ? (
                             <Image
                               source={{ uri: processImageUrl(entry.other_avatar) ?? undefined }}
                               style={styles.friendAvatarImg}
                             />
                           ) : (
-                            <Text style={[styles.friendAvatarText, { color: isDark ? BLUE.warm : LIGHT.accent }]}>
+                            <Text style={[styles.friendAvatarText, { color: txt1 }]}>
                               {entry.other_name.charAt(0).toUpperCase()}
                             </Text>
                           )}
                         </View>
                         <View style={styles.friendInfo}>
-                          <Text style={[styles.friendName, { color: theme.text }]}>{entry.other_name}</Text>
-                          <Text style={[styles.friendUsername, { color: theme.textSub }]}>@{entry.other_username}</Text>
+                          <Text style={[styles.friendName, { color: txt1 }]}>{entry.other_name}</Text>
+                          <Text style={[styles.friendUsername, { color: txt2 }]}>@{entry.other_username}</Text>
                         </View>
                       </TouchableOpacity>
-                      
+
                       {/* Çıkar Butonu */}
                       <TouchableOpacity
                         activeOpacity={0.7}
@@ -899,39 +859,36 @@ const SosyalProfileScreen = ({ route }: any) => {
           onPress={() => setSelectedFriend(null)}
         />
         {selectedFriend && (
-          <View style={[styles.friendModalSheet, { backgroundColor: isDark ? '#0f172a' : '#ffffff', borderColor: isDark ? BLUE.border : LIGHT.border }]}>
+          <View style={[styles.friendModalSheet, { backgroundColor: cardBg, borderColor: cardBdr }]}>
             {/* Tutma çubuğu */}
-            <View style={[styles.sheetHandle, { backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)' }]} />
+            <View style={[styles.sheetHandle, { backgroundColor: cardBdr }]} />
 
             {/* Kapat butonu */}
             <TouchableOpacity
               onPress={() => setSelectedFriend(null)}
-              style={[styles.sheetCloseBtn, { backgroundColor: isDark ? DARK.surface : LIGHT.surface }]}
+              style={[styles.sheetCloseBtn, { backgroundColor: chipBg }]}
             >
-              <X size={16} color={isDark ? DARK.textSub : LIGHT.textSub} strokeWidth={2.5} />
+              <X size={16} color={txt2} strokeWidth={2.5} />
             </TouchableOpacity>
 
             {/* Avatar */}
-            <View style={[styles.sheetAvatar, { borderColor: isDark ? BLUE.vivid : LIGHT.accent, backgroundColor: isDark ? BLUE.glow : 'rgba(96,165,250,0.15)' }]}>
+            <View style={[styles.sheetAvatar, { borderColor: cardBdr, backgroundColor: chipBg }]}>
               {selectedFriend.other_avatar ? (
                 <Image
                   source={{ uri: processImageUrl(selectedFriend.other_avatar) ?? undefined }}
                   style={styles.sheetAvatarImg}
                 />
               ) : (
-                <LinearGradient
-                  colors={isDark ? ['#CC3700', '#FF4500'] : ['#FF6B35', '#FF4500']}
-                  style={styles.sheetAvatarGradient}
-                >
-                  <Text style={styles.sheetAvatarInitial}>
+                <View style={[styles.sheetAvatarGradient, { backgroundColor: ctaBg }]}>
+                  <Text style={[styles.sheetAvatarInitial, { color: ctaTxt }]}>
                     {selectedFriend.other_name.charAt(0).toUpperCase()}
                   </Text>
-                </LinearGradient>
+                </View>
               )}
             </View>
 
-            <Text style={[styles.sheetName, { color: theme.text }]}>{selectedFriend.other_name}</Text>
-            <Text style={[styles.sheetUsername, { color: accentColor }]}>@{selectedFriend.other_username}</Text>
+            <Text style={[styles.sheetName, { color: txt1 }]}>{selectedFriend.other_name}</Text>
+            <Text style={[styles.sheetUsername, { color: txt2 }]}>@{selectedFriend.other_username}</Text>
 
             {/* Durum rozeti */}
             <View style={[styles.statusBadge, { backgroundColor: statusConfig[selectedFriend.status].bg, marginBottom: 20 }]}>
@@ -943,13 +900,13 @@ const SosyalProfileScreen = ({ route }: any) => {
 
             {/* Bento istatistikler */}
             {friendStatsLoading ? (
-              <ActivityIndicator color={accentColor} style={{ marginVertical: 16 }} />
+              <ActivityIndicator color={txt1} style={{ marginVertical: 16 }} />
             ) : (
               <View style={styles.sheetBentoRow}>
-                <View style={[styles.sheetBentoCard, { backgroundColor: isDark ? DARK.surface : LIGHT.surface, borderColor: isDark ? DARK.border : LIGHT.border }]}>
-                  <Camera size={18} color={accentColor} strokeWidth={2} />
-                  <Text style={[styles.sheetBentoValue, { color: accentColor }]}>{friendSnapCount}</Text>
-                  <Text style={[styles.sheetBentoLabel, { color: isDark ? DARK.textSub : LIGHT.textSub }]}>Kıvılcım</Text>
+                <View style={[styles.sheetBentoCard, cardBorder, { backgroundColor: chipBg }]}>
+                  <Camera size={18} color={txt1} strokeWidth={2} />
+                  <Text style={[styles.sheetBentoValue, { color: txt1 }]}>{friendSnapCount}</Text>
+                  <Text style={[styles.sheetBentoLabel, { color: txt2 }]}>Kıvılcım</Text>
                 </View>
                 <TouchableOpacity
                   activeOpacity={0.7}
@@ -961,19 +918,19 @@ const SosyalProfileScreen = ({ route }: any) => {
                       setShowFriendsFriends(false);
                     }
                   }}
-                  style={[styles.sheetBentoCard, { backgroundColor: isDark ? DARK.surface : LIGHT.surface, borderColor: isDark ? DARK.border : LIGHT.border }]}
+                  style={[styles.sheetBentoCard, cardBorder, { backgroundColor: chipBg }]}
                 >
-                  <Users size={18} color={accentColor} strokeWidth={2} />
-                  <Text style={[styles.sheetBentoValue, { color: accentColor }]}>{friendFriendCount}</Text>
-                  <Text style={[styles.sheetBentoLabel, { color: isDark ? DARK.textSub : LIGHT.textSub }]}>Arkadaş</Text>
+                  <Users size={18} color={txt1} strokeWidth={2} />
+                  <Text style={[styles.sheetBentoValue, { color: txt1 }]}>{friendFriendCount}</Text>
+                  <Text style={[styles.sheetBentoLabel, { color: txt2 }]}>Arkadaş</Text>
                 </TouchableOpacity>
               </View>
             )}
 
             {/* Arkadaşlarının listesi */}
             {showFriendsFriends && (
-              <View style={[styles.friendsFriendsContainer, { backgroundColor: isDark ? DARK.surface : LIGHT.surface, borderColor: isDark ? DARK.border : LIGHT.border }]}>
-                <Text style={[styles.friendsFriendsTitle, { color: theme.text }]}>Arkadaşları ({friendsFriends.length})</Text>
+              <View style={[styles.friendsFriendsContainer, cardBorder, { backgroundColor: chipBg }]}>
+                <Text style={[styles.friendsFriendsTitle, { color: txt1 }]}>Arkadaşları ({friendsFriends.length})</Text>
                 <ScrollView style={{ maxHeight: 200 }} showsVerticalScrollIndicator={false}>
                   {friendsFriends.map((ff) => (
                     <TouchableOpacity
@@ -983,18 +940,18 @@ const SosyalProfileScreen = ({ route }: any) => {
                         setShowFriendsFriends(false);
                         navigation.navigate('SosyalProfile', { userId: ff.other_user_id });
                       }}
-                      style={[styles.friendsFriendRow, { borderBottomColor: isDark ? DARK.border : LIGHT.border }]}
+                      style={[styles.friendsFriendRow, { borderBottomColor: cardBdr }]}
                     >
-                      <View style={[styles.friendAvatar, { backgroundColor: isDark ? BLUE.glow : 'rgba(255,69,0,0.1)' }]}>
+                      <View style={[styles.friendAvatar, { backgroundColor: cardBg }]}>
                         {ff.other_avatar ? (
                           <Image source={{ uri: processImageUrl(ff.other_avatar) ?? undefined }} style={styles.friendAvatarImg} />
                         ) : (
-                          <Text style={[styles.friendAvatarText, { color: accentColor }]}>{ff.other_name.charAt(0).toUpperCase()}</Text>
+                          <Text style={[styles.friendAvatarText, { color: txt1 }]}>{ff.other_name.charAt(0).toUpperCase()}</Text>
                         )}
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={[styles.friendName, { color: theme.text }]}>{ff.other_name}</Text>
-                        <Text style={[styles.friendUsername, { color: theme.textSub }]}>@{ff.other_username}</Text>
+                        <Text style={[styles.friendName, { color: txt1 }]}>{ff.other_name}</Text>
+                        <Text style={[styles.friendUsername, { color: txt2 }]}>@{ff.other_username}</Text>
                       </View>
                     </TouchableOpacity>
                   ))}
@@ -1006,32 +963,27 @@ const SosyalProfileScreen = ({ route }: any) => {
             {selectedFriend.status === 'accepted' ? (
               <TouchableOpacity
                 activeOpacity={0.88}
-                style={styles.sheetMsgBtn}
+                style={[styles.sheetMsgBtn, { backgroundColor: ctaBg }]}
                 onPress={() => {
                   setSelectedFriend(null);
-                  navigation.navigate('Chat', { 
-                    userId: selectedFriend.other_user_id, 
+                  navigation.navigate('Chat', {
+                    userId: selectedFriend.other_user_id,
                     userName: selectedFriend.other_name,
                     userAvatar: selectedFriend.other_avatar || '',
                     username: selectedFriend.other_username || ''
                   });
                 }}
               >
-                <LinearGradient
-                  colors={isDark ? ['#0369a1', '#38bdf8'] : ['#60a5fa', '#818cf8']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.sheetMsgGradient}
-                >
-                  <MessageCircle size={18} color="#fff" strokeWidth={2} />
-                  <Text style={styles.sheetMsgText}>Mesaj Gönder</Text>
-                </LinearGradient>
+                <View style={styles.sheetMsgGradient}>
+                  <MessageCircle size={18} color={ctaTxt} strokeWidth={2} />
+                  <Text style={[styles.sheetMsgText, { color: ctaTxt }]}>Mesaj Gönder</Text>
+                </View>
               </TouchableOpacity>
             ) : (
               <View style={[styles.sheetMsgBtn, { opacity: 0.45 }]}>
-                <View style={[styles.sheetMsgGradient, { backgroundColor: isDark ? DARK.surface : LIGHT.surface, borderRadius: 16, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }]}>
-                  <MessageCircle size={18} color={isDark ? DARK.textSub : LIGHT.textSub} strokeWidth={2} />
-                  <Text style={[styles.sheetMsgText, { color: isDark ? DARK.textSub : LIGHT.textSub }]}>
+                <View style={[styles.sheetMsgGradient, { backgroundColor: chipBg, borderRadius: 16, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }]}>
+                  <MessageCircle size={18} color={txt2} strokeWidth={2} />
+                  <Text style={[styles.sheetMsgText, { color: txt2 }]}>
                     Mesajlaşmak için karşılıklı arkadaş olun
                   </Text>
                 </View>
@@ -1105,12 +1057,10 @@ const styles = StyleSheet.create({
   // Profil kartı
   profileCard: {
     borderRadius: 24,
-    borderWidth: 1,
     alignItems: 'center',
     paddingVertical: 28,
     paddingHorizontal: 20,
     marginBottom: 14,
-    overflow: 'hidden',
   },
   avatarCircle: {
     width: 84,
@@ -1171,11 +1121,9 @@ const styles = StyleSheet.create({
   // Gizlilik Kartı
   privacyCard: {
     borderRadius: 20,
-    borderWidth: 1,
     paddingVertical: 16,
     paddingHorizontal: 18,
     marginBottom: 14,
-    overflow: 'hidden',
   },
   privacyRow: {
     flexDirection: 'row',
@@ -1207,11 +1155,9 @@ const styles = StyleSheet.create({
   },
   bentoCard: {
     borderRadius: 20,
-    borderWidth: 1,
     paddingVertical: 18,
     paddingHorizontal: 16,
     alignItems: 'center',
-    overflow: 'hidden',
     minHeight: 110,
     justifyContent: 'center',
   },

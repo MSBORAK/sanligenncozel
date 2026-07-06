@@ -3,6 +3,38 @@
  * Dark: OLED siyah zemin, soğuk mavi/cyan vurgu (gündüzdeki turuncu/amber’in zıttı)
  */
 
+/**
+ * Clean — sade/modern tema (referans: dribbble.com/shots/24911825-Travel-Mobile-App)
+ * Beyaz zemin, neredeyse siyah metin/CTA, tek sıcak aksan rengi, yumuşak gölgeli kartlar.
+ * Renk çeşitliliğini fotoğraflar taşır — arayüz elemanları kasıtlı olarak nötr.
+ * Henüz hiçbir ekrana uygulanmadı; kademeli geçiş için ayrı bir set olarak tutuluyor.
+ */
+export const Clean = {
+  bg: '#FFFFFF',
+  bgSoft: '#F7F7F8',
+  surface: '#FFFFFF',
+  surfaceSoft: '#F2F2F4',
+
+  textPrimary: '#111114',
+  textSecondary: '#6B6B72',
+  textMuted: '#A0A0A8',
+
+  ctaBg: '#111114',
+  ctaText: '#FFFFFF',
+
+  accent: '#F2600C',
+  accentSoft: '#FFF1E8',
+
+  border: 'rgba(17,17,20,0.08)',
+  divider: 'rgba(17,17,20,0.06)',
+
+  chipBg: '#F2F2F4',
+  chipActiveBg: '#111114',
+  chipActiveText: '#FFFFFF',
+
+  shadowColor: '#111114',
+};
+
 // Dribbble tasarım - birebir aynı hex
 export const DribbbleColors = {
   background: '#f8fafc',

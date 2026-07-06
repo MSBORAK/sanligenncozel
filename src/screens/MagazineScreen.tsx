@@ -4,19 +4,17 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  ScrollView,
   TouchableOpacity,
   Image,
-  Platform,
   ListRenderItem,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
+import { Heart, Search, ArrowRight } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
-import { Heart } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Colors, DribbbleColors } from '@/constants/Colors';
+import { Clean } from '@/constants/Colors';
+import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { FontFamily } from '@/constants/Typography';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import Skeleton from '@/components/Skeleton';
@@ -26,33 +24,14 @@ import { useThemeMode } from '@/context/ThemeContext';
 import { useFavorites } from '@/context/FavoritesContext';
 import { supabase, processImageUrl } from '@/lib/supabase';
 import { cityFallback } from '@/lib/imageFallback';
+import { MOCK_MAGAZINES } from '@/api/mockData';
+import type { HeritageCategory } from '@/types';
+
+const { width: SCREEN_W } = Dimensions.get('window');
+const HERO_W = SCREEN_W - 40;
 
 type Nav = StackNavigationProp<RootStackParamList>;
-type CatKey = 'all' | 'favorites' | 'historic' | 'museum' | 'nature';
-
-const CATEGORIES: { key: CatKey; label: string }[] = [
-  { key: 'all', label: 'Tümü' },
-  { key: 'favorites', label: 'Favorilerim' },
-  { key: 'historic', label: 'Tarihi Yerler' },
-  { key: 'museum', label: 'Müzeler' },
-  { key: 'nature', label: 'Doğa & Parklar' },
-];
-
-/** Ana sayfa Keşfet (#1d4ed8 / bentoLightBlue) ile uyumlu */
-const KESFET = {
-  blue950: '#172554',
-  blue900: '#1e3a8a',
-  blue800: '#1e40af',
-  blue700: '#1d4ed8',
-  blue600: '#2563eb',
-  blue500: '#3b82f6',
-  sky100: '#e0f2fe',
-  sky50: '#f0f9ff',
-  iconDark: '#93c5fd',
-} as const;
-
-const CARD_RADIUS = 20;
-const IMAGE_H = 200;
+type Category = HeritageCategory;
 
 interface MagazineData {
   id: number;
@@ -66,15 +45,17 @@ interface FormattedMag {
   id: string;
   title: string;
   description?: string;
-  category: 'historic' | 'museum' | 'nature';
-  image: string;
+  category: Category;
+  image: any;
 }
 
-const categoryLabel: Record<'historic' | 'museum' | 'nature', string> = {
-  historic: 'Tarihi',
-  museum: 'Müze',
-  nature: 'Doğa',
-};
+const COLLECTION_META: { key: Category; label: string }[] = [
+  { key: 'historic', label: 'Tarihi Yerler' },
+  { key: 'faith', label: 'İnanç ve Kültür' },
+  { key: 'nature', label: 'Doğa & Manzara' },
+  { key: 'museum', label: 'Müzeler' },
+  { key: 'bazaar', label: 'Tarihi Çarşılar & Hanlar' },
+];
 
 const MagazineScreen = () => {
   const navigation = useNavigation<Nav>();
@@ -82,9 +63,19 @@ const MagazineScreen = () => {
   const isDark = mode === 'dark';
   const insets = useSafeAreaInsets();
   const { favoriteHeritageIds, isFavoriteHeritage, toggleFavorite } = useFavorites();
-  const [selectedCategory, setSelectedCategory] = useState<CatKey>('all');
   const [magazines, setMagazines] = useState<MagazineData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [heroIndex, setHeroIndex] = useState(0);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+
+  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
+  const cardBg  = isDark ? '#18181B' : Clean.surface;
+  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
+  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
+  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
+  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
+  const amber   = Clean.accent;
+  const cardBorder = isDark ? cardBorderDark : cardBorderLight;
 
   const fetchMagazines = async () => {
     try {
@@ -102,258 +93,221 @@ const MagazineScreen = () => {
     fetchMagazines();
   }, []);
 
-  const formattedMagazines = useMemo(
-    () =>
-      magazines.map((mag) => ({
+  const formattedMagazines = useMemo(() => {
+    const fromSupabase: FormattedMag[] = magazines
+      .filter((mag) => !!mag.baslik?.trim() && !mag.aciklama?.includes('düzenle diyerek giriniz'))
+      .map((mag) => ({
         id: mag.id.toString(),
         title: mag.baslik,
         description: mag.aciklama,
-        category: (mag.kategori as 'historic' | 'museum' | 'nature') || 'historic',
+        category: (mag.kategori as Category) || 'historic',
         image: processImageUrl(mag.resim_url, 'kesfet_resimleri') || cityFallback(mag.id),
-      })),
-    [magazines]
-  );
+      }));
+    const fromMock: FormattedMag[] = MOCK_MAGAZINES.map((m) => ({
+      id: m.id,
+      title: m.title,
+      description: m.description,
+      category: (m.category as Category) || 'historic',
+      image: m.image,
+    }));
+    return [...fromSupabase, ...fromMock];
+  }, [magazines]);
 
-  const filteredMagazines = useMemo(() => {
-    const baseList =
-      selectedCategory === 'all' || selectedCategory === 'favorites'
-        ? formattedMagazines
-        : formattedMagazines.filter((item) => item.category === selectedCategory);
-    if (selectedCategory !== 'favorites') return baseList;
-    return baseList.filter((item) => favoriteHeritageIds.includes(item.id));
-  }, [selectedCategory, formattedMagazines, favoriteHeritageIds]);
+  // Kürasyonlu, sabit öne çıkanlar: Göbeklitepe, Balıklıgöl, Urfa Kalesi, Harran, Haleplibahçe Mozaik Müzesi
+  const CURATED_HERO_IDS = ['m1', 'm2', 'm3', 'm4', 'm11'];
+  const heroItems = useMemo(() => {
+    if (showFavoritesOnly) return [];
+    const curated = CURATED_HERO_IDS
+      .map((id) => formattedMagazines.find((m) => m.id === id))
+      .filter((m): m is FormattedMag => !!m);
+    return curated.length > 0 ? curated : formattedMagazines.slice(0, Math.min(5, formattedMagazines.length));
+  }, [formattedMagazines, showFavoritesOnly]);
+  const popularItems = useMemo(() => {
+    if (showFavoritesOnly) return formattedMagazines.filter((m) => favoriteHeritageIds.includes(m.id));
+    return [];
+  }, [formattedMagazines, showFavoritesOnly, favoriteHeritageIds]);
 
-  const renderChip = useCallback(
-    (item: (typeof CATEGORIES)[number]) => {
-      const active = selectedCategory === item.key;
-      return (
-        <TouchableOpacity
-          onPress={() => setSelectedCategory(item.key)}
-          activeOpacity={0.88}
-          style={[
-            styles.chip,
-            isDark && styles.chipDarkBase,
-            !isDark && !active && styles.chipInactiveLight,
-            isDark && !active && styles.chipInactiveDark,
-          ]}
-        >
-          {!isDark && active && (
-            <LinearGradient
-              colors={[KESFET.blue800, KESFET.blue500]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
-          )}
-          {isDark && active && (
-            <LinearGradient
-              colors={[KESFET.blue900, KESFET.blue600]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
-          )}
-          {!isDark && !active && (
-            <>
-              {Platform.OS === 'ios' ? (
-                <BlurView intensity={48} tint="light" style={[StyleSheet.absoluteFill, { borderRadius: 22 }]} />
-              ) : null}
-              <View
-                style={[
-                  StyleSheet.absoluteFill,
-                  {
-                    backgroundColor: Platform.OS === 'ios' ? 'rgba(255,255,255,0.9)' : '#ffffff',
-                    borderRadius: 22,
-                  },
-                ]}
-              />
-            </>
-          )}
-          {isDark && !active && (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: '#1e293b', borderRadius: 22 }]} />
-          )}
-          <Text
-            style={[
-              styles.chipText,
-              !isDark && !active && { color: DribbbleColors.textSecondary },
-              isDark && !active && { color: '#94a3b8' },
-              active && { color: '#ffffff' },
-            ]}
-          >
-            {item.label}
-          </Text>
-        </TouchableOpacity>
-      );
-    },
-    [isDark, selectedCategory]
-  );
+  const collections = useMemo(() => {
+    if (showFavoritesOnly) return [];
+    return COLLECTION_META.map((c) => {
+      const itemsInCat = formattedMagazines.filter((m) => m.category === c.key);
+      return { ...c, count: itemsInCat.length, image: itemsInCat[0]?.image ?? cityFallback(c.key) };
+    }).filter((c) => c.count > 0);
+  }, [formattedMagazines, showFavoritesOnly]);
 
   const ListHeader = useCallback(
     () => (
       <>
-        <LinearGradient
-          colors={isDark ? [KESFET.blue950, KESFET.blue900] : [KESFET.blue800, KESFET.blue500]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.heroHeader, { paddingTop: insets.top + 16 }]}
-        >
-          <View style={styles.heroTopRow}>
-            <Text style={styles.heroTitle}>Keşfet</Text>
-            <TouchableOpacity
-              onPress={() =>
-                setSelectedCategory((prev) => (prev === 'favorites' ? 'all' : 'favorites'))
-              }
-              activeOpacity={0.85}
-              style={[
-                styles.favBadgeOuter,
-                isDark && styles.favBadgeOuterDark,
-                !isDark && { borderColor: 'rgba(29,78,216,0.22)' },
-              ]}
-            >
-              {!isDark && Platform.OS === 'ios' ? (
-                <BlurView intensity={60} tint="light" style={StyleSheet.absoluteFill} />
-              ) : null}
-              <View
-                style={[
-                  StyleSheet.absoluteFill,
-                  {
-                    backgroundColor:
-                      !isDark
-                        ? Platform.OS === 'ios'
-                          ? 'rgba(255,255,255,0.82)'
-                          : '#ffffff'
-                        : 'rgba(255,255,255,0.08)',
-                    borderRadius: 22,
-                  },
-                ]}
-              />
-              <Heart
-                color={isDark ? '#f8fafc' : DribbbleColors.textPrimary}
-                size={18}
-                strokeWidth={2}
-                fill={selectedCategory === 'favorites' ? KESFET.blue500 : 'transparent'}
-              />
-              {(favoriteHeritageIds.length > 0 || selectedCategory === 'favorites') && (
-                <View style={[styles.favDot, { backgroundColor: isDark ? KESFET.iconDark : KESFET.blue500 }]} />
-              )}
-            </TouchableOpacity>
+        <View style={[styles.header, { backgroundColor: pageBg, paddingTop: insets.top + 16 }]}>
+          <View style={styles.headerTopRow}>
+            <Text style={[styles.headerTitle, { color: txt1 }]}>Keşfet</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity
+                style={[styles.iconBtn, { backgroundColor: chipBg }]}
+                activeOpacity={0.85}
+                onPress={() => setShowFavoritesOnly((v) => !v)}
+              >
+                <Heart
+                  color={txt1}
+                  size={18}
+                  strokeWidth={2}
+                  fill={showFavoritesOnly ? txt1 : 'transparent'}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.iconBtn, { backgroundColor: chipBg }]}
+                activeOpacity={0.85}
+                onPress={() => navigation.navigate('GlobalSearch')}
+              >
+                <Search color={txt1} size={18} strokeWidth={2} />
+              </TouchableOpacity>
+            </View>
           </View>
-          <Text style={styles.heroSubtitle}>Şanlıurfa'nın tarihi ve kültürel hazineleri</Text>
-        </LinearGradient>
+          <Text style={[styles.headerBigTitle, { color: txt1 }]}>Şanlıurfa'yı Keşfet</Text>
+          <Text style={[styles.headerSubtitle, { color: txt2 }]}>Tarihi, kültürü ve hikayesiyle kadim şehir.</Text>
+        </View>
 
-        <View style={styles.sectionBlock}>
-          <View style={styles.sectionTitleRow}>
-            <Text style={[styles.sectionTitle, isDark && { color: KESFET.iconDark }]}>Tarihi mirasımız</Text>
-            <View style={styles.sectionAccent} />
+        {heroItems.length > 0 && (
+          <View style={styles.heroSection}>
+            <FlatList
+              data={heroItems}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => item.id}
+              snapToInterval={HERO_W + 12}
+              decelerationRate="fast"
+              contentContainerStyle={{ paddingHorizontal: 20 }}
+              ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+              onMomentumScrollEnd={(e) => {
+                const idx = Math.round(e.nativeEvent.contentOffset.x / (HERO_W + 12));
+                setHeroIndex(idx);
+              }}
+              renderItem={({ item }) => (
+                <View style={[styles.heroCardOuter, cardOuterShadow, cardBorder, { width: HERO_W, backgroundColor: cardBg }]}>
+                  <TouchableOpacity
+                    style={[styles.heroCard, cardInnerClip]}
+                    activeOpacity={0.92}
+                    onPress={() => navigation.navigate('HeritageDetail', { id: item.id })}
+                  >
+                    <Image source={typeof item.image === 'string' ? { uri: item.image } : item.image} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+                    <LinearGradient
+                      colors={['transparent', 'rgba(0,0,0,0.15)', 'rgba(0,0,0,0.7)']}
+                      locations={[0, 0.5, 1]}
+                      style={StyleSheet.absoluteFillObject}
+                      pointerEvents="none"
+                    />
+                    <View style={styles.heroTextRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.heroCardTitle} numberOfLines={1}>{item.title}</Text>
+                        {!!item.description && (
+                          <Text style={styles.heroCardDesc} numberOfLines={1}>{item.description}</Text>
+                        )}
+                      </View>
+                      <View style={[styles.heroArrowBtn, { backgroundColor: cardBg }]}>
+                        <ArrowRight color={txt1} size={18} strokeWidth={2.2} />
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+              )}
+            />
+            {heroItems.length > 1 && (
+              <View style={styles.heroDotsRow}>
+                {heroItems.map((_, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.heroDot,
+                      { backgroundColor: i === heroIndex ? amber : chipBg },
+                    ]}
+                  />
+                ))}
+              </View>
+            )}
           </View>
-          <View style={styles.chipsRowFixed}>
-            <ScrollView
+        )}
+
+        {collections.length > 0 && (
+          <View style={styles.sectionBlock}>
+            <Text style={[styles.sectionTitle, { color: txt1 }]}>Koleksiyonlar</Text>
+            <FlatList
+              data={collections}
               horizontal
               showsHorizontalScrollIndicator={false}
-              style={styles.chipsScroll}
-              contentContainerStyle={styles.chipsContent}
-            >
-              {CATEGORIES.map((c) => (
-                <React.Fragment key={c.key}>{renderChip(c)}</React.Fragment>
-              ))}
-            </ScrollView>
+              keyExtractor={(item) => item.key}
+              contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}
+              renderItem={({ item }) => (
+                <View style={[styles.collectionOuter, styles.collectionShadow, cardBorder, { backgroundColor: cardBg }]}>
+                  <TouchableOpacity
+                    style={[styles.collectionCard, cardInnerClip]}
+                    activeOpacity={0.9}
+                    onPress={() => navigation.navigate('HeritageCollection', { category: item.key })}
+                  >
+                    <Image source={typeof item.image === 'string' ? { uri: item.image } : item.image} style={styles.collectionImage} resizeMode="cover" />
+                    <View style={styles.collectionTextWrap}>
+                      <Text style={[styles.collectionLabel, { color: txt1 }]} numberOfLines={1}>{item.label}</Text>
+                      <Text style={[styles.collectionCount, { color: txt2 }]}>{item.count} Mekan</Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+              )}
+            />
           </View>
-        </View>
+        )}
+
+        {showFavoritesOnly && popularItems.length > 0 && (
+          <View style={[styles.sectionBlock, { marginBottom: 4 }]}>
+            <Text style={[styles.sectionTitle, { color: txt1 }]}>Favorilerim</Text>
+          </View>
+        )}
       </>
     ),
-    [favoriteHeritageIds.length, insets.top, isDark, renderChip, selectedCategory]
+    [pageBg, insets.top, txt1, txt2, chipBg, cardBg, cardBorder, heroItems, heroIndex, amber, collections, popularItems.length, navigation, showFavoritesOnly]
   );
 
   const renderItem: ListRenderItem<FormattedMag> = useCallback(
     ({ item, index }) => {
       const isFav = isFavoriteHeritage(item.id);
-      const imageSource = { uri: item.image };
-
       return (
-        <AnimatedListItem index={index} delay={60}>
+        <AnimatedListItem index={index} delay={40}>
           <TouchableOpacity
-            style={[styles.card, isDark && styles.cardDark]}
-            activeOpacity={0.92}
+            activeOpacity={0.9}
+            style={[styles.rowOuter, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}
             onPress={() => navigation.navigate('HeritageDetail', { id: item.id })}
           >
-            <View style={[styles.imageBlock, isDark && styles.imageBlockDark]}>
-              <Image source={imageSource} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-              <LinearGradient
-                colors={['rgba(59,130,246,0.2)', 'transparent']}
-                start={{ x: 1, y: 0 }}
-                end={{ x: 0.2, y: 0.45 }}
-                style={styles.blueSheen}
-                pointerEvents="none"
-              />
-              <View style={styles.catPill}>
-                <Text style={styles.catPillText}>{categoryLabel[item.category]}</Text>
+            <View style={[cardInnerClip, { borderRadius: 26 }]}>
+              <View style={styles.rowImageWrap}>
+                <Image
+                  source={typeof item.image === 'string' ? { uri: item.image } : item.image}
+                  style={styles.rowImage}
+                  resizeMode="cover"
+                />
+                <TouchableOpacity
+                  style={styles.rowHeartBtn}
+                  onPress={() => toggleFavorite('heritage', item.id)}
+                  hitSlop={10}
+                >
+                  <Heart color="#111114" size={16} strokeWidth={2.2} fill={isFav ? '#111114' : 'transparent'} />
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                style={styles.heartFab}
-                onPress={() => toggleFavorite('heritage', item.id)}
-                hitSlop={10}
-              >
-                {Platform.OS === 'ios' ? (
-                  <BlurView intensity={55} tint="light" style={StyleSheet.absoluteFill} />
-                ) : null}
-                <View
-                  style={[
-                    StyleSheet.absoluteFill,
-                    {
-                      backgroundColor: Platform.OS === 'ios' ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.5)',
-                    },
-                  ]}
-                />
-                <Heart
-                  color={isDark ? '#f8fafc' : DribbbleColors.textPrimary}
-                  size={18}
-                  strokeWidth={2}
-                  fill={isFav ? Colors.primaryHex : 'transparent'}
-                />
-              </TouchableOpacity>
-            </View>
-
-            {isDark ? (
-              <View style={styles.infoDark}>
-                <Text style={styles.cardTitleDark} numberOfLines={2}>
-                  {item.title}
-                </Text>
-                {item.description ? (
-                  <Text style={styles.cardDescDark} numberOfLines={2}>
-                    {item.description}
-                  </Text>
-                ) : null}
-              </View>
-            ) : (
-              <View style={styles.infoLight}>
-                {Platform.OS === 'ios' ? (
-                  <BlurView intensity={62} tint="light" style={StyleSheet.absoluteFill} />
-                ) : null}
-                <View
-                  style={[
-                    StyleSheet.absoluteFill,
-                    {
-                      backgroundColor: Platform.OS === 'ios' ? 'rgba(255,255,255,0.82)' : '#ffffff',
-                    },
-                  ]}
-                />
-                <View style={styles.infoInner}>
-                  <Text style={styles.cardTitleLight} numberOfLines={2}>
-                    {item.title}
-                  </Text>
-                  {item.description ? (
-                    <Text style={styles.cardDescLight} numberOfLines={2}>
-                      {item.description}
-                    </Text>
-                  ) : null}
+              <View style={styles.rowBody}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.rowTitle, { color: txt1 }]} numberOfLines={1}>{item.title}</Text>
+                  {!!item.description && (
+                    <Text style={[styles.rowDesc, { color: txt2 }]} numberOfLines={2}>{item.description}</Text>
+                  )}
+                </View>
+                <View style={[styles.rowArrowBtn, { backgroundColor: '#111114' }]}>
+                  <ArrowRight color="#fff" size={17} strokeWidth={2.2} />
                 </View>
               </View>
-            )}
+            </View>
           </TouchableOpacity>
         </AnimatedListItem>
       );
     },
-    [isDark, isFavoriteHeritage, navigation, toggleFavorite]
+    [isFavoriteHeritage, navigation, toggleFavorite, cardBg, cardBdr, txt1, txt2, amber]
   );
 
   const ListEmpty = useCallback(() => {
@@ -361,44 +315,38 @@ const MagazineScreen = () => {
       return (
         <View style={styles.skeletonStack}>
           {[1, 2, 3].map((i) => (
-            <View key={i} style={[styles.card, styles.skeletonCard, isDark && styles.cardDark]}>
-              <Skeleton width="100%" height={IMAGE_H} borderRadius={0} isDark={isDark} />
-              <View style={{ padding: 16, gap: 8 }}>
-                <Skeleton width="70%" height={18} borderRadius={6} isDark={isDark} />
-                <Skeleton width="90%" height={14} borderRadius={6} isDark={isDark} />
+            <View key={i} style={[styles.rowOuter, styles.skeletonRow, { backgroundColor: cardBg }]}>
+              <Skeleton width={64} height={64} borderRadius={12} isDark={isDark} />
+              <View style={{ flex: 1, gap: 8, marginLeft: 12 }}>
+                <Skeleton width="70%" height={16} borderRadius={6} isDark={isDark} />
+                <Skeleton width="90%" height={12} borderRadius={6} isDark={isDark} />
               </View>
             </View>
           ))}
         </View>
       );
     }
+    if (!showFavoritesOnly) return null;
     return (
       <View style={styles.emptyWrap}>
-        <Text style={[styles.emptyText, isDark && { color: '#94a3b8' }]}>
-          {selectedCategory === 'favorites'
-            ? 'Henüz favori keşfet içeriğiniz bulunmuyor.'
-            : selectedCategory === 'all'
-              ? 'Henüz içerik bulunmuyor.'
-              : 'Bu kategoride içerik bulunmuyor.'}
-        </Text>
+        <Text style={[styles.emptyText, { color: txt2 }]}>Henüz favori mekanınız bulunmuyor.</Text>
       </View>
     );
-  }, [loading, isDark, selectedCategory]);
+  }, [loading, isDark, cardBg, txt2, showFavoritesOnly]);
 
   const bottomPad = Math.max(insets.bottom, 24);
 
   return (
-    <View style={[styles.screen, isDark && styles.screenDark]}>
-      <StatusBar style="light" />
+    <View style={[styles.screen, { backgroundColor: pageBg }]}>
       <FlatList
-        data={loading ? [] : filteredMagazines}
+        data={loading ? [] : popularItems}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={ListEmpty}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.listContent, { paddingBottom: bottomPad }]}
-        initialNumToRender={5}
+        initialNumToRender={6}
         maxToRenderPerBatch={4}
         windowSize={7}
         removeClippedSubviews
@@ -410,237 +358,194 @@ const MagazineScreen = () => {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: KESFET.sky50,
-  },
-  screenDark: {
-    backgroundColor: Colors.dark.background,
   },
   listContent: {
     flexGrow: 1,
+  },
+  header: {
     paddingHorizontal: 20,
+    paddingBottom: 16,
+    gap: 4,
   },
-  heroHeader: {
-    marginHorizontal: -20,
-    paddingHorizontal: 20,
-    paddingBottom: 26,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-  },
-  heroTitle: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: 28,
-    letterSpacing: -0.5,
-    color: '#ffffff',
-  },
-  heroTopRow: {
+  headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  favBadgeOuter: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.35)',
+  headerTitle: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 14,
+    letterSpacing: 0.2,
+  },
+  iconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  favBadgeOuterDark: {
-    borderColor: 'rgba(255,255,255,0.12)',
+  headerBigTitle: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 26,
+    letterSpacing: -0.5,
+    marginTop: 6,
   },
-  favDot: {
-    position: 'absolute',
-    right: 8,
-    top: 8,
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-  },
-  heroSubtitle: {
+  headerSubtitle: {
     fontFamily: FontFamily.medium,
     fontSize: 14,
-    color: 'rgba(255,255,255,0.88)',
-    marginTop: 6,
     lineHeight: 20,
+    marginTop: 2,
+  },
+  heroSection: {
+    marginBottom: 24,
+  },
+  heroCardOuter: {
+    borderRadius: 22,
+  },
+  heroCard: {
+    borderRadius: 22,
+    height: 200,
+    justifyContent: 'flex-end',
+  },
+  heroTextRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    padding: 16,
+  },
+  heroCardTitle: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 20,
+    letterSpacing: -0.3,
+    color: '#fff',
+  },
+  heroCardDesc: {
+    fontFamily: FontFamily.medium,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.85)',
+    marginTop: 3,
+  },
+  heroArrowBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroDotsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 12,
+  },
+  heroDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   sectionBlock: {
-    marginTop: 20,
-    marginBottom: 8,
-  },
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 10,
+    marginBottom: 20,
   },
   sectionTitle: {
     fontFamily: FontFamily.semiBold,
-    fontSize: 13,
-    letterSpacing: 0.4,
-    color: KESFET.blue700,
-    textTransform: 'uppercase',
+    fontSize: 17,
+    letterSpacing: -0.2,
+    marginBottom: 12,
+    paddingHorizontal: 20,
   },
-  sectionAccent: {
-    flex: 1,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: 'rgba(245,158,11,0.45)',
-    maxWidth: 56,
+  collectionOuter: {
+    width: 148,
+    borderRadius: 18,
   },
-  chipsRowFixed: {
-    height: 52,
-    flexGrow: 0,
+  collectionShadow: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  chipsScroll: {
-    flexGrow: 0,
-    height: 52,
+  collectionCard: {
+    borderRadius: 18,
   },
-  chipsContent: {
-    alignItems: 'center',
-    paddingVertical: 4,
-    flexGrow: 0,
-  },
-  chip: {
-    paddingHorizontal: 16,
-    height: 44,
-    borderRadius: 22,
-    marginRight: 10,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-    alignSelf: 'center',
-  },
-  chipDarkBase: {
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  chipInactiveLight: {
-    borderWidth: 1,
-    borderColor: DribbbleColors.borderLight,
-  },
-  chipInactiveDark: {
-    backgroundColor: 'transparent',
-  },
-  chipText: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: 12,
-    zIndex: 1,
-  },
-  card: {
-    marginBottom: 20,
-    borderRadius: CARD_RADIUS,
-    overflow: 'hidden',
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: 'rgba(37,99,235,0.12)',
-    shadowColor: Platform.OS === 'android' ? 'transparent' : KESFET.blue900,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: Platform.OS === 'android' ? 0 : 0.1,
-    shadowRadius: Platform.OS === 'android' ? 0 : 20,
-    elevation: Platform.OS === 'android' ? 0 : 6,
-  },
-  cardDark: {
-    backgroundColor: Platform.OS === 'android' ? '#111827' : 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  skeletonCard: {
-    overflow: 'hidden',
-  },
-  imageBlock: {
+  collectionImage: {
     width: '100%',
-    height: IMAGE_H,
-    backgroundColor: '#e2e8f0',
-    position: 'relative',
+    height: 100,
   },
-  imageBlockDark: {
-    backgroundColor: '#1e293b',
+  collectionTextWrap: {
+    padding: 12,
   },
-  blueSheen: {
-    ...StyleSheet.absoluteFillObject,
-    borderTopRightRadius: CARD_RADIUS,
-  },
-  catPill: {
-    position: 'absolute',
-    top: 14,
-    left: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.95)',
-  },
-  catPillText: {
+  collectionLabel: {
     fontFamily: FontFamily.semiBold,
+    fontSize: 13,
+    letterSpacing: -0.1,
+  },
+  collectionCount: {
+    fontFamily: FontFamily.medium,
     fontSize: 11,
-    color: KESFET.blue800,
-    letterSpacing: 0.2,
+    marginTop: 3,
   },
-  heartFab: {
+  rowOuter: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderRadius: 26,
+  },
+  rowImageWrap: {
+    padding: 10,
+  },
+  rowImage: {
+    width: '100%',
+    height: 150,
+    borderRadius: 18,
+  },
+  rowHeartBtn: {
     position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    overflow: 'hidden',
-    justifyContent: 'center',
+    top: 20,
+    right: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#ffffff',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.45)',
-  },
-  infoLight: {
-    minHeight: 100,
-    position: 'relative',
-    overflow: 'hidden',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  infoInner: {
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    zIndex: 1,
+  rowBody: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 12,
+    padding: 16,
+    paddingTop: 12,
   },
-  cardTitleLight: {
+  rowTitle: {
     fontFamily: FontFamily.semiBold,
     fontSize: 17,
     letterSpacing: -0.2,
-    color: DribbbleColors.textPrimary,
-    lineHeight: 22,
   },
-  cardDescLight: {
+  rowDesc: {
     fontFamily: FontFamily.medium,
-    fontSize: 13,
-    color: DribbbleColors.textSecondary,
-    marginTop: 6,
-    lineHeight: 18,
+    fontSize: 12.5,
+    lineHeight: 17,
+    marginTop: 4,
   },
-  infoDark: {
-    minHeight: 100,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    backgroundColor: 'rgba(15,23,42,0.92)',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.08)',
+  rowArrowBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  cardTitleDark: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: 17,
-    color: '#f8fafc',
-    lineHeight: 22,
-  },
-  cardDescDark: {
-    fontFamily: FontFamily.medium,
-    fontSize: 13,
-    color: '#94a3b8',
-    marginTop: 6,
-    lineHeight: 18,
-  },
   skeletonStack: {
-    gap: 20,
-    paddingTop: 4,
+    gap: 12,
+    paddingHorizontal: 20,
+  },
+  skeletonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    marginHorizontal: 0,
   },
   emptyWrap: {
     minHeight: 200,
@@ -651,7 +556,6 @@ const styles = StyleSheet.create({
   emptyText: {
     fontFamily: FontFamily.medium,
     fontSize: 16,
-    color: '#64748b',
     textAlign: 'center',
     lineHeight: 24,
   },

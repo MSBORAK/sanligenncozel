@@ -2,19 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, Keyboard, ActivityIndicator, Dimensions, Modal } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Search, MapPin, Star, Maximize2, Minimize2, Navigation, ArrowRight, Bus } from 'lucide-react-native';
+import { Search, MapPin, Star, Maximize2, Minimize2, Navigation, ArrowRight, Bus, X } from 'lucide-react-native';
 import * as Location from 'expo-location';
 import { Platform } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, DribbbleColors } from '@/constants/Colors';
+import { Colors, DribbbleColors, Clean } from '@/constants/Colors';
+import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { MOCK_STOPS } from '@/data/transport';
 import { estimateTime, calculateDistance } from '@/utils/estimateTime';
 import { useThemeMode } from '@/context/ThemeContext';
 import { useFavorites } from '@/context/FavoritesContext';
 
-/** Ulaşım mavisi */
-const TRANSPORT_ACCENT      = '#3B82F6';
-const TRANSPORT_ACCENT_SOFT = 'rgba(59,130,246,0.10)';
+/** Home ekranıyla aynı tek aksan rengi — artık mavi değil */
+const TRANSPORT_ACCENT      = Clean.accent;
+const TRANSPORT_ACCENT_SOFT = Clean.accentSoft;
 const ROUTE_LINE_FALLBACK   = TRANSPORT_ACCENT;
 
 const FAVORITE_STOPS = [
@@ -43,6 +43,7 @@ const TransportScreen = () => {
   const [fromStop, setFromStop] = useState<typeof MOCK_STOPS[0] | null>(null);
   const [toStop, setToStop] = useState<typeof MOCK_STOPS[0] | null>(null);
   const [showStopPicker, setShowStopPicker] = useState<'from' | 'to' | null>(null);
+  const [editingFavorites, setEditingFavorites] = useState(false);
   const [routes, setRoutes] = useState<Array<{
     type: 'direct' | 'transfer';
     directLine?: string;
@@ -101,62 +102,70 @@ const TransportScreen = () => {
 
   useEffect(() => {
     (async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('İzin Gerekli', 'Konum izni olmadan en yakın durağı bulamayız.');
-        // Varsayılan olarak Abide durağını seç
-        setNearestStop(MOCK_STOPS[0]);
-        return;
-      }
-
-      let location = await Location.getCurrentPositionAsync({});
-      setLocation(location);
-
-      // En yakın durağı bul
-      if (location) {
-        let minDistance = Infinity;
-        let closest = MOCK_STOPS[0];
-
-        // Kullanıcı Şanlıurfa merkezden 50km uzakta mı?
-        const distToCenter = calculateDistance(
-          location.coords.latitude,
-          location.coords.longitude,
-          37.1674,
-          38.7955
-        );
-
-        // Eğer yakındaysa haritayı kullanıcıya odakla
-        if (distToCenter < 50) {
-          setMapRegion({
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          });
+      try {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('İzin Gerekli', 'Konum izni olmadan en yakın durağı bulamayız.');
+          // Varsayılan olarak Abide durağını seç
+          setNearestStop(MOCK_STOPS[0]);
+          setFromStop(MOCK_STOPS[0]);
+          return;
         }
-        // Uzaktaysa (örn: İstanbul veya Simülatör/San Francisco), varsayılan Şanlıurfa kalır.
 
-        MOCK_STOPS.forEach((stop) => {
-          const dist = calculateDistance(
+        let location = await Location.getCurrentPositionAsync({});
+        setLocation(location);
+
+        // En yakın durağı bul
+        if (location) {
+          let minDistance = Infinity;
+          let closest = MOCK_STOPS[0];
+
+          // Kullanıcı Şanlıurfa merkezden 50km uzakta mı?
+          const distToCenter = calculateDistance(
             location.coords.latitude,
             location.coords.longitude,
-            stop.lat,
-            stop.lng
+            37.1674,
+            38.7955
           );
-          if (dist < minDistance) {
-            minDistance = dist;
-            closest = stop;
-          }
-        });
 
-        setNearestStop(closest);
-        setFromStop(closest); // En yakın durağı varsayılan "Nereden" olarak ayarla
-      } else {
-        // Konum yoksa varsayılan olarak Abide durağını seç
+          // Eğer yakındaysa haritayı kullanıcıya odakla
+          if (distToCenter < 50) {
+            setMapRegion({
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
+            });
+          }
+          // Uzaktaysa (örn: İstanbul veya Simülatör/San Francisco), varsayılan Şanlıurfa kalır.
+
+          MOCK_STOPS.forEach((stop) => {
+            const dist = calculateDistance(
+              location.coords.latitude,
+              location.coords.longitude,
+              stop.lat,
+              stop.lng
+            );
+            if (dist < minDistance) {
+              minDistance = dist;
+              closest = stop;
+            }
+          });
+
+          setNearestStop(closest);
+          setFromStop(closest); // En yakın durağı varsayılan "Nereden" olarak ayarla
+        } else {
+          // Konum yoksa varsayılan olarak Abide durağını seç
+          setNearestStop(MOCK_STOPS[0]);
+          setFromStop(MOCK_STOPS[0]); // Varsayılan durağı "Nereden" olarak ayarla
+        }
+      } catch (e) {
+        // Konum servisleri kapalı / GPS zaman aşımı / simülatör hatası — sessizce varsayılana düş
         setNearestStop(MOCK_STOPS[0]);
-        setFromStop(MOCK_STOPS[0]); // Varsayılan durağı "Nereden" olarak ayarla
+        setFromStop(MOCK_STOPS[0]);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     })();
   }, []);
 
@@ -246,11 +255,15 @@ const TransportScreen = () => {
   }, [fromStop, toStop]);
 
   const insets  = useSafeAreaInsets();
-  const pageBg  = isDark ? '#09070A' : '#F0F4FF';
-  const cardBg  = isDark ? 'rgba(255,255,255,0.055)' : '#FFFFFF';
-  const cardBdr = isDark ? 'rgba(255,255,255,0.09)'  : 'rgba(0,0,0,0.07)';
-  const txt1    = isDark ? '#F9F8F6' : '#1A1208';
-  const txt2    = isDark ? 'rgba(249,248,246,0.42)' : '#6B7280';
+  // Home ekranıyla birebir aynı tema (Clean) — mavi Material Design tamamen kaldırıldı
+  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
+  const cardBg  = isDark ? '#18181B' : Clean.surface;
+  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
+  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
+  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
+  const ctaBg   = isDark ? '#F5F5F7' : Clean.ctaBg;
+  const ctaTxt  = isDark ? '#111114' : Clean.ctaText;
+  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
 
   if (isLoading) {
     return (
@@ -294,14 +307,14 @@ const TransportScreen = () => {
           <View style={styles.mapOverlayRow}>
             {location && (
               <View style={[styles.mapLocationPill, isDark && { backgroundColor: Colors.dark.card }]}>
-                <MapPin color={TRANSPORT_ACCENT} size={16} />
+                <MapPin color={txt1} size={16} />
                 <Text style={[styles.mapLocationText, isDark && { color: '#f8fafc' }]}>Konumunuz Alındı</Text>
               </View>
             )}
             {nearestStop && (
               <View style={[styles.mapStopPill, isDark && { backgroundColor: '#059669', opacity: 0.2 }]}>
-                <Text style={[styles.mapStopLabel, isDark && { color: '#a7f3d0' }]}>En yakın durak</Text>
-                <Text style={[styles.mapStopValue, isDark && { color: '#a7f3d0' }]}>{nearestStop.name}</Text>
+                <Text style={[styles.mapStopLabel, { color: txt1 }]}>En yakın durak</Text>
+                <Text style={[styles.mapStopValue, { color: txt1 }]}>{nearestStop.name}</Text>
               </View>
             )}
           </View>
@@ -360,7 +373,7 @@ const TransportScreen = () => {
                         }}
                       >
                         <View style={[styles.searchResultIcon, isDark && { backgroundColor: Colors.dark.border }, !isDark && { backgroundColor: TRANSPORT_ACCENT_SOFT }]}>
-                          <MapPin size={16} color={TRANSPORT_ACCENT} />
+                          <MapPin size={16} color={txt1} />
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text style={[styles.searchResultTitle, isDark && { color: '#f8fafc' }]}>{stop.name}</Text>
@@ -385,27 +398,24 @@ const TransportScreen = () => {
       {/* Normal Content - Hidden when map is expanded */}
       {!isMapExpanded && (
         <>
-          {/* ── HERO — ScrollView dışında, tam kenara yapışık ── */}
-          <LinearGradient
-            colors={isDark ? ['#0B1628','#0F2044','#09070A'] : ['#1D4ED8','#3B82F6','#F0F4FF']}
-            style={[styles.hero, { paddingTop: insets.top + 18 }]}
-          >
+          {/* ── HERO — Home ekranındaki sade, düz zeminli başlık dili ── */}
+          <View style={[styles.hero, { paddingTop: insets.top + 18, backgroundColor: pageBg }]}>
             <View style={styles.heroTop}>
               <View>
-                <Text style={styles.heroLabel}>ULAŞIM REHBERİ</Text>
-                <Text style={styles.heroTitle}>Otobüsüm nerede?</Text>
+                <Text style={[styles.heroLabel,{color:txt2}]}>ULAŞIM REHBERİ</Text>
+                <Text style={[styles.heroTitle,{color:txt1}]}>Durağını Bul</Text>
               </View>
-              <View style={styles.heroIconWrap}>
-                <Bus color="#fff" size={22} strokeWidth={1.8}/>
+              <View style={[styles.heroIconWrap,{backgroundColor:chipBg}]}>
+                <Bus color={txt1} size={22} strokeWidth={1.8}/>
               </View>
             </View>
             {nearestStop && (
-              <View style={styles.heroPill}>
-                <MapPin color="#93C5FD" size={12} strokeWidth={2.5}/>
-              <Text style={styles.heroPillTxt}>En yakın: {nearestStop.name}</Text>
-            </View>
-          )}
-          </LinearGradient>
+              <View style={[styles.heroPill,{backgroundColor:chipBg, borderColor:cardBdr}]}>
+                <MapPin color={TRANSPORT_ACCENT} size={12} strokeWidth={2.5}/>
+                <Text style={[styles.heroPillTxt,{color:txt1}]}>En yakın: {nearestStop.name}</Text>
+              </View>
+            )}
+          </View>
 
           <ScrollView
             contentContainerStyle={styles.scrollContent}
@@ -417,87 +427,105 @@ const TransportScreen = () => {
 
             {/* Nereden - Nereye Seçimi */}
             <View style={styles.routeSelector}>
-              <TouchableOpacity
-                style={[styles.routeButton, { backgroundColor: cardBg, borderColor: cardBdr }]}
-                onPress={() => setShowStopPicker('from')}
-              >
-                <View style={styles.routeButtonContent}>
-                  <Navigation color={TRANSPORT_ACCENT} size={20} />
-                  <View style={styles.routeButtonTextContainer}>
-                    <Text style={[styles.routeButtonLabel, { color: txt2 }]}>Nereden</Text>
-                    <Text style={[styles.routeButtonValue, { color: txt1 }]} numberOfLines={1}>
-                      {fromStop ? fromStop.name : 'Durak seçin'}
-                    </Text>
+              <View style={[cardOuterShadow, isDark ? cardBorderDark : cardBorderLight, {flex:1, backgroundColor:cardBg, borderRadius:18}]}>
+                <TouchableOpacity
+                  style={[styles.routeButton, cardInnerClip, {borderRadius:18}]}
+                  onPress={() => setShowStopPicker('from')}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.routeButtonContent}>
+                    <Navigation color={txt1} size={20} />
+                    <View style={styles.routeButtonTextContainer}>
+                      <Text style={[styles.routeButtonLabel, { color: txt2 }]}>Nereden</Text>
+                      <Text style={[styles.routeButtonValue, { color: txt1 }]} numberOfLines={1}>
+                        {fromStop ? fromStop.name : 'Durak seçin'}
+                      </Text>
+                    </View>
+                    {fromStop && (
+                      <TouchableOpacity onPress={(e) => { e.stopPropagation(); setFromStop(null); }} hitSlop={8}>
+                        <X color={txt2} size={16} />
+                      </TouchableOpacity>
+                    )}
                   </View>
-                </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              </View>
 
-              <ArrowRight color={isDark ? '#64748b' : '#9ca3af'} size={24} style={{ marginHorizontal: 12 }} />
+              <ArrowRight color={txt2} size={22} style={{ marginHorizontal: 10 }} />
 
-              <TouchableOpacity
-                style={[styles.routeButton, { backgroundColor: cardBg, borderColor: cardBdr }]}
-                onPress={() => setShowStopPicker('to')}
-              >
-                <View style={styles.routeButtonContent}>
-                  <MapPin color={isDark ? '#10b981' : '#10b981'} size={20} />
-                  <View style={styles.routeButtonTextContainer}>
-                    <Text style={[styles.routeButtonLabel, { color: txt2 }]}>Nereye</Text>
-                    <Text style={[styles.routeButtonValue, { color: txt1 }]} numberOfLines={1}>
-                      {toStop ? toStop.name : 'Durak seçin'}
-                    </Text>
+              <View style={[cardOuterShadow, isDark ? cardBorderDark : cardBorderLight, {flex:1, backgroundColor:cardBg, borderRadius:18}]}>
+                <TouchableOpacity
+                  style={[styles.routeButton, cardInnerClip, {borderRadius:18}]}
+                  onPress={() => setShowStopPicker('to')}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.routeButtonContent}>
+                    <MapPin color={txt1} size={20} />
+                    <View style={styles.routeButtonTextContainer}>
+                      <Text style={[styles.routeButtonLabel, { color: txt2 }]}>Nereye</Text>
+                      <Text style={[styles.routeButtonValue, { color: txt1 }]} numberOfLines={1}>
+                        {toStop ? toStop.name : 'Durak seçin'}
+                      </Text>
+                    </View>
+                    {toStop && (
+                      <TouchableOpacity onPress={(e) => { e.stopPropagation(); setToStop(null); }} hitSlop={8}>
+                        <X color={txt2} size={16} />
+                      </TouchableOpacity>
+                    )}
                   </View>
-                </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              </View>
             </View>
 
-            {/* Map Preview */}
-            <View style={styles.mapPreview}>
-            <MapView
-              provider={PROVIDER_DEFAULT}
-              style={StyleSheet.absoluteFill}
-              region={mapRegion}
-              showsUserLocation={true}
-              onRegionChangeComplete={(region) => setMapRegion(region)}
-              mapType="standard"
-              showsMyLocationButton={false}
-              showsCompass={false}
-              toolbarEnabled={false}
-            >
-              {filteredStops.map((stop) => (
-                <Marker
-                  key={stop.id}
-                  coordinate={{ latitude: stop.lat, longitude: stop.lng }}
-                  title={stop.name}
-                  description={nearestStop?.id === stop.id ? "En yakın durak" : "Durak"}
-                  pinColor={nearestStop?.id === stop.id ? TRANSPORT_ACCENT : "#ef4444"}
-                  onPress={() => setNearestStop(stop)}
-                />
-              ))}
-            </MapView>
-            
-            <View style={styles.mapOverlayRow}>
-              {location && (
-                <View style={styles.mapLocationPill}>
-                  <MapPin color={TRANSPORT_ACCENT} size={16} />
-                  <Text style={styles.mapLocationText}>Konumunuz Alındı</Text>
-                </View>
-              )}
-              {nearestStop && (
-                <View style={styles.mapStopPill}>
-                  <Text style={styles.mapStopLabel}>En yakın durak</Text>
-                  <Text style={styles.mapStopValue}>{nearestStop.name}</Text>
-                </View>
-              )}
-            </View>
+            {/* Harita — artık destekleyici, küçük bir kart (merkezi eleman değil) */}
+            <View style={[cardOuterShadow, isDark ? cardBorderDark : cardBorderLight, {backgroundColor:cardBg, borderRadius:20, marginBottom:16}]}>
+              <View style={[styles.mapPreview, cardInnerClip, {borderRadius:20}]}>
+                <MapView
+                  provider={PROVIDER_DEFAULT}
+                  style={StyleSheet.absoluteFill}
+                  region={mapRegion}
+                  showsUserLocation={true}
+                  onRegionChangeComplete={(region) => setMapRegion(region)}
+                  mapType="standard"
+                  showsMyLocationButton={false}
+                  showsCompass={false}
+                  toolbarEnabled={false}
+                >
+                  {filteredStops.map((stop) => (
+                    <Marker
+                      key={stop.id}
+                      coordinate={{ latitude: stop.lat, longitude: stop.lng }}
+                      title={stop.name}
+                      description={nearestStop?.id === stop.id ? "En yakın durak" : "Durak"}
+                      pinColor={nearestStop?.id === stop.id ? TRANSPORT_ACCENT : "#6B7280"}
+                      onPress={() => setNearestStop(stop)}
+                    />
+                  ))}
+                </MapView>
 
-            {/* Expand Button */}
-            <TouchableOpacity 
-              style={styles.expandButton}
-              onPress={() => setIsMapExpanded(true)}
-            >
-              <Maximize2 color={Colors.darkGray} size={20} />
-            </TouchableOpacity>
-          </View>
+                <View style={styles.mapOverlayRow}>
+                  {location && (
+                    <View style={styles.mapLocationPill}>
+                      <MapPin color={txt1} size={16} />
+                      <Text style={styles.mapLocationText}>Konumunuz Alındı</Text>
+                    </View>
+                  )}
+                  {nearestStop && (
+                    <View style={styles.mapStopPill}>
+                      <Text style={[styles.mapStopLabel, { color: txt1 }]}>En yakın durak</Text>
+                      <Text style={[styles.mapStopValue, { color: txt1 }]}>{nearestStop.name}</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Expand Button */}
+                <TouchableOpacity
+                  style={styles.expandButton}
+                  onPress={() => setIsMapExpanded(true)}
+                >
+                  <Maximize2 color={txt1} size={20} />
+                </TouchableOpacity>
+              </View>
+            </View>
 
           {/* Search */}
           <View style={{ zIndex: 10 }}>
@@ -536,8 +564,8 @@ const TransportScreen = () => {
                           });
                         }}
                       >
-                        <View style={[styles.searchResultIcon, !isDark && { backgroundColor: TRANSPORT_ACCENT_SOFT }]}>
-                          <MapPin size={16} color={TRANSPORT_ACCENT} />
+                        <View style={[styles.searchResultIcon, !isDark && { backgroundColor: chipBg }]}>
+                          <MapPin size={16} color={txt1} />
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text style={styles.searchResultTitle}>{stop.name}</Text>
@@ -565,11 +593,11 @@ const TransportScreen = () => {
                 <TouchableOpacity
                   key={area}
                   style={[styles.areaPill,
-                    active ? { backgroundColor: TRANSPORT_ACCENT } : { backgroundColor: cardBg, borderColor: cardBdr, borderWidth: 1 },
+                    active ? { backgroundColor: ctaBg } : { backgroundColor: chipBg, borderColor: cardBdr, borderWidth: 1 },
                   ]}
                   onPress={() => setSelectedArea(area === 'Tümü' ? null : area)}
                 >
-                  <Text style={[styles.areaPillText, { color: active ? '#fff' : txt2 }]}>{area}</Text>
+                  <Text style={[styles.areaPillText, { color: active ? ctaTxt : txt2, fontWeight: active ? '700' : '500' }]}>{area}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -578,8 +606,8 @@ const TransportScreen = () => {
           {/* Favorite Stops */}
           <View style={styles.sectionHeaderRow}>
             <Text style={[styles.sectionTitle, { color: txt2 }]}>FAVORİ DURAKLAR</Text>
-            <TouchableOpacity>
-              <Text style={[styles.editText, { color: TRANSPORT_ACCENT }]}>Düzenle</Text>
+            <TouchableOpacity onPress={() => setEditingFavorites(v => !v)}>
+              <Text style={[styles.editText, { color: txt1 }]}>{editingFavorites ? 'Tamam' : 'Düzenle'}</Text>
             </TouchableOpacity>
           </View>
 
@@ -593,33 +621,38 @@ const TransportScreen = () => {
                 const stop = MOCK_STOPS.find((s) => s.id === favId);
                 if (!stop) return null;
                 return (
-                  <TouchableOpacity
-                    key={stop.id}
-                    style={[styles.favoriteCard, { backgroundColor: cardBg, borderColor: cardBdr, borderWidth: 1 }]}
-                    onPress={() => {
-                      setNearestStop(stop);
-                      setMapRegion({
-                        latitude: stop.lat,
-                        longitude: stop.lng,
-                        latitudeDelta: 0.01,
-                        longitudeDelta: 0.01,
-                      });
-                    }}
-                  >
-                    <View style={[styles.favoriteIconCircle, { backgroundColor: TRANSPORT_ACCENT_SOFT }]}>
-                      <MapPin color={TRANSPORT_ACCENT} size={18} />
-                    </View>
-                    <Text style={[styles.favoriteName, { color: txt1 }]}>{stop.name}</Text>
-                    <Text style={[styles.favoriteLines, { color: txt2 }]} numberOfLines={1}>
-                      {stop.buses.map((b) => b.line).join(', ')}
-                    </Text>
+                  <View key={stop.id} style={[cardOuterShadow, isDark ? cardBorderDark : cardBorderLight, {backgroundColor:cardBg, borderRadius:20, marginRight:12}]}>
                     <TouchableOpacity
-                      style={styles.favoriteStar}
-                      onPress={() => onToggleFavorite(stop.id)}
+                      style={[styles.favoriteCard, cardInnerClip, {backgroundColor:cardBg, marginRight:0, borderRadius:20}]}
+                      onPress={() => {
+                        setNearestStop(stop);
+                        setMapRegion({
+                          latitude: stop.lat,
+                          longitude: stop.lng,
+                          latitudeDelta: 0.01,
+                          longitudeDelta: 0.01,
+                        });
+                      }}
                     >
-                      <Star color="#facc15" size={16} fill="#facc15" />
+                      <View style={[styles.favoriteIconCircle, { backgroundColor: chipBg }]}>
+                        <MapPin color={txt1} size={18} />
+                      </View>
+                      <Text style={[styles.favoriteName, { color: txt1 }]}>{stop.name}</Text>
+                      <Text style={[styles.favoriteLines, { color: txt2 }]} numberOfLines={1}>
+                        {stop.buses.map((b) => b.line).join(', ')}
+                      </Text>
+                      <TouchableOpacity
+                        style={[styles.favoriteStar, editingFavorites && {backgroundColor:'#EF4444', borderRadius:11, width:22, height:22, alignItems:'center', justifyContent:'center'}]}
+                        onPress={() => onToggleFavorite(stop.id)}
+                      >
+                        {editingFavorites ? (
+                          <X color="#fff" size={13} strokeWidth={2.5} />
+                        ) : (
+                          <Star color={TRANSPORT_ACCENT} size={16} fill={TRANSPORT_ACCENT} />
+                        )}
+                      </TouchableOpacity>
                     </TouchableOpacity>
-                  </TouchableOpacity>
+                  </View>
                 );
               })
             ) : (
@@ -636,9 +669,9 @@ const TransportScreen = () => {
                 <Text style={[styles.sectionTitle, { color: txt2 }]}>ALTERNATİF ROTALAR</Text>
               </View>
 
-              <View style={[styles.routeInfoCard, { backgroundColor: cardBg, borderColor: cardBdr }]}>
+              <View style={[styles.routeInfoCard, cardOuterShadow, isDark ? cardBorderDark : cardBorderLight, { backgroundColor: cardBg }]}>
                 <View style={styles.routeInfoRow}>
-                  <Navigation color={TRANSPORT_ACCENT} size={18} />
+                  <Navigation color={txt1} size={18} />
                   <Text style={[styles.routeInfoFrom, { color: txt1 }]} numberOfLines={1}>
                     {fromStop.name}
                   </Text>
@@ -647,7 +680,7 @@ const TransportScreen = () => {
                   <ArrowRight color={isDark ? '#64748b' : '#9ca3af'} size={20} />
                 </View>
                 <View style={styles.routeInfoRow}>
-                  <MapPin color="#10b981" size={18} />
+                  <MapPin color={txt1} size={18} />
                   <Text style={[styles.routeInfoTo, { color: txt1 }]} numberOfLines={1}>
                     {toStop.name}
                   </Text>
@@ -655,7 +688,7 @@ const TransportScreen = () => {
               </View>
 
               {routes.length === 0 ? (
-                <View style={[styles.noRouteCard, { backgroundColor: cardBg, borderColor: cardBdr }]}>
+                <View style={[styles.noRouteCard, cardOuterShadow, isDark ? cardBorderDark : cardBorderLight, { backgroundColor: cardBg }]}>
                   <Text style={[styles.noRouteText, { color: txt2 }]}>
                     Bu iki durak arasında direkt veya aktarmalı rota bulunamadı.
                   </Text>
@@ -666,7 +699,7 @@ const TransportScreen = () => {
                   {routes.filter(route => route.type === 'direct').map((route, index) => (
                     <View
                       key={`direct-${index}`}
-                      style={[styles.routeCard, { backgroundColor: cardBg, borderColor: cardBdr }]}
+                      style={[styles.routeCard, cardOuterShadow, isDark ? cardBorderDark : cardBorderLight, { backgroundColor: cardBg }]}
                     >
                       <View style={styles.routeCardContent}>
                         <View style={styles.routeDetails}>
@@ -718,7 +751,7 @@ const TransportScreen = () => {
                   {routes.filter(route => route.type === 'transfer').map((route, index) => (
                     <View
                       key={`transfer-${index}`}
-                      style={[styles.routeCard, { backgroundColor: cardBg, borderColor: cardBdr }]}
+                      style={[styles.routeCard, cardOuterShadow, isDark ? cardBorderDark : cardBorderLight, { backgroundColor: cardBg }]}
                     >
                       <View style={styles.routeCardContent}>
                         <View style={styles.routeDetails}>
@@ -841,7 +874,7 @@ const TransportScreen = () => {
           </View>
 
           <View style={[styles.modalSearchContainer, { backgroundColor: cardBg, borderColor: cardBdr, borderWidth: 1 }]}>
-            <Search color={isDark ? '#94a3b8' : TRANSPORT_ACCENT} size={20} />
+            <Search color={isDark ? '#94a3b8' : txt1} size={20} />
             <TextInput
               placeholder="Durak ara..."
               style={[styles.modalSearchInput, { color: txt1 }]}
@@ -874,7 +907,7 @@ const TransportScreen = () => {
                 <View
                   style={[styles.modalStopIcon, { backgroundColor: TRANSPORT_ACCENT_SOFT }]}
                 >
-                  <MapPin size={18} color={showStopPicker === 'from' ? TRANSPORT_ACCENT : '#10b981'} />
+                  <MapPin size={18} color={txt1} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.modalStopName, { color: txt1 }]}>{stop.name}</Text>
@@ -914,52 +947,38 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1.4,
-    color: 'rgba(255,255,255,0.6)',
     marginBottom: 4,
   },
   heroTitle: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#fff',
     letterSpacing: -0.5,
   },
   heroIconWrap: {
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
   },
   heroPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(0,0,0,0.25)',
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: 'rgba(147,197,253,0.3)',
   },
   heroPillTxt: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#93C5FD',
   },
   card: {},
   mapPreview: {
-    height: 180,
-    borderRadius: 24,
-    marginBottom: 16,
-    overflow: 'hidden',
-    backgroundColor: '#DBEAFE',
+    height: 130,
     position: 'relative',
-    borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.2)',
   },
   mapExpanded: {
     position: 'absolute',
@@ -1064,16 +1083,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 14,
-    backgroundColor: 'rgba(47,61,32,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.95)',
   },
   mapStopLabel: {
     fontSize: 10,
-    color: Colors.primary.violet,
+    color: Clean.textSecondary,
   },
   mapStopValue: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.primary.violet,
+    color: Clean.accent,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -1266,7 +1285,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#eef2ff',
+    backgroundColor: '#F2F2F4',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1292,12 +1311,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   routeButton: {
-    flex: 1,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 16,
     padding: 14,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
   },
   routeButtonContent: {
     flexDirection: 'row',

@@ -357,7 +357,7 @@ const SnapViewScreen = () => {
                   onPress={handleSendReply}
                   disabled={!replyText.trim()}
                 >
-                  <Send size={18} color="#fff" />
+                  <Send size={18} color="#000" />
                 </TouchableOpacity>
               </View>
             )}
@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(255,69,0,0.4)',
+    borderColor: 'rgba(255,255,255,0.2)',
     paddingHorizontal: 16,
     color: '#fff',
     fontSize: 14,
@@ -526,12 +526,12 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FF4500',
+    backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
   },
   sendBtnDisabled: {
-    backgroundColor: 'rgba(255,69,0,0.35)',
+    backgroundColor: 'rgba(255,255,255,0.3)',
   },
   sentReactionOverlay: {
     position: 'absolute',

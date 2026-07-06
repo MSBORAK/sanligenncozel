@@ -50,12 +50,14 @@ export interface Event {
   image: string;
 }
 
+export type HeritageCategory = 'historic' | 'faith' | 'nature' | 'museum' | 'bazaar';
+
 export interface Magazine {
   id: string;
   title: string;
   image: any; // URL string or local require source
   description?: string;
-  category?: 'historic' | 'museum' | 'nature';
+  category?: HeritageCategory;
 }
 
 export interface Bulletin {

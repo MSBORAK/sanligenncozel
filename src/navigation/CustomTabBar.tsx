@@ -1,9 +1,16 @@
-import React, { useEffect } from 'react';
-import { View, StyleSheet, Platform, TouchableOpacity, useWindowDimensions, Animated } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Pressable, useWindowDimensions, Keyboard, Platform } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  useAnimatedReaction,
+  withSpring,
+  withTiming,
+  runOnJS,
+} from 'react-native-reanimated';
+import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { BlurView } from 'expo-blur';
-import { useThemeMode } from '@/context/ThemeContext';
 import {
   Bell,
   Bus,
@@ -24,14 +31,14 @@ const ICONS = {
   Profile: User,
 };
 
-const TAB_ACTIVE_COLORS: Record<string, string> = {
-  Home:      '#F59E0B',  // amber — anasayfa
-  Transport: '#3B82F6',  // mavi — ulaşım
-  GencKart:  '#F59E0B',  // amber — genç kart
-  Assistant: '#8B5CF6',  // mor — yapay zeka
-  Profile:   '#64748B',  // slate — profil
-  Notifications: '#EF4444',
-  Camera:    '#0EA5E9',
+const TAB_LABELS: Record<string, string> = {
+  Home: 'Ana Sayfa',
+  Transport: 'Ulaşım',
+  GencKart: 'Genç Kart',
+  Assistant: 'Asistan',
+  Profile: 'Profil',
+  Notifications: 'Bildirim',
+  Camera: 'Kamera',
 };
 
 type TabName =
@@ -51,10 +58,13 @@ interface LegacyTabBarProps {
 
 type CustomTabBarProps = LegacyTabBarProps | BottomTabBarProps;
 
-const HORIZONTAL_MARGIN = 48;
+const HORIZONTAL_MARGIN = 56;
 const BOTTOM_MARGIN = 20;
-const TAB_BAR_HEIGHT = 66;
-const TAB_CONTENT_INSET = 16;
+const BAR_HEIGHT = 56;
+const BUMP_EXTRA = 18;      // dalganın barın üstüne taştığı alan
+const BUBBLE_SIZE = 42;
+const NOTCH_RADIUS = 13;    // kenar sekmelerde bile kaymadan sığması için küçük tutuldu
+const CORNER_RADIUS = 28;   // BAR_HEIGHT/2'ye yakın — tam oval/pill görünüm
 
 const isLegacyProps = (props: CustomTabBarProps): props is LegacyTabBarProps =>
   'tabNames' in props && 'activeIndex' in props;
@@ -69,25 +79,37 @@ const resolveIcon = (name: string) => {
   return Home;
 };
 
-const withOpacity = (hexColor: string, opacity: number) => {
-  if (!hexColor.startsWith('#')) return hexColor;
-  let hex = hexColor.slice(1);
-  if (hex.length === 3) {
-    hex = hex
-      .split('')
-      .map(char => char + char)
-      .join('');
-  }
-  if (hex.length !== 6) return hexColor;
-  const r = parseInt(hex.slice(0, 2), 16);
-  const g = parseInt(hex.slice(2, 4), 16);
-  const b = parseInt(hex.slice(4, 6), 16);
-  return `rgba(${r},${g},${b},${opacity})`;
+/** Dalgalı (wave) bar path'i — aktif sekmenin üstünde hareketli kabarcık oluşturur */
+const buildBarPath = (width: number, bumpCenterX: number) => {
+  const T = BUMP_EXTRA;
+  const B = BUMP_EXTRA + BAR_HEIGHT;
+  const R = CORNER_RADIUS;
+  const nr = NOTCH_RADIUS;
+  const transition = 6;
+  const minX = R + nr + transition;
+  const maxX = width - R - nr - transition;
+  const cx = Math.min(Math.max(bumpCenterX, minX), maxX);
+
+  return [
+    `M ${R} ${T}`,
+    `L ${cx - nr - transition} ${T}`,
+    `Q ${cx - nr - transition * 0.3} ${T} ${cx - nr * 0.9} ${T + BUMP_EXTRA * 0.35}`,
+    `Q ${cx - nr * 0.5} ${T + BUMP_EXTRA} ${cx} ${T + BUMP_EXTRA}`,
+    `Q ${cx + nr * 0.5} ${T + BUMP_EXTRA} ${cx + nr * 0.9} ${T + BUMP_EXTRA * 0.35}`,
+    `Q ${cx + nr + transition * 0.3} ${T} ${cx + nr + transition} ${T}`,
+    `L ${width - R} ${T}`,
+    `Q ${width} ${T} ${width} ${T + R}`,
+    `L ${width} ${B - R}`,
+    `Q ${width} ${B} ${width - R} ${B}`,
+    `L ${R} ${B}`,
+    `Q 0 ${B} 0 ${B - R}`,
+    `L 0 ${T + R}`,
+    `Q 0 ${T} ${R} ${T}`,
+    `Z`,
+  ].join(' ');
 };
 
 const CustomTabBar = (props: CustomTabBarProps) => {
-  const { mode } = useThemeMode();
-  const isDark = mode === 'dark';
   const isLegacy = isLegacyProps(props);
   const tabNames = isLegacy
     ? props.tabNames
@@ -110,222 +132,183 @@ const CustomTabBar = (props: CustomTabBarProps) => {
   const { width: screenWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const tabBarWidth = screenWidth - HORIZONTAL_MARGIN * 2;
-  const contentWidth = tabBarWidth - TAB_CONTENT_INSET * 2;
-  const tabWidth = contentWidth / tabNames.length;
+  const tabWidth = tabBarWidth / tabNames.length;
   const bottomOffset = Math.max(BOTTOM_MARGIN, insets.bottom + 8);
-  const indicatorX = React.useRef(new Animated.Value(activeIndex * tabWidth)).current;
-  const activeTabName = tabNames[activeIndex];
-  const activeTabColor = TAB_ACTIVE_COLORS[activeTabName] || '#f3f4f6';
+
+  // Klavye açıkken yüzen tab bar input'un/klavyenin üstüne biniyordu (özellikle Android) —
+  // klavye görünürken tab bar'ı tamamen gizleyip alanı boşaltıyoruz.
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvt, () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(hideEvt, () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const bumpCenterOf = (index: number) => index * tabWidth + tabWidth / 2;
+
+  // Dalganın merkezi — aktif sekmeye doğru spring ile kayar
+  const bumpX = useSharedValue(bumpCenterOf(activeIndex));
+  const [pathD, setPathD] = useState(() => buildBarPath(tabBarWidth, bumpCenterOf(activeIndex)));
 
   useEffect(() => {
-    Animated.spring(indicatorX, {
-      toValue: activeIndex * tabWidth,
-      useNativeDriver: true,
-      damping: 20,
-      stiffness: 260,
-      mass: 0.7,
-    }).start();
-  }, [activeIndex, tabWidth, indicatorX]);
+    bumpX.value = withSpring(bumpCenterOf(activeIndex), { damping: 15, stiffness: 150, mass: 0.9 });
+  }, [activeIndex, tabWidth]);
 
-  const renderTab = (tabName: string, index: number) => {
-    const Icon = resolveIcon(tabName);
-    return (
-      <TabIconButton
-        key={tabName}
-        tabName={tabName}
-        Icon={Icon}
-        index={index}
-        isFocused={activeIndex === index}
-        onPress={onTabPress}
-        tabWidth={tabWidth}
-        activeColor={TAB_ACTIVE_COLORS[tabName] || '#f3f4f6'}
-        isDark={isDark}
-      />
-    );
+  // buildBarPath JS-thread'de çalışmalı — worklet (UI-thread) içinden doğrudan
+  // çağrılırsa native crash'e yol açar, bu yüzden hesaplamayı runOnJS'in
+  // ÇAĞIRDIĞI fonksiyonun İÇİNE alıyoruz.
+  const updatePath = (value: number) => {
+    setPathD(buildBarPath(tabBarWidth, value));
   };
+
+  useAnimatedReaction(
+    () => bumpX.value,
+    (value) => {
+      runOnJS(updatePath)(value);
+    },
+  );
+
+  if (keyboardVisible) return null;
 
   return (
     <View
       style={[
         styles.container,
-        isDark ? styles.containerDark : styles.containerLight,
-        { width: tabBarWidth, bottom: bottomOffset },
+        { width: tabBarWidth, bottom: bottomOffset, height: BAR_HEIGHT + BUMP_EXTRA },
       ]}
+      pointerEvents="box-none"
     >
-      <BlurView intensity={isDark ? 35 : 55} tint={isDark ? 'dark' : 'light'} style={styles.blurFill}>
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.activeSpotWrap,
-            {
-              width: tabWidth,
-              transform: [{ translateX: Animated.add(indicatorX, new Animated.Value(TAB_CONTENT_INSET)) }],
-            },
-          ]}
-        >
-          <View
-            style={[
-              styles.spotTopBar,
-              {
-                backgroundColor: withOpacity(activeTabColor, 0.95),
-                shadowColor: activeTabColor,
-              },
-            ]}
+      {/* Gölgeyi taşıyan opak katman — SVG'nin kendisi gölge vermez */}
+      <View style={[styles.barShadow, { top: BUMP_EXTRA, height: BAR_HEIGHT }]} />
+
+      <Svg width={tabBarWidth} height={BAR_HEIGHT + BUMP_EXTRA} style={StyleSheet.absoluteFill}>
+        <Path d={pathD} fill="#FFFFFF" />
+      </Svg>
+
+      <View style={[styles.tabsRow, { top: BUMP_EXTRA, width: tabBarWidth }]} pointerEvents="box-none">
+        {tabNames.map((name, index) => (
+          <TabItem
+            key={name}
+            name={name}
+            Icon={resolveIcon(name)}
+            isFocused={activeIndex === index}
+            onPress={() => onTabPress(index)}
           />
-          <View
-            style={[
-              styles.spotBeamSoft,
-              {
-                borderBottomColor: withOpacity(activeTabColor, 0.22),
-              },
-            ]}
-          />
-        </Animated.View>
-        <View style={styles.tabsRow}>{tabNames.map(renderTab)}</View>
-      </BlurView>
+        ))}
+      </View>
     </View>
   );
 };
 
-const TabIconButton = ({
-  tabName,
+const TabItem = ({
+  name,
   Icon,
-  index,
   isFocused,
   onPress,
-  tabWidth,
-  activeColor,
-  isDark,
 }: {
-  tabName: string;
+  name: string;
   Icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
-  index: number;
   isFocused: boolean;
-  onPress: (index: number) => void;
-  tabWidth: number;
-  activeColor: string;
-  isDark: boolean;
+  onPress: () => void;
 }) => {
-  const pressScale = React.useRef(new Animated.Value(1)).current;
-  const focusOpacity = React.useRef(new Animated.Value(isFocused ? 1 : 0.9)).current;
+  const pressScale = useSharedValue(1);
+  const bump = useSharedValue(isFocused ? 1 : 0);
 
   useEffect(() => {
-    Animated.spring(focusOpacity, {
-      toValue: isFocused ? 1 : 0.9,
-      useNativeDriver: true,
-      damping: 18,
-      stiffness: 220,
-      mass: 0.7,
-    }).start();
-  }, [isFocused, focusOpacity]);
+    bump.value = withSpring(isFocused ? 1 : 0, { damping: 13, stiffness: 220, mass: 0.8 });
+  }, [isFocused]);
 
-  const iconColor = isFocused ? activeColor : isDark ? 'rgba(15,15,18,0.72)' : 'rgba(51,65,85,0.66)';
+  const passiveStyle = useAnimatedStyle(() => ({
+    opacity: 1 - bump.value,
+  }));
+
+  const bubbleStyle = useAnimatedStyle(() => ({
+    opacity: bump.value,
+    transform: [
+      { translateY: -bump.value * 20 },
+      { scale: (0.3 + bump.value * 0.7) * pressScale.value },
+    ],
+  }));
 
   return (
-    <TouchableOpacity
-      onPress={() => onPress(index)}
-      onPressIn={() => {
-        Animated.spring(pressScale, {
-          toValue: 0.9,
-          useNativeDriver: true,
-          damping: 14,
-          stiffness: 300,
-        }).start();
-      }}
-      onPressOut={() => {
-        Animated.spring(pressScale, {
-          toValue: 1,
-          useNativeDriver: true,
-          damping: 14,
-          stiffness: 260,
-        }).start();
-      }}
-      style={[styles.tabButton, { width: tabWidth }]}
+    <Pressable
+      onPress={onPress}
+      onPressIn={() => { pressScale.value = withSpring(0.92, { damping: 14, stiffness: 300 }); }}
+      onPressOut={() => { pressScale.value = withSpring(1, { damping: 14, stiffness: 260 }); }}
+      style={styles.tabButton}
       accessibilityRole="button"
-      accessibilityLabel={tabName}
-      activeOpacity={0.9}
+      accessibilityLabel={name}
     >
-      <Animated.View style={{ transform: [{ scale: pressScale }], opacity: focusOpacity }}>
-        <Icon size={22} color={iconColor} strokeWidth={2.25} />
+      {/* Pasif hâl — gri ikon + etiket */}
+      <Animated.View style={[styles.tabInner, passiveStyle]} pointerEvents="none">
+        <Icon size={20} color="#A0A0A8" strokeWidth={2} />
+        <Text numberOfLines={1} style={styles.tabLabel}>{TAB_LABELS[name] || name}</Text>
       </Animated.View>
-    </TouchableOpacity>
+
+      {/* Aktif hâl — yükselen siyah kabarcık */}
+      <Animated.View pointerEvents="none" style={[styles.bubble, bubbleStyle]}>
+        <Icon size={22} color="#fff" strokeWidth={2.25} />
+      </Animated.View>
+    </Pressable>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: BOTTOM_MARGIN,
     left: HORIZONTAL_MARGIN,
-    height: TAB_BAR_HEIGHT,
-    borderRadius: 33,
-    overflow: 'hidden',
-    borderWidth: 1,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.2,
-        shadowRadius: 14,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
   },
-  containerDark: {
-    backgroundColor: '#59595e',
-    borderColor: 'rgba(255,255,255,0.12)',
-  },
-  containerLight: {
-    backgroundColor: 'rgba(255,255,255,0.82)',
-    borderColor: 'rgba(15,23,42,0.08)',
-  },
-  blurFill: {
-    flex: 1,
-  },
-  activeSpotWrap: {
+  barShadow: {
     position: 'absolute',
-    top: 0,
-    height: TAB_BAR_HEIGHT,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-  },
-  spotTopBar: {
-    marginTop: 8,
-    width: 24,
-    height: 2.5,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.88)',
-    zIndex: 3,
-    shadowColor: '#ffffff',
-    shadowOpacity: 0.14,
-    shadowRadius: 3,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  spotBeamSoft: {
-    position: 'absolute',
-    top: 7,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 28,
-    borderRightWidth: 28,
-    borderBottomWidth: 58,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderBottomColor: 'rgba(255,255,255,0.14)',
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderRadius: CORNER_RADIUS,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 10,
   },
   tabsRow: {
-    flex: 1,
+    position: 'absolute',
+    height: BAR_HEIGHT,
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingHorizontal: TAB_CONTENT_INSET,
   },
   tabButton: {
-    height: TAB_BAR_HEIGHT,
+    flex: 1,
+    height: BAR_HEIGHT,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 2,
+  },
+  tabInner: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  tabLabel: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#A0A0A8',
+  },
+  bubble: {
+    position: 'absolute',
+    width: BUBBLE_SIZE,
+    height: BUBBLE_SIZE,
+    borderRadius: BUBBLE_SIZE / 2,
+    backgroundColor: '#111114',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 10,
   },
 });
 

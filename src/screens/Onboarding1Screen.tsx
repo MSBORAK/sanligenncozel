@@ -13,14 +13,14 @@ import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { GradientBackground } from '@/components/GradientBackground';
 import { DotIndicator } from '@/components/DotIndicator';
-import type { OnboardingStackParamList } from '../navigation/OnboardingNavigator';
+import type { RootStackParamList } from '@/types/navigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { markOnboardingCompleted } from '@/utils/onboarding';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const planningRouteLottie = require('@/assets/images/Man Planning A Sightseeing Route.json');
 
-type NavProp = StackNavigationProp<OnboardingStackParamList, 'Onboarding1'>;
+type NavProp = StackNavigationProp<RootStackParamList, 'Onboarding1'>;
 
 const ACCENT = '#F59E0B';
 const ACCENT2 = '#FCD34D';

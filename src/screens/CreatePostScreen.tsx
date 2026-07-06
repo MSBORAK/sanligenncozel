@@ -31,41 +31,49 @@ const CreatePostScreen = ({ route }: any) => {
   const [uploading, setUploading] = useState(false);
 
   const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
-    if (status !== 'granted') {
-      Alert.alert('İzin Gerekli', 'Galeri erişimi için izin vermeniz gerekiyor.');
-      return;
-    }
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [9, 16],
-      quality: 0.8,
-    });
+      if (status !== 'granted') {
+        Alert.alert('İzin Gerekli', 'Galeri erişimi için izin vermeniz gerekiyor.');
+        return;
+      }
 
-    if (!result.canceled) {
-      setImageUri(result.assets[0].uri);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [9, 16],
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        setImageUri(result.assets[0].uri);
+      }
+    } catch (e) {
+      Alert.alert('Hata', 'Fotoğraf seçilirken bir sorun oluştu.');
     }
   };
 
   const takePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    
-    if (status !== 'granted') {
-      Alert.alert('İzin Gerekli', 'Kamera erişimi için izin vermeniz gerekiyor.');
-      return;
-    }
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
 
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [9, 16],
-      quality: 0.8,
-    });
+      if (status !== 'granted') {
+        Alert.alert('İzin Gerekli', 'Kamera erişimi için izin vermeniz gerekiyor.');
+        return;
+      }
 
-    if (!result.canceled) {
-      setImageUri(result.assets[0].uri);
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [9, 16],
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        setImageUri(result.assets[0].uri);
+      }
+    } catch (e) {
+      Alert.alert('Hata', 'Fotoğraf çekilirken bir sorun oluştu.');
     }
   };
 

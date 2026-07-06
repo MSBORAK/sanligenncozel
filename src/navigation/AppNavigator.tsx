@@ -25,6 +25,8 @@ import EventDetailScreen from '@/screens/EventDetailScreen';
 import PharmacyListScreen from '@/screens/PharmacyListScreen';
 import LibraryListScreen from '@/screens/LibraryListScreen';
 import CulturalRouteScreen from '@/screens/CulturalRouteScreen';
+import CulturalRouteDetailScreen from '@/screens/CulturalRouteDetailScreen';
+import HeritageCollectionScreen from '@/screens/HeritageCollectionScreen';
 import GlobalSearchScreen from '@/screens/GlobalSearchScreen';
 import SosyalScreen from '@/screens/SosyalScreen';
 import ChatScreen from '@/screens/ChatScreen';
@@ -48,13 +50,17 @@ const Stack = createStackNavigator<RootStackParamList>();
 const TAB_NAMES = ['Home', 'Transport', 'GencKart', 'Assistant', 'Profile'] as const;
 type TabName = typeof TAB_NAMES[number];
 
-const MainTabs = ({ route }: any) => {
+const MainTabs = ({ route, navigation }: any) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const pagerRef = useRef<PagerView>(null);
   const isProgrammaticChangeRef = useRef(false);
 
   // Stack'ten "Main" içine geçerken gelen { screen } parametresine göre
   // PagerView sayfasını güncelle (örn. Home > "Tümünü Gör" => GencKart).
+  // Not: aynı ekrana art arda navigate edildiğinde (örn. iki kez Profile'a basılırsa)
+  // route.params.screen değeri değişmediği için useEffect tetiklenmez — bu yüzden
+  // işlendikten hemen sonra parametreyi temizliyoruz, böylece bir sonraki aynı
+  // değerli navigate çağrısı da gerçek bir "değişiklik" olarak algılanır.
   useEffect(() => {
     const target = route?.params?.screen as TabName | undefined;
     if (!target) return;
@@ -65,6 +71,7 @@ const MainTabs = ({ route }: any) => {
     isProgrammaticChangeRef.current = true;
     setActiveIndex(idx);
     pagerRef.current?.setPage(idx);
+    navigation.setParams({ screen: undefined });
   }, [route?.params?.screen]);
 
   // PagerView'dan sayfa değiştiğinde güncelle (swipe tamamlandığında)
@@ -203,6 +210,8 @@ const AppNavigator = () => {
         <Stack.Screen name="PharmacyList" component={PharmacyListScreen} />
         <Stack.Screen name="LibraryList" component={LibraryListScreen} />
         <Stack.Screen name="CulturalRoute" component={CulturalRouteScreen} />
+        <Stack.Screen name="CulturalRouteDetail" component={CulturalRouteDetailScreen} />
+        <Stack.Screen name="HeritageCollection" component={HeritageCollectionScreen} />
         <Stack.Screen name="GlobalSearch" component={GlobalSearchScreen} />
         <Stack.Screen name="Sosyal" component={SosyalScreen} />
         <Stack.Screen name="Chat" component={ChatScreen} />
@@ -228,9 +237,11 @@ const styles = StyleSheet.create({
   },
   pagerView: {
     flex: 1,
+    backgroundColor: '#F7F7F8',
   },
   page: {
     flex: 1,
+    backgroundColor: '#F7F7F8',
   },
 });
 

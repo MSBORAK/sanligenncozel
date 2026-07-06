@@ -1,5 +1,4 @@
-import React, { createContext, useContext, useMemo, useState } from 'react';
-import { Appearance } from 'react-native';
+import React, { createContext, useContext, useMemo } from 'react';
 
 type ThemeMode = 'light' | 'dark';
 
@@ -11,20 +10,16 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
+// Dark mode geçici olarak kaldırıldı — uygulama sadece açık (gündüz) temada çalışıyor.
+// İleride geri eklenecekse: mode'u tekrar state'e bağla ve toggleTheme'i işlevsel yap.
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
-  const [mode, setMode] = useState<ThemeMode>(
-    Appearance.getColorScheme() === 'dark' ? 'dark' : 'light'
-  );
-
-  const value = useMemo(
+  const value = useMemo<ThemeContextValue>(
     () => ({
-      mode,
-      modeLabel: mode === 'dark' ? 'Gece' : 'Gündüz',
-      toggleTheme: () => {
-        setMode(prev => (prev === 'light' ? 'dark' : 'light'));
-      },
+      mode: 'light',
+      modeLabel: 'Gündüz',
+      toggleTheme: () => {},
     }),
-    [mode]
+    []
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

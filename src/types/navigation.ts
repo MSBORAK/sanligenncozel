@@ -27,13 +27,15 @@ export type RootStackParamList = {
   PartnerDetail: { partnerId: string };
   WeatherDetail: { weatherData?: any; forecastData?: any; airQualityData?: any };
    HeritageDetail: { id: string };
+   HeritageCollection: { category: import('./index').HeritageCategory };
    EventDetail: { eventId: string };
    PharmacyList: undefined;
    LibraryList: undefined;
    CulturalRoute: undefined;
+   CulturalRouteDetail: { id: string };
   GlobalSearch: undefined;
   Sosyal: undefined;
-  Chat: { userId?: string; userName?: string } | undefined;
+  Chat: { userId?: string; userName?: string; userAvatar?: string; username?: string } | undefined;
   SendSnap: { recipientId?: string; imageUri?: string } | undefined;
   SnapView: { snapId?: string; imageUrl?: string; messageId?: string; canView?: boolean; snapList?: any[]; initialIndex?: number; userId?: string; userName?: string; isOwnSnap?: boolean; reactionsEnabled?: boolean } | undefined;
   SocialFeed: undefined;

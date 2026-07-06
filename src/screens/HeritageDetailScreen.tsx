@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,44 +9,41 @@ import {
   ActivityIndicator,
   Dimensions,
   RefreshControl,
-  Platform,
   ImageSourcePropType,
+  Linking,
+  Platform,
+  Modal,
+  TextInput,
+  Alert,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, Heart, Landmark } from 'lucide-react-native';
+import { ChevronLeft, Landmark, MapPin, Navigation, Heart, Star, X } from 'lucide-react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/types/navigation';
 import { useThemeMode } from '@/context/ThemeContext';
+import { useUser } from '@/context/UserContext';
 import { useFavorites } from '@/context/FavoritesContext';
-import { Colors, DribbbleColors } from '@/constants/Colors';
-import { FontFamily } from '@/constants/Typography';
+import { Clean } from '@/constants/Colors';
+import { cardOuterShadow, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { supabase, processImageUrl } from '@/lib/supabase';
 import { cityFallback } from '@/lib/imageFallback';
 import { MOCK_MAGAZINES } from '@/api/mockData';
+import type { HeritageCategory } from '@/types';
 
 type Props = StackScreenProps<RootStackParamList, 'HeritageDetail'>;
 
 const HERO_RATIO = 0.72;
-const RADIUS = 22;
+const RADIUS = 26;
 
-const KESFET = {
-  blue950: '#172554',
-  blue900: '#1e3a8a',
-  blue800: '#1e40af',
-  blue700: '#1d4ed8',
-  blue600: '#2563eb',
-  blue500: '#3b82f6',
-  sky50: '#f0f9ff',
-  iconDark: '#93c5fd',
-} as const;
-
-const categoryLabel: Record<'historic' | 'museum' | 'nature', string> = {
+const categoryLabel: Record<HeritageCategory, string> = {
   historic: 'Tarihi yer',
+  faith: 'İnanç ve kültür',
   museum: 'Müze',
   nature: 'Doğa & park',
+  bazaar: 'Tarihi çarşı',
 };
 
 interface KesfetRow {
@@ -60,8 +57,17 @@ interface KesfetRow {
 interface PlaceView {
   title: string;
   description?: string;
-  category: 'historic' | 'museum' | 'nature';
+  category: HeritageCategory;
   image: string | number;
+}
+
+interface ReviewRow {
+  id: string;
+  user_id: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+  reviewer_name?: string;
 }
 
 function toPlaceFromRow(row: KesfetRow): PlaceView {
@@ -79,7 +85,7 @@ function toPlaceFromMock(id: string): PlaceView | null {
   return {
     title: m.title,
     description: m.description,
-    category: m.category,
+    category: m.category || 'historic',
     image: typeof m.image === 'string' ? m.image : m.image,
   };
 }
@@ -89,16 +95,47 @@ function resolveImageSource(image: string | number): ImageSourcePropType {
   return image;
 }
 
+function openInMaps(placeName: string) {
+  const query = encodeURIComponent(`${placeName}, Şanlıurfa`);
+  const url = Platform.OS === 'ios'
+    ? `maps://?q=${query}`
+    : `geo:0,0?q=${query}`;
+  Linking.openURL(url).catch(() => {
+    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`);
+  });
+}
+
 const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { id } = route.params;
   const { mode } = useThemeMode();
   const isDark = mode === 'dark';
   const insets = useSafeAreaInsets();
+  const { profile } = useUser();
   const { isFavoriteHeritage, toggleFavorite } = useFavorites();
+
+  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
+  const cardBg  = isDark ? '#18181B' : Clean.surface;
+  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
+  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
+  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
+  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
+  const amber   = Clean.accent;
+  const starYellow = '#EAB308';
+  const cardBorder = isDark ? cardBorderDark : cardBorderLight;
+  const isFav = isFavoriteHeritage(id);
 
   const [place, setPlace] = useState<PlaceView | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const [reviews, setReviews] = useState<ReviewRow[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [reviewModalVisible, setReviewModalVisible] = useState(false);
+  const [allReviewsModalVisible, setAllReviewsModalVisible] = useState(false);
+  const [newRating, setNewRating] = useState(5);
+  const [newComment, setNewComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [imgAspect, setImgAspect] = useState<number | null>(null);
 
   const loadPlace = useCallback(
     async (fromRefresh = false) => {
@@ -128,21 +165,115 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     [id]
   );
 
+  const loadReviews = useCallback(async () => {
+    try {
+      setReviewsLoading(true);
+      const { data, error } = await supabase
+        .from('kesfet_yorumlar')
+        .select('id, user_id, rating, comment, created_at')
+        .eq('place_id', id)
+        .order('created_at', { ascending: false });
+      if (error || !data) {
+        setReviews([]);
+        return;
+      }
+
+      const userIds = [...new Set(data.map((r: any) => r.user_id).filter(Boolean))];
+      let namesById: Record<string, string> = {};
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('user_profiles')
+          .select('user_id, name, username')
+          .in('user_id', userIds);
+        (profiles ?? []).forEach((p: any) => {
+          namesById[p.user_id] = p.name || p.username || 'Kullanıcı';
+        });
+      }
+
+      setReviews(
+        (data as ReviewRow[]).map((r) => ({ ...r, reviewer_name: namesById[r.user_id] || 'Kullanıcı' }))
+      );
+    } catch (e) {
+      // Tablo henüz oluşturulmamışsa sessizce boş liste göster
+      setReviews([]);
+    } finally {
+      setReviewsLoading(false);
+    }
+  }, [id]);
+
   useEffect(() => {
     loadPlace(false);
-  }, [loadPlace]);
+    loadReviews();
+  }, [loadPlace, loadReviews]);
 
-  const heroHeight = Dimensions.get('window').width * HERO_RATIO;
+  useEffect(() => {
+    if (!place) return;
+    setImgAspect(null);
+    const src = resolveImageSource(place.image);
+    if (typeof src === 'number') {
+      const { width, height } = Image.resolveAssetSource(src);
+      if (width && height) setImgAspect(width / height);
+    } else if (src && 'uri' in src && src.uri) {
+      Image.getSize(
+        src.uri,
+        (w, h) => setImgAspect(w / h),
+        () => setImgAspect(null)
+      );
+    }
+  }, [place]);
+
+  const avgRating = useMemo(() => {
+    if (reviews.length === 0) return null;
+    return reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
+  }, [reviews]);
+
+  const relatedPlaces = useMemo(() => {
+    if (!place) return [];
+    return MOCK_MAGAZINES.filter((m) => m.category === place.category && String(m.id) !== String(id)).slice(0, 8);
+  }, [place, id]);
+
+  const submitReview = async () => {
+    if (!profile?.userId) {
+      Alert.alert('Giriş Gerekli', 'Yorum yapabilmek için giriş yapmalısın.');
+      return;
+    }
+    if (!newComment.trim()) {
+      Alert.alert('Eksik Bilgi', 'Lütfen bir yorum yaz.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.from('kesfet_yorumlar').insert({
+        place_id: id,
+        user_id: profile.userId,
+        rating: newRating,
+        comment: newComment.trim(),
+      });
+      if (error) throw error;
+      setReviewModalVisible(false);
+      setNewComment('');
+      setNewRating(5);
+      await loadReviews();
+    } catch (e) {
+      Alert.alert('Hata', 'Yorum gönderilemedi, lütfen tekrar dene.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const heroWidth = Dimensions.get('window').width - 32;
+  const heroHeight = imgAspect
+    ? Math.min(Math.max(heroWidth / imgAspect, heroWidth * 0.55), heroWidth * 1.05)
+    : heroWidth * HERO_RATIO;
   const backButtonTop = insets.top + 10;
-  const isFav = isFavoriteHeritage(id);
 
   if (loading && !place) {
     return (
-      <View style={[styles.screen, isDark && styles.screenDark]}>
+      <View style={[styles.screen, { backgroundColor: pageBg }]}>
         <StatusBar style={isDark ? 'light' : 'dark'} />
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={KESFET.blue600} />
-          <Text style={[styles.loadingLabel, isDark && styles.mutedDark]}>Yükleniyor…</Text>
+          <ActivityIndicator size="large" color={txt1} />
+          <Text style={[styles.loadingLabel, { color: txt2 }]}>Yükleniyor…</Text>
         </View>
       </View>
     );
@@ -150,16 +281,16 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   if (!place) {
     return (
-      <View style={[styles.screen, isDark && styles.screenDark]}>
+      <View style={[styles.screen, { backgroundColor: pageBg }]}>
         <StatusBar style={isDark ? 'light' : 'dark'} />
-        <View style={[styles.simpleHeader, { paddingTop: insets.top + 8 }, isDark && styles.simpleHeaderDark]}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backIconBtn} hitSlop={12}>
-            <ChevronLeft color={isDark ? '#f8fafc' : DribbbleColors.textPrimary} size={28} />
+        <View style={[styles.simpleHeader, { paddingTop: insets.top + 8 }]}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backIconBtn, { backgroundColor: chipBg }]} hitSlop={12}>
+            <ChevronLeft color={txt1} size={22} strokeWidth={2.2} />
           </TouchableOpacity>
-          <Text style={[styles.simpleHeaderTitle, isDark && { color: '#f8fafc' }]}>İçerik bulunamadı</Text>
+          <Text style={[styles.simpleHeaderTitle, { color: txt1 }]}>İçerik bulunamadı</Text>
         </View>
         <View style={styles.emptyBody}>
-          <Text style={[styles.emptyCopy, isDark && styles.mutedDark]}>
+          <Text style={[styles.emptyCopy, { color: txt2 }]}>
             Bu mekân bulunamadı veya kaldırılmış olabilir.
           </Text>
         </View>
@@ -170,7 +301,7 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const imgSource = resolveImageSource(place.image);
 
   return (
-    <View style={[styles.screen, isDark && styles.screenDark]}>
+    <View style={[styles.screen, { backgroundColor: pageBg }]}>
       <StatusBar style="light" />
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -180,100 +311,221 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => loadPlace(true)}
-            tintColor={isDark ? '#f8fafc' : KESFET.blue600}
+            tintColor={txt2}
             progressViewOffset={insets.top}
           />
         }
       >
-        <View style={[styles.hero, { height: heroHeight }]}>
-          <Image source={imgSource} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-          <LinearGradient
-            colors={['rgba(59,130,246,0.26)', 'transparent']}
-            start={{ x: 1, y: 0 }}
-            end={{ x: 0.15, y: 0.5 }}
-            style={styles.blueSheen}
-            pointerEvents="none"
-          />
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.45)']}
-            style={styles.heroBottomFade}
-            pointerEvents="none"
-          />
-
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={[styles.backFab, { top: backButtonTop }]}
-            activeOpacity={0.88}
-            hitSlop={8}
-          >
-            {Platform.OS === 'ios' ? (
-              <BlurView intensity={55} tint="dark" style={StyleSheet.absoluteFill} />
-            ) : null}
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: Platform.OS === 'ios' ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.45)' },
-              ]}
-            />
-            <ChevronLeft color="#ffffff" size={26} strokeWidth={2.2} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.heartFab, { top: backButtonTop }]}
-            onPress={() => toggleFavorite('heritage', id)}
-            activeOpacity={0.85}
-          >
-            {Platform.OS === 'ios' ? (
-              <BlurView intensity={55} tint="dark" style={StyleSheet.absoluteFill} />
-            ) : null}
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: Platform.OS === 'ios' ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.45)' },
-              ]}
-            />
-            <Heart
-              color="#ffffff"
-              size={20}
-              strokeWidth={2}
-              fill={isFav ? Colors.primaryHex : 'transparent'}
-            />
-          </TouchableOpacity>
-
-          <View style={styles.heroBadge}>
-            <Text style={styles.heroBadgeText}>{categoryLabel[place.category]}</Text>
-          </View>
+        <View style={[styles.hero, { height: heroHeight, marginTop: insets.top + 8 }]}>
+          <Image source={imgSource} style={[StyleSheet.absoluteFillObject, { borderRadius: RADIUS }]} resizeMode="cover" />
         </View>
 
-        <View style={[styles.sheet, isDark && styles.sheetDark]}>
-          <View style={styles.sheetHandleWrap}>
-            <View style={[styles.sheetHandle, isDark && styles.sheetHandleDark]} />
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={[styles.backFab, { top: insets.top + 20, left: 28, backgroundColor: '#ffffff' }]}
+          activeOpacity={0.88}
+          hitSlop={8}
+        >
+          <ChevronLeft color="#111114" size={26} strokeWidth={2.2} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => toggleFavorite('heritage', id)}
+          style={[styles.backFab, { top: insets.top + 20, right: 28, left: undefined, backgroundColor: '#ffffff' }]}
+          activeOpacity={0.88}
+          hitSlop={8}
+        >
+          <Heart color="#111114" fill={isFav ? '#111114' : 'transparent'} size={22} strokeWidth={2.2} />
+        </TouchableOpacity>
+
+        <View style={[styles.sheet, { backgroundColor:pageBg }]}>
+          <View style={styles.titleRow}>
+            <Text style={[styles.title, { color: txt1, flex: 1 }]}>{place.title}</Text>
+            {avgRating != null && (
+              <View style={[styles.ratingPill, { backgroundColor: chipBg }]}>
+                <Star color={starYellow} fill={starYellow} size={14} strokeWidth={0} />
+                <Text style={[styles.ratingPillTxt, { color: txt1 }]}>{avgRating.toFixed(1)}</Text>
+              </View>
+            )}
           </View>
 
-          <Text style={[styles.title, isDark && styles.titleDark]}>{place.title}</Text>
-
-          <View style={[styles.bentoRow, isDark && styles.bentoRowDark]}>
-            <Landmark color={KESFET.blue600} size={18} strokeWidth={2} />
-            <Text style={[styles.bentoText, isDark && styles.bentoTextDark]}>
-              Keşfet · {categoryLabel[place.category]}
-            </Text>
+          <View style={styles.chipRow}>
+            <View style={[styles.chip, { backgroundColor: chipBg }]}>
+              <Landmark color={amber} size={14} strokeWidth={2.2} />
+              <Text style={[styles.chipText, { color: txt1 }]}>{categoryLabel[place.category]}</Text>
+            </View>
+            <View style={[styles.chip, { backgroundColor: chipBg }]}>
+              <MapPin color={txt2} size={14} strokeWidth={2.2} />
+              <Text style={[styles.chipText, { color: txt1 }]}>Şanlıurfa</Text>
+            </View>
           </View>
 
-          <View style={[styles.descCard, isDark && styles.descCardDark]}>
-            <LinearGradient
-              colors={isDark ? ['rgba(59,130,246,0.14)', 'transparent'] : ['#eff6ff', '#f8fafc']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-              pointerEvents="none"
-            />
-            <Text style={[styles.descLabel, isDark && { color: KESFET.iconDark }]}>Hakkında</Text>
-            <Text style={[styles.description, isDark && styles.descriptionDark]}>
+          <View style={[styles.descCard, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
+            <Text style={[styles.descLabel, { color: txt2 }]}>HAKKINDA</Text>
+            <Text style={[styles.description, { color: txt1 }]}>
               {place.description?.trim() || 'Bu mekân için henüz detaylı açıklama eklenmemiş.'}
             </Text>
           </View>
+
+          <TouchableOpacity
+            style={[styles.mapCta, { backgroundColor: txt1 }]}
+            activeOpacity={0.88}
+            onPress={() => openInMaps(place.title)}
+          >
+            <Navigation color={pageBg} size={18} strokeWidth={2.2} />
+            <Text style={[styles.mapCtaText, { color: pageBg }]}>Haritada Aç</Text>
+          </TouchableOpacity>
+
+          {/* Yorumlar */}
+          <View style={styles.sectionHeadRow}>
+            <Text style={[styles.sectionTitle, { color: txt1 }]}>
+              Yorumlar {reviews.length > 0 ? `(${reviews.length})` : ''}
+            </Text>
+            <TouchableOpacity onPress={() => setReviewModalVisible(true)}>
+              <Text style={[styles.sectionAction, { color: starYellow }]}>Yorum Yap</Text>
+            </TouchableOpacity>
+          </View>
+
+          {reviewsLoading ? (
+            <ActivityIndicator color={txt2} style={{ marginVertical: 12 }} />
+          ) : reviews.length === 0 ? (
+            <Text style={[styles.emptyReviewsTxt, { color: txt2 }]}>Henüz yorum yok — ilk yorumu sen yaz.</Text>
+          ) : (
+            <View style={{ gap: 10 }}>
+              {reviews.slice(0, 2).map((r) => (
+                <View key={r.id} style={[styles.reviewCard, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
+                  <View style={styles.reviewHeadRow}>
+                    <View style={[styles.reviewAvatar, { backgroundColor: chipBg }]}>
+                      <Text style={[styles.reviewAvatarTxt, { color: txt1 }]}>{(r.reviewer_name || 'K').charAt(0).toUpperCase()}</Text>
+                    </View>
+                    <Text style={[styles.reviewerName, { color: txt1 }]} numberOfLines={1}>{r.reviewer_name || 'Kullanıcı'}</Text>
+                  </View>
+                  <View style={styles.reviewStarsRow}>
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star key={i} color={starYellow} fill={i < r.rating ? starYellow : "transparent"} size={13} strokeWidth={1.5} />
+                    ))}
+                  </View>
+                  <Text style={[styles.reviewComment, { color: txt1 }]}>{r.comment}</Text>
+                </View>
+              ))}
+              {reviews.length > 2 && (
+                <TouchableOpacity onPress={() => setAllReviewsModalVisible(true)} style={styles.seeAllBtn}>
+                  <Text style={[styles.sectionAction, { color: txt1 }]}>Tümünü Gör ({reviews.length})</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {/* Diğer Yerler */}
+          {relatedPlaces.length > 0 && (
+            <View style={{ marginTop: 24 }}>
+              <View style={styles.sectionHeadRow}>
+                <Text style={[styles.sectionTitle, { color: txt1 }]}>Diğer Yerler</Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 4 }}>
+                {relatedPlaces.map((rp) => {
+                  const rpImg = typeof rp.image === 'string' ? { uri: rp.image } : rp.image;
+                  const rpFav = isFavoriteHeritage(rp.id);
+                  return (
+                    <TouchableOpacity
+                      key={rp.id}
+                      style={[styles.relatedCard, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}
+                      activeOpacity={0.9}
+                      onPress={() => navigation.push('HeritageDetail', { id: rp.id })}
+                    >
+                      <View style={styles.relatedImgWrap}>
+                        <Image source={rpImg} style={styles.relatedImg} resizeMode="cover" />
+                        <TouchableOpacity
+                          style={styles.relatedHeart}
+                          onPress={() => toggleFavorite('heritage', rp.id)}
+                          hitSlop={8}
+                        >
+                          <Heart color={rpFav ? amber : '#111114'} fill={rpFav ? amber : 'transparent'} size={15} strokeWidth={2.2} />
+                        </TouchableOpacity>
+                      </View>
+                      <Text style={[styles.relatedTitle, { color: txt1 }]} numberOfLines={1}>{rp.title}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
         </View>
       </ScrollView>
+
+      {/* Tüm yorumlar modalı */}
+      <Modal visible={allReviewsModalVisible} animationType="slide" transparent onRequestClose={() => setAllReviewsModalVisible(false)}>
+        <View style={styles.modalBack}>
+          <View style={[styles.modalCard, { backgroundColor: cardBg, maxHeight: '75%' }]}>
+            <View style={styles.modalHeadRow}>
+              <Text style={[styles.modalTitle, { color: txt1 }]}>Tüm Yorumlar ({reviews.length})</Text>
+              <TouchableOpacity onPress={() => setAllReviewsModalVisible(false)} style={[styles.modalCloseBtn, { backgroundColor: chipBg }]}>
+                <X color={txt1} size={18} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingBottom: 10 }}>
+              {reviews.map((r) => (
+                <View key={r.id} style={[styles.reviewCard, cardOuterShadow, cardBorder, { backgroundColor: pageBg }]}>
+                  <View style={styles.reviewHeadRow}>
+                    <View style={[styles.reviewAvatar, { backgroundColor: chipBg }]}>
+                      <Text style={[styles.reviewAvatarTxt, { color: txt1 }]}>{(r.reviewer_name || 'K').charAt(0).toUpperCase()}</Text>
+                    </View>
+                    <Text style={[styles.reviewerName, { color: txt1 }]} numberOfLines={1}>{r.reviewer_name || 'Kullanıcı'}</Text>
+                  </View>
+                  <View style={styles.reviewStarsRow}>
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star key={i} color={starYellow} fill={i < r.rating ? starYellow : "transparent"} size={13} strokeWidth={1.5} />
+                    ))}
+                  </View>
+                  <Text style={[styles.reviewComment, { color: txt1 }]}>{r.comment}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Yorum ekleme modalı */}
+      <Modal visible={reviewModalVisible} animationType="slide" transparent onRequestClose={() => setReviewModalVisible(false)}>
+        <KeyboardAvoidingView
+          style={styles.modalBack}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={[styles.modalCard, { backgroundColor: cardBg }]}>
+            <View style={styles.modalHeadRow}>
+              <Text style={[styles.modalTitle, { color: txt1 }]}>Yorum Yap</Text>
+              <TouchableOpacity onPress={() => setReviewModalVisible(false)} style={[styles.modalCloseBtn, { backgroundColor: chipBg }]}>
+                <X color={txt1} size={18} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.starsPickerRow}>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <TouchableOpacity key={i} onPress={() => setNewRating(i + 1)} hitSlop={6}>
+                  <Star color={starYellow} fill={i < newRating ? starYellow : "transparent"} size={30} strokeWidth={1.5} />
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TextInput
+              style={[styles.modalInput, { backgroundColor: chipBg, color: txt1 }]}
+              placeholder="Bu mekân hakkında ne düşünüyorsun?"
+              placeholderTextColor={txt2}
+              value={newComment}
+              onChangeText={setNewComment}
+              multiline
+              numberOfLines={4}
+              returnKeyType="done"
+              blurOnSubmit
+            />
+            <TouchableOpacity
+              style={[styles.modalSubmitBtn, { backgroundColor: txt1, opacity: submitting ? 0.6 : 1 }]}
+              onPress={submitReview}
+              disabled={submitting}
+            >
+              <Text style={[styles.modalSubmitTxt, { color: pageBg }]}>{submitting ? 'Gönderiliyor…' : 'Gönder'}</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 };
@@ -281,10 +533,6 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: KESFET.sky50,
-  },
-  screenDark: {
-    backgroundColor: Colors.dark.background,
   },
   loadingWrap: {
     flex: 1,
@@ -294,32 +542,26 @@ const styles = StyleSheet.create({
   },
   loadingLabel: {
     marginTop: 14,
-    fontFamily: FontFamily.medium,
     fontSize: 15,
-    color: DribbbleColors.textSecondary,
-  },
-  mutedDark: {
-    color: '#94a3b8',
+    fontWeight: '600',
   },
   simpleHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    gap: 12,
+    paddingHorizontal: 20,
     paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0,0,0,0.08)',
-  },
-  simpleHeaderDark: {
-    borderBottomColor: 'rgba(255,255,255,0.1)',
   },
   backIconBtn: {
-    marginRight: 4,
-    padding: 4,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   simpleHeaderTitle: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: 18,
-    color: DribbbleColors.textPrimary,
+    fontSize: 17,
+    fontWeight: '700',
   },
   emptyBody: {
     flex: 1,
@@ -327,19 +569,16 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   emptyCopy: {
-    fontFamily: FontFamily.medium,
-    fontSize: 16,
-    color: DribbbleColors.textSecondary,
+    fontSize: 15,
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 22,
   },
   hero: {
-    width: '100%',
+    marginHorizontal: 16,
     position: 'relative',
-    backgroundColor: '#e2e8f0',
-  },
-  blueSheen: {
-    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#EEF1F4',
+    borderRadius: RADIUS,
+    overflow: 'hidden',
   },
   heroBottomFade: {
     position: 'absolute',
@@ -354,142 +593,239 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
-  },
-  heartFab: {
-    position: 'absolute',
-    right: 18,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
-  },
-  heroBadge: {
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.98)',
-  },
-  heroBadgeText: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: 12,
-    color: KESFET.blue800,
-    letterSpacing: 0.3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
+    elevation: 4,
   },
   sheet: {
-    marginTop: -RADIUS,
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: RADIUS,
-    borderTopRightRadius: RADIUS,
-    paddingHorizontal: 22,
-    paddingTop: 12,
+    marginTop: 8,
+    paddingHorizontal: 20,
+    paddingTop: 6,
     paddingBottom: 28,
-    borderWidth: 1,
-    borderColor: 'rgba(37,99,235,0.1)',
-    shadowColor: KESFET.blue900,
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  sheetDark: {
-    backgroundColor: 'rgba(15,23,42,0.96)',
-    borderColor: 'rgba(255,255,255,0.08)',
-    shadowOpacity: 0.22,
   },
   sheetHandleWrap: {
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 14,
   },
   sheetHandle: {
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(0,0,0,0.12)',
   },
-  sheetHandleDark: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 10,
   },
   title: {
-    fontFamily: FontFamily.semiBold,
     fontSize: 24,
-    letterSpacing: -0.35,
+    fontWeight: '800',
+    letterSpacing: -0.4,
     lineHeight: 30,
-    color: DribbbleColors.textPrimary,
-    marginBottom: 16,
   },
-  titleDark: {
-    color: '#f8fafc',
-  },
-  bentoRow: {
+  ratingPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginBottom: 14,
-    borderRadius: 16,
-    backgroundColor: 'rgba(239,246,255,0.95)',
-    borderWidth: 1,
-    borderColor: 'rgba(37,99,235,0.1)',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    marginTop: 2,
   },
-  bentoRowDark: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderColor: 'rgba(255,255,255,0.08)',
+  ratingPillTxt: {
+    fontSize: 13,
+    fontWeight: '800',
   },
-  bentoText: {
-    flex: 1,
-    fontFamily: FontFamily.medium,
-    fontSize: 15,
-    lineHeight: 22,
-    color: DribbbleColors.textPrimary,
+  chipRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
   },
-  bentoTextDark: {
-    color: '#e2e8f0',
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  chipText: {
+    fontSize: 12.5,
+    fontWeight: '700',
   },
   descCard: {
-    borderRadius: 18,
+    borderRadius: 20,
     padding: 18,
-    overflow: 'hidden',
-    backgroundColor: '#fafafa',
-    borderWidth: 1,
-    borderColor: 'rgba(37,99,235,0.16)',
-  },
-  descCardDark: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderColor: 'rgba(96,165,250,0.25)',
+    marginBottom: 16,
   },
   descLabel: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: 12,
-    letterSpacing: 0.5,
-    color: KESFET.blue700,
+    fontSize: 11.5,
+    fontWeight: '800',
+    letterSpacing: 0.6,
     marginBottom: 10,
-    textTransform: 'uppercase',
   },
   description: {
-    fontFamily: FontFamily.regular,
-    fontSize: 16,
-    lineHeight: 26,
-    color: DribbbleColors.textSecondary,
+    fontSize: 15.5,
+    lineHeight: 24,
   },
-  descriptionDark: {
-    color: '#94a3b8',
+  mapCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 15,
+    borderRadius: 16,
+    marginBottom: 24,
+  },
+  mapCtaText: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  sectionHeadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  sectionAction: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  emptyReviewsTxt: {
+    fontSize: 13.5,
+    fontStyle: 'italic',
+  },
+  seeAllBtn: {
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  reviewCard: {
+    borderRadius: 16,
+    padding: 14,
+  },
+  reviewHeadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  reviewAvatar: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reviewAvatarTxt: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  reviewerName: {
+    fontSize: 13,
+    fontWeight: '700',
+    flex: 1,
+  },
+  reviewStarsRow: {
+    flexDirection: 'row',
+    gap: 2,
+    marginBottom: 6,
+  },
+  reviewComment: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  relatedCard: {
+    width: 130,
+    borderRadius: 16,
+    padding: 8,
+  },
+  relatedImgWrap: {
+    width: '100%',
+    height: 90,
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  relatedImg: {
+    width: '100%',
+    height: '100%',
+  },
+  relatedHeart: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  relatedTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    marginTop: 8,
+    paddingHorizontal: 2,
+  },
+  modalBack: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    padding: 22,
+  },
+  modalHeadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  starsPickerRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 18,
+  },
+  modalInput: {
+    borderRadius: 14,
+    padding: 14,
+    fontSize: 14,
+    minHeight: 90,
+    textAlignVertical: 'top',
+    marginBottom: 16,
+  },
+  modalSubmitBtn: {
+    paddingVertical: 15,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  modalSubmitTxt: {
+    fontSize: 15,
+    fontWeight: '800',
   },
 });
 

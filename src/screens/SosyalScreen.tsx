@@ -67,6 +67,8 @@ import { useThemeMode } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
 import { supabase, processImageUrl, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase';
 import { notify } from '@/lib/notifications';
+import { Clean } from '@/constants/Colors';
+import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 
 // ─────────────────────────────────────────────
 // TYPES
@@ -144,6 +146,7 @@ const hoursLater = (h: number) => new Date(now.getTime() + h * 60 * 60 * 1000);
 export const MOCK_SNAPS: SnapPost[] = [
   {
     id: '1',
+    userId: 'u1',
     user: { id: 'u1', name: 'Merve S.', username: 'mervesudo', avatarColor: '#f59e0b' },
     imageUri: 'https://picsum.photos/seed/urfa1/400/500',
     location: { lat: 37.1591, lng: 38.7969, label: 'Tarihi Çarşı' },
@@ -153,6 +156,7 @@ export const MOCK_SNAPS: SnapPost[] = [
   },
   {
     id: '2',
+    userId: 'u2',
     user: { id: 'u2', name: 'Ahmet K.', username: 'ahmetk', avatarColor: '#10b981' },
     imageUri: 'https://picsum.photos/seed/urfa2/400/500',
     location: { lat: 37.1678, lng: 38.7945, label: 'Balıklıgöl' },
@@ -162,6 +166,7 @@ export const MOCK_SNAPS: SnapPost[] = [
   },
   {
     id: '3',
+    userId: 'u3',
     user: { id: 'u3', name: 'Zeynep A.', username: 'zeynepа', avatarColor: '#f472b6' },
     imageUri: 'https://picsum.photos/seed/urfa3/400/500',
     location: { lat: 37.1550, lng: 38.8001, label: 'Kapalıçarşı' },
@@ -171,6 +176,7 @@ export const MOCK_SNAPS: SnapPost[] = [
   },
   {
     id: '4',
+    userId: 'u4',
     user: { id: 'u4', name: 'Yusuf D.', username: 'yusufd', avatarColor: '#8b5cf6' },
     imageUri: 'https://picsum.photos/seed/urfa4/400/500',
     location: { lat: 37.1620, lng: 38.7900, label: 'Atatürk Caddesi' },
@@ -456,11 +462,16 @@ function SnapGroupCard({ group, onPress, isDark, currentUserId, onAvatarPress }:
   currentUserId?: string;
   onAvatarPress?: (userId: string) => void;
 }) {
-  const theme = isDark ? DARK : LIGHT;
-  const accentColor = isDark ? NIGHT.warm : LIGHT.accent;
+  const txt1   = isDark ? '#F5F5F7' : Clean.textPrimary;
+  const txt2   = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
+  const cardBg = isDark ? '#18181B' : Clean.surface;
+  const chipBg = isDark ? '#1F1F23' : Clean.chipBg;
+  const amber  = Clean.accent;
+  const cardBorder = isDark ? cardBorderDark : cardBorderLight;
   const [activeIdx, setActiveIdx] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
-  const [cardWidth, setCardWidth] = useState((SCREEN_W - 32 - 12) / 2);
+  const [cardWidth, setCardWidth] = useState(Math.ceil((SCREEN_W - 32 - 12) / 2));
+  const cardHeight = Math.ceil(cardWidth);
 
   const activeSnap = group.snaps[activeIdx];
   const progress = getExpiryProgress(activeSnap);
@@ -473,102 +484,97 @@ function SnapGroupCard({ group, onPress, isDark, currentUserId, onAvatarPress }:
     <View
       style={{ width: '100%' }}
       onLayout={(e) => {
-        const w = e.nativeEvent.layout.width;
+        const w = Math.ceil(e.nativeEvent.layout.width);
         if (w > 0 && Math.abs(w - cardWidth) > 1) setCardWidth(w);
       }}
     >
-      {/* Fotoğraf alanı — yatay kaydırılabilir */}
-      <View style={{
-        width: cardWidth,
-        height: cardWidth * 1.05,
-        borderRadius: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: isDark ? 0.35 : 0.1,
-        shadowRadius: 10,
-        elevation: 4,
-      }}>
-      <View style={[styles.snapImageContainer, { width: cardWidth, height: cardWidth * 1.05, borderWidth: 0, borderRadius: 20 }]}>
-        <ScrollView
-          ref={scrollRef}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          snapToInterval={cardWidth}
-          decelerationRate="fast"
-          onMomentumScrollEnd={(e) => {
-            const idx = Math.round(e.nativeEvent.contentOffset.x / cardWidth);
-            setActiveIdx(idx);
-          }}
-        >
-          {group.snaps.map((snap) => (
-            <TouchableOpacity
-              key={snap.id}
-              activeOpacity={0.92}
-              onPress={() => onPress(snap)}
-              style={{ width: cardWidth, height: cardWidth * 1.05 }}
+      {/* Tek parça kart: fotoğraf + kullanıcı bilgisi aynı gövdede */}
+      <View style={[cardOuterShadow, cardBorder, { width: cardWidth, borderRadius: 20, backgroundColor: cardBg }]}>
+        <View style={[cardInnerClip, { borderRadius: 20 }]}>
+          {/* Fotoğraf alanı — yatay kaydırılabilir */}
+          <View style={{ width: cardWidth, height: cardHeight, backgroundColor: chipBg }}>
+            <ScrollView
+              ref={scrollRef}
+              style={{ width: cardWidth, height: cardHeight }}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              snapToInterval={cardWidth}
+              decelerationRate="fast"
+              onMomentumScrollEnd={(e) => {
+                const idx = Math.round(e.nativeEvent.contentOffset.x / cardWidth);
+                setActiveIdx(idx);
+              }}
             >
-              <SnapMediaThumb
-                uri={snap.imageUri}
-                isVideo={snap.isVideo}
-                style={{ width: cardWidth, height: cardWidth * 1.05 }}
-                imageResizeMode="cover"
-              />
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+              {group.snaps.map((snap) => (
+                <TouchableOpacity
+                  key={snap.id}
+                  activeOpacity={0.92}
+                  onPress={() => onPress(snap)}
+                  style={{ width: cardWidth, height: cardHeight }}
+                >
+                  <SnapMediaThumb
+                    uri={snap.imageUri}
+                    isVideo={snap.isVideo}
+                    style={{ width: cardWidth + 2, height: cardHeight + 2, marginLeft: -1, marginTop: -1 }}
+                    imageResizeMode="cover"
+                  />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
 
-        {/* Birden fazla snap varsa üstte nokta göstergesi */}
-        {group.snaps.length > 1 && (
-          <View style={{ position: 'absolute', top: 10, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 5 }}>
-            {group.snaps.map((_, i) => (
-              <View key={i} style={{
-                width: i === activeIdx ? 18 : 6,
-                height: 4,
-                borderRadius: 2,
-                backgroundColor: i === activeIdx ? '#fff' : 'rgba(255,255,255,0.45)',
-              }} />
-            ))}
-          </View>
-        )}
-
-        {/* Kalan süre etiketi — sağ üst köşe pill */}
-        <View style={[
-          styles.snapTimeTagPill,
-          { backgroundColor: isUrgent ? 'rgba(220,38,38,0.92)' : 'rgba(0,0,0,0.55)' },
-        ]} pointerEvents="none">
-          <Clock color="#fff" size={11} strokeWidth={2.5} />
-          <Text style={styles.snapTimeText}>{timeLeft}</Text>
-        </View>
-      </View>
-      </View>
-
-      {/* Kullanıcı bilgisi — fotoğrafın ALTINDA, kart dışında */}
-      <View style={styles.snapMetaRow}>
-        <TouchableOpacity
-          style={styles.snapMetaLeft}
-          onPress={() => onAvatarPress?.(group.userId)}
-        >
-          <View style={[styles.snapMetaAvatar, { backgroundColor: group.avatarColor + '44', borderWidth: 1.5, borderColor: theme.border }]}>
-            {group.snaps[0]?.user?.avatarUrl ? (
-              <Image
-                source={{ uri: processImageUrl(group.snaps[0].user.avatarUrl) || undefined }}
-                style={{ width: 26, height: 26, borderRadius: 13 }}
-              />
-            ) : (
-              <Text style={[styles.snapAvatarText, { color: theme.text, fontSize: 11 }]}>
-                {group.userName.charAt(0)}
-              </Text>
+            {/* Birden fazla snap varsa üstte nokta göstergesi */}
+            {group.snaps.length > 1 && (
+              <View style={{ position: 'absolute', top: 8, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 5 }}>
+                {group.snaps.map((_, i) => (
+                  <View key={i} style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: 3,
+                    backgroundColor: i === activeIdx ? amber : 'rgba(255,255,255,0.55)',
+                  }} />
+                ))}
+              </View>
             )}
-          </View>
-          <Text style={[styles.snapMetaUsername, { color: theme.text }]} numberOfLines={1}>
-            @{group.username}
-          </Text>
-        </TouchableOpacity>
 
-        <View style={styles.snapMetaRight}>
-          <Eye color={theme.textSub} size={14} strokeWidth={2} />
-          <Text style={[styles.snapMetaCount, { color: theme.textSub }]}>{viewCount}</Text>
+            {/* Kalan süre etiketi — sağ üst köşe pill */}
+            <View style={[
+              styles.snapTimeTagPill,
+              { backgroundColor: isUrgent ? 'rgba(220,38,38,0.92)' : 'rgba(0,0,0,0.55)' },
+            ]} pointerEvents="none">
+              <Clock color="#fff" size={9} strokeWidth={2.5} />
+              <Text style={styles.snapTimeText}>{timeLeft}</Text>
+            </View>
+          </View>
+
+          {/* Kullanıcı bilgisi — fotoğrafın altında, kartın gövdesinde */}
+          <View style={[styles.snapMetaRow, { backgroundColor: cardBg }]}>
+            <TouchableOpacity
+              style={styles.snapMetaLeft}
+              onPress={() => onAvatarPress?.(group.userId)}
+            >
+              <View style={[styles.snapMetaAvatar, { backgroundColor: chipBg }]}>
+                {group.snaps[0]?.user?.avatarUrl ? (
+                  <Image
+                    source={{ uri: processImageUrl(group.snaps[0].user.avatarUrl) || undefined }}
+                    style={{ width: 26, height: 26, borderRadius: 13 }}
+                  />
+                ) : (
+                  <Text style={[styles.snapAvatarText, { color: txt1, fontSize: 11 }]}>
+                    {group.userName.charAt(0)}
+                  </Text>
+                )}
+              </View>
+              <Text style={[styles.snapMetaUsername, { color: txt1 }]} numberOfLines={1}>
+                @{group.username}
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.snapMetaRight}>
+              <Eye color={txt2} size={14} strokeWidth={2} />
+              <Text style={[styles.snapMetaCount, { color: txt2 }]}>{viewCount}</Text>
+            </View>
+          </View>
         </View>
       </View>
     </View>
@@ -583,8 +589,12 @@ function SnapGroupCard({ group, onPress, isDark, currentUserId, onAvatarPress }:
 // ─── Kompakt Radar Kartı (Akış içinde) ──────────────────────────────────────
 
 function RadarCompactCard({ isDark, onPress }: { isDark: boolean; onPress: () => void }) {
-  const theme = isDark ? DARK : LIGHT;
-  const accentColor = isDark ? NIGHT.warm : LIGHT.accent;
+  const cardBg  = isDark ? '#18181B' : Clean.surface;
+  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
+  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
+  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
+  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
+  const amber   = Clean.accent;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const [activeCount, setActiveCount] = useState<number | null>(null);
 
@@ -617,50 +627,34 @@ function RadarCompactCard({ isDark, onPress }: { isDark: boolean; onPress: () =>
   }, []);
 
   return (
-    <TouchableOpacity activeOpacity={0.88} onPress={onPress} style={styles.radarCardOuter}>
-      <LinearGradient
-        colors={isDark
-          ? ['rgba(255,69,0,0.18)', 'rgba(30,8,0,0.95)']
-          : ['rgba(255,69,0,0.08)', 'rgba(255,255,252,0.97)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.radarCardBlur, { borderColor: isDark ? NIGHT.border : 'rgba(255,69,0,0.2)' }]}
-      >
+    <View style={[styles.radarCardOuter, cardOuterShadow, isDark ? cardBorderDark : cardBorderLight, { backgroundColor: cardBg }]}>
+      <TouchableOpacity activeOpacity={0.88} onPress={onPress} style={[styles.radarCardBlur, cardInnerClip]}>
         {/* Sol: ikon + pulse */}
         <View style={styles.radarCardLeft}>
-          <Animated.View style={[styles.radarPulseRing, { transform: [{ scale: pulseAnim }], backgroundColor: 'rgba(255,69,0,0.18)' }]} />
-          <LinearGradient
-            colors={['#FF4500', '#FF6B35']}
-            style={styles.radarIconCircle}
-          >
-            <Radio size={18} color="#fff" strokeWidth={2} />
-          </LinearGradient>
+          <Animated.View style={[styles.radarPulseRing, { transform: [{ scale: pulseAnim }], backgroundColor: chipBg }]} />
+          <View style={[styles.radarIconCircle, { backgroundColor: chipBg }]}>
+            <Radio size={18} color={txt1} strokeWidth={2} />
+          </View>
         </View>
 
         {/* Orta: metin */}
         <View style={styles.radarCardBody}>
           <View style={styles.radarCardTitleRow}>
-            <Text style={[styles.radarCardTitle, { color: theme.text }]}>Şehir Radarı</Text>
-            <View style={styles.radarLiveDot} />
-            <Text style={[styles.radarLiveText, { color: '#FF4500' }]}>CANLI</Text>
+            <Text style={[styles.radarCardTitle, { color: txt1 }]}>Şehir Radarı</Text>
+            <View style={[styles.radarLiveDot, { backgroundColor: amber }]} />
+            <Text style={[styles.radarLiveText, { color: txt1 }]}>CANLI</Text>
           </View>
-          <Text style={[styles.radarCardSub, { color: theme.textSub }]}>
+          <Text style={[styles.radarCardSub, { color: txt2 }]}>
             Son 4 saatte {activeCount !== null ? `${activeCount} paylaşım` : 'yükleniyor...'}
           </Text>
         </View>
 
-        {/* Sağ: mini ısı çubuğu */}
+        {/* Sağ: ok */}
         <View style={styles.radarCardRight}>
-          <LinearGradient
-            colors={['#22c55e', '#FF6B35', '#FF4500']}
-            style={styles.radarMiniBar}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-          />
-          <Text style={[styles.radarCardArrow, { color: accentColor }]}>›</Text>
+          <Text style={[styles.radarCardArrow, { color: txt2 }]}>›</Text>
         </View>
-      </LinearGradient>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -780,7 +774,6 @@ function FeedView({
   snaps,
   isDark,
   refreshTick,
-  onSnapPress,
   onAddFriendPress,
   friends,
   onOpenRadar,
@@ -828,13 +821,7 @@ function FeedView({
   }, [snaps, feedFilter, friendIds, currentUserId]);
 
   // Kullanıcı başına tek kart, kart içinde kullanıcının tüm snap'leri
-  const groups = useMemo(() => {
-    const g = groupSnapsByUser(filteredSnaps);
-    if (g.length % 2 !== 0) {
-      return [...g, { userId: '__placeholder__' } as SnapGroup];
-    }
-    return g;
-  }, [filteredSnaps]);
+  const groups = useMemo(() => groupSnapsByUser(filteredSnaps), [filteredSnaps]);
   
   const handleSnapPress = useCallback((snap: SnapPost) => {
     // Tıklanan kart sahibinin tüm snap'lerini sırayla aç
@@ -865,11 +852,8 @@ function FeedView({
   }, [filteredSnaps, navigation]);
   
   const renderGroup = useCallback(({ item }: { item: SnapGroup }) => {
-    if (item.userId === '__placeholder__') {
-      return <View style={{ flex: 1 }} />;
-    }
     return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, maxWidth: '50%' }}>
       <SnapGroupCard
         group={item}
         onPress={handleSnapPress}
@@ -940,19 +924,23 @@ function FeedHeader({
   feedFilter: 'everyone' | 'friends';
   onFilterChange: (filter: 'everyone' | 'friends') => void;
 }) {
-  const theme = isDark ? DARK : LIGHT;
-  const accentColor = isDark ? NIGHT.warm : LIGHT.accent;
-  
+  const txt1   = isDark ? '#F5F5F7' : Clean.textPrimary;
+  const txt2   = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
+  const ctaBg  = isDark ? '#F5F5F7' : Clean.ctaBg;
+  const ctaTxt = isDark ? '#111114' : Clean.ctaText;
+  const chipBg = isDark ? '#1F1F23' : Clean.chipBg;
+  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
+
   return (
     <View style={styles.feedHeaderContainer}>
-      <Text style={[styles.feedHeaderTitle, { color: theme.text }]}>Akış</Text>
-      <Text style={[styles.feedHeaderSub, { color: theme.textSub }]}>
+      <Text style={[styles.feedHeaderTitle, { color: txt1 }]}>Akış</Text>
+      <Text style={[styles.feedHeaderSub, { color: txt2 }]}>
         {feedFilter === 'friends' ? 'Arkadaşlarının son 4 saati' : 'Herkesten son 4 saat'}
       </Text>
-      
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false} 
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
         style={{ marginTop: 12 }}
         contentContainerStyle={{ gap: 8 }}
       >
@@ -966,13 +954,13 @@ function FeedHeader({
                 paddingHorizontal: 20,
                 paddingVertical: 8,
                 borderRadius: 20,
-                backgroundColor: active ? accentColor : 'transparent',
-                borderWidth: 1.5,
-                borderColor: active ? accentColor : (isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.12)'),
+                backgroundColor: active ? ctaBg : chipBg,
+                borderWidth: active ? 0 : 1,
+                borderColor: cardBdr,
               }}
             >
               <Text style={{
-                color: active ? '#fff' : theme.textSub,
+                color: active ? ctaTxt : txt2,
                 fontSize: 14,
                 fontWeight: '600',
               }}>
@@ -1003,8 +991,11 @@ function StreakStrip({
   onPressBuddy: () => void;
   loggedIn: boolean;
 }) {
-  const theme = isDark ? DARK : LIGHT;
-  const accentColor = isDark ? NIGHT.warm : LIGHT.accent;
+  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
+  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
+  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
+  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
+  const amber   = Clean.accent;
   if (!loggedIn) return null;
   return (
     <TouchableOpacity
@@ -1017,8 +1008,8 @@ function StreakStrip({
         paddingVertical: 12,
         paddingHorizontal: 14,
         borderWidth: 1,
-        borderColor: isDark ? NIGHT.border : LIGHT.border,
-        backgroundColor: isDark ? 'rgba(255,69,0,0.1)' : 'rgba(255,69,0,0.06)',
+        borderColor: cardBdr,
+        backgroundColor: chipBg,
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
@@ -1027,43 +1018,43 @@ function StreakStrip({
             width: 40,
             height: 40,
             borderRadius: 20,
-            backgroundColor: isDark ? NIGHT.glow : 'rgba(255,69,0,0.12)',
+            backgroundColor: isDark ? '#18181B' : Clean.surface,
             alignItems: 'center',
             justifyContent: 'center',
           }}>
-            <Flame color={accentColor} size={22} strokeWidth={2.2} />
+            <Flame color={amber} size={22} strokeWidth={2.2} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: theme.text, fontSize: 15, fontWeight: '800' }}>
+            <Text style={{ color: txt1, fontSize: 15, fontWeight: '800' }}>
               {personal} gün zincir · en iyi {best}
             </Text>
-            <Text style={{ color: theme.textSub, fontSize: 12, marginTop: 2 }} numberOfLines={2}>
+            <Text style={{ color: txt2, fontSize: 12, marginTop: 2 }} numberOfLines={2}>
               {buddyLabel
                 ? `İkili: ${mutual} gün · ${buddyLabel}`
                 : 'İkili zincir için dokunup arkadaş seç'}
             </Text>
           </View>
         </View>
-        <Text style={{ color: accentColor, fontSize: 12, fontWeight: '700' }}>Düzenle</Text>
+        <Text style={{ color: txt1, fontSize: 12, fontWeight: '700' }}>Düzenle</Text>
       </View>
     </TouchableOpacity>
   );
 }
 
 function FeedEmpty({ isDark, onAddFriendPress }: { isDark: boolean; onAddFriendPress: () => void }) {
-  const theme = isDark ? DARK : LIGHT;
+  const txt1   = isDark ? '#F5F5F7' : Clean.textPrimary;
+  const txt2   = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
+  const chipBg = isDark ? '#1F1F23' : Clean.chipBg;
   return (
     <View style={styles.emptyContainer}>
-      <Users color={isDark ? NIGHT.text : LIGHT.accent} size={40} strokeWidth={1.5} />
-      <Text style={[styles.emptyTitle, { color: theme.text }]}>Henüz kıvılcım yok</Text>
-      <Text style={[styles.emptySub, { color: theme.textSub }]}>
+      <Users color={txt1} size={40} strokeWidth={1.5} />
+      <Text style={[styles.emptyTitle, { color: txt1 }]}>Henüz kıvılcım yok</Text>
+      <Text style={[styles.emptySub, { color: txt2 }]}>
         Arkadaşlarını ekle ve anlık paylaşımlarını gör.
       </Text>
-      <TouchableOpacity style={styles.emptyAddBtn} activeOpacity={0.85} onPress={onAddFriendPress}>
-        <BlurView intensity={20} tint={isDark ? 'dark' : 'light'} style={styles.emptyAddBlur}>
-          <UserPlus color={isDark ? NIGHT.warm : LIGHT.accent} size={16} strokeWidth={2} />
-          <Text style={[styles.emptyAddText, { color: isDark ? NIGHT.warm : LIGHT.accent }]}>Arkadaş Ekle</Text>
-        </BlurView>
+      <TouchableOpacity style={[styles.emptyAddBtn, styles.emptyAddBlur, { backgroundColor: chipBg, borderWidth: 0 }]} activeOpacity={0.85} onPress={onAddFriendPress}>
+        <UserPlus color={txt1} size={16} strokeWidth={2} />
+        <Text style={[styles.emptyAddText, { color: txt1 }]}>Arkadaş Ekle</Text>
       </TouchableOpacity>
     </View>
   );
@@ -1099,12 +1090,17 @@ function MessagesView({
   isSearching, searchResults, loading, currentUserId, formatMsgTime, onNavigateChat,
   onDeleteConversation, incomingRequests, onShowRequests,
 }: MessagesViewProps) {
-  const accentColor = isDark ? NIGHT.warm : LIGHT.accent;
+  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
+  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
+  const cardBg  = isDark ? '#18181B' : Clean.surface;
+  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
+  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
+  const amber   = Clean.accent;
 
   const renderUserItem = (user: UserProfile) => (
     <TouchableOpacity
       key={user.user_id}
-      style={[styles.msgItem, { borderBottomColor: theme.border }]}
+      style={[styles.msgItem, { borderBottomColor: cardBdr }]}
       activeOpacity={0.75}
       onPress={() => Alert.alert(
         user.name,
@@ -1115,27 +1111,27 @@ function MessagesView({
         ]
       )}
     >
-      <View style={[styles.msgAvatar, { backgroundColor: isDark ? NIGHT.glow : 'rgba(255,69,0,0.12)' }]}>
+      <View style={[styles.msgAvatar, { backgroundColor: chipBg }]}>
         {user.avatar_url ? (
           <Image source={{ uri: processImageUrl(user.avatar_url) ?? undefined }} style={styles.msgAvatarImg} />
         ) : (
-          <Text style={[styles.msgAvatarText, { color: accentColor }]}>
+          <Text style={[styles.msgAvatarText, { color: txt1 }]}>
             {user.name.charAt(0).toUpperCase()}
           </Text>
         )}
       </View>
       <View style={styles.msgInfo}>
-        <Text style={[styles.msgName, { color: theme.text }]}>{user.name}</Text>
-        <Text style={[styles.msgSub, { color: theme.textSub }]}>@{user.username}</Text>
+        <Text style={[styles.msgName, { color: txt1 }]}>{user.name}</Text>
+        <Text style={[styles.msgSub, { color: txt2 }]}>@{user.username}</Text>
       </View>
-      <UserPlus color={accentColor} size={18} strokeWidth={2} />
+      <UserPlus color={txt1} size={18} strokeWidth={2} />
     </TouchableOpacity>
   );
 
   const renderConvItem = (conv: Conversation) => (
     <TouchableOpacity
       key={conv.conversation_id}
-      style={[styles.msgItem, { borderBottomColor: theme.border }]}
+      style={[styles.msgItem, { borderBottomColor: cardBdr }]}
       activeOpacity={0.75}
       onPress={() => onNavigateChat(
         conv.other_user.user_id, conv.other_user.name,
@@ -1158,30 +1154,30 @@ function MessagesView({
       }}
       delayLongPress={400}
     >
-      <View style={[styles.msgAvatar, { backgroundColor: isDark ? NIGHT.glow : 'rgba(255,69,0,0.12)' }]}>
+      <View style={[styles.msgAvatar, { backgroundColor: chipBg }]}>
         {conv.other_user.avatar_url ? (
           <Image source={{ uri: processImageUrl(conv.other_user.avatar_url) ?? undefined }} style={styles.msgAvatarImg} />
         ) : (
-          <Text style={[styles.msgAvatarText, { color: accentColor }]}>
+          <Text style={[styles.msgAvatarText, { color: txt1 }]}>
             {conv.other_user.name.charAt(0).toUpperCase()}
           </Text>
         )}
       </View>
       <View style={styles.msgInfo}>
-        <Text style={[styles.msgName, { color: theme.text }]}>{conv.other_user.name}</Text>
-        <Text style={[styles.msgSub, { color: theme.textSub }]} numberOfLines={1}>
+        <Text style={[styles.msgName, { color: txt1 }]}>{conv.other_user.name}</Text>
+        <Text style={[styles.msgSub, { color: txt2 }]} numberOfLines={1}>
           {conv.last_message?.sender_id === currentUserId ? 'Sen: ' : ''}
           {conv.last_message?.content || 'Henüz mesaj yok'}
         </Text>
       </View>
       <View style={styles.msgMeta}>
         {conv.last_message && (
-          <Text style={[styles.msgTime, { color: theme.textSub }]}>
+          <Text style={[styles.msgTime, { color: txt2 }]}>
             {formatMsgTime(conv.last_message.created_at)}
           </Text>
         )}
         {conv.unread_count > 0 && (
-          <View style={[styles.msgUnread, { backgroundColor: accentColor }]}>
+          <View style={[styles.msgUnread, { backgroundColor: amber }]}>
             <Text style={styles.msgUnreadText}>{conv.unread_count}</Text>
           </View>
         )}
@@ -1196,31 +1192,27 @@ function MessagesView({
         <TouchableOpacity
           onPress={onShowRequests}
           activeOpacity={0.85}
-          style={[styles.requestsBanner, { backgroundColor: isDark ? 'rgba(255,69,0,0.14)' : 'rgba(255,69,0,0.09)', borderColor: isDark ? NIGHT.warm : LIGHT.accent }]}
+          style={[styles.requestsBanner, { backgroundColor: chipBg, borderColor: cardBdr }]}
         >
-          <View style={[styles.requestsBadge, { backgroundColor: isDark ? NIGHT.vivid : LIGHT.accent }]}>
+          <View style={[styles.requestsBadge, { backgroundColor: amber }]}>
             <Text style={styles.requestsBadgeText}>{incomingRequests.length}</Text>
           </View>
-          <Text style={[styles.requestsBannerText, { color: isDark ? NIGHT.warm : LIGHT.accent }]}>
+          <Text style={[styles.requestsBannerText, { color: txt1 }]}>
             Arkadaşlık İsteği
           </Text>
-          <Text style={[styles.requestsBannerSub, { color: theme.textSub }]}>
+          <Text style={[styles.requestsBannerSub, { color: txt2 }]}>
             {incomingRequests[0]?.sender_profile?.name} {incomingRequests.length > 1 ? `ve ${incomingRequests.length - 1} kişi daha` : ''} seni eklemek istiyor
           </Text>
         </TouchableOpacity>
       )}
 
       {/* Arama çubuğu */}
-      <BlurView
-        intensity={18}
-        tint={isDark ? 'dark' : 'light'}
-        style={[styles.msgsSearchBar, { backgroundColor: theme.surface, borderColor: theme.border }]}
-      >
-        <Search color={theme.textSub} size={16} strokeWidth={2} />
+      <View style={[styles.msgsSearchBar, { backgroundColor: chipBg, borderColor: cardBdr }]}>
+        <Search color={txt2} size={16} strokeWidth={2} />
         <TextInput
-          style={[styles.msgsSearchInput, { color: theme.text }]}
+          style={[styles.msgsSearchInput, { color: txt1 }]}
           placeholder="Kullanıcı ara..."
-          placeholderTextColor={theme.textSub}
+          placeholderTextColor={txt2}
           value={searchQuery}
           onChangeText={setSearchQuery}
           autoCapitalize="none"
@@ -1228,39 +1220,39 @@ function MessagesView({
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Text style={{ color: theme.textSub, fontSize: 14, paddingHorizontal: 4 }}>✕</Text>
+            <Text style={{ color: txt2, fontSize: 14, paddingHorizontal: 4 }}>✕</Text>
           </TouchableOpacity>
         )}
-      </BlurView>
+      </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
         {loading ? (
-          <ActivityIndicator color={accentColor} style={{ marginTop: 40 }} />
+          <ActivityIndicator color={txt1} style={{ marginTop: 40 }} />
         ) : isSearching ? (
           <>
-            <Text style={[styles.msgsSectionTitle, { color: theme.textSub }]}>
+            <Text style={[styles.msgsSectionTitle, { color: txt2 }]}>
               {searchResults.length} kullanıcı
             </Text>
             {searchResults.length > 0
               ? searchResults.map(renderUserItem)
               : (
                 <View style={styles.msgsEmpty}>
-                  <Search color={theme.textSub} size={36} strokeWidth={1.5} />
-                  <Text style={[styles.msgsEmptyText, { color: theme.textSub }]}>Kullanıcı bulunamadı</Text>
+                  <Search color={txt2} size={36} strokeWidth={1.5} />
+                  <Text style={[styles.msgsEmptyText, { color: txt2 }]}>Kullanıcı bulunamadı</Text>
                 </View>
               )
             }
           </>
         ) : conversations.length > 0 ? (
           <>
-            <Text style={[styles.msgsSectionTitle, { color: theme.textSub }]}>MESAJLAR</Text>
+            <Text style={[styles.msgsSectionTitle, { color: txt2 }]}>MESAJLAR</Text>
             {conversations.map(renderConvItem)}
           </>
         ) : (
           <View style={styles.msgsEmpty}>
-            <MessageCircle color={theme.textSub} size={44} strokeWidth={1.5} />
-            <Text style={[styles.msgsEmptyText, { color: theme.textSub }]}>Henüz mesaj yok</Text>
-            <Text style={[styles.msgsEmptyHint, { color: theme.textSub }]}>
+            <MessageCircle color={txt2} size={44} strokeWidth={1.5} />
+            <Text style={[styles.msgsEmptyText, { color: txt2 }]}>Henüz mesaj yok</Text>
+            <Text style={[styles.msgsEmptyHint, { color: txt2 }]}>
               Arkadaşlarını aramak için yukarıdaki arama çubuğunu kullan
             </Text>
           </View>
@@ -1283,7 +1275,12 @@ interface UserSnapMarker {
 function RadarView() {
   const { mode } = useThemeMode();
   const isDark = mode === 'dark';
-  const theme = isDark ? DARK : LIGHT;
+  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
+  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
+  const cardBg  = isDark ? '#18181B' : Clean.surface;
+  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
+  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
+  const amber   = Clean.accent;
   const [heatPoints, setHeatPoints] = useState<HeatPoint[]>([]);
   const [userMarkers, setUserMarkers] = useState<UserSnapMarker[]>([]);
   const [activeCount, setActiveCount] = useState(0);
@@ -1503,8 +1500,8 @@ function RadarView() {
       {/* Veri yoksa boş durum mesajı */}
       {!loading && heatPoints.length === 0 && (
         <View pointerEvents="none" style={{ position: 'absolute', top: '40%', left: 0, right: 0, alignItems: 'center' }}>
-          <View style={{ backgroundColor: isDark ? 'rgba(6,12,26,0.75)' : 'rgba(255,255,255,0.80)', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 12 }}>
-            <Text style={{ color: theme.textSub, fontSize: 13, textAlign: 'center' }}>
+          <View style={{ backgroundColor: cardBg, borderRadius: 16, paddingHorizontal: 20, paddingVertical: 12 }}>
+            <Text style={{ color: txt2, fontSize: 13, textAlign: 'center' }}>
               Henüz bu bölgede paylaşım yok
             </Text>
           </View>
@@ -1512,27 +1509,27 @@ function RadarView() {
       )}
 
       {/* Üst Radar Başlığı */}
-      <View style={styles.radarHeaderOverlay}>
-        <BlurView intensity={30} tint={isDark ? 'dark' : 'light'} style={[styles.radarHeaderBlur, { borderColor: 'rgba(255,69,0,0.35)' }]}>
-          <LinearGradient colors={['#FF4500', '#FF6B35']} style={{ width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' }}>
-            <Radio color="#fff" size={15} strokeWidth={2.2} />
-          </LinearGradient>
-          <Text style={[styles.radarHeaderText, { color: theme.text }]}>Şehir Radarı</Text>
-          <View style={styles.radarLiveDot} />
-          <Text style={styles.radarLiveText}>CANLI</Text>
-          {loading && <ActivityIndicator size="small" color="#FF4500" style={{ marginLeft: 6 }} />}
-        </BlurView>
+      <View style={[styles.radarHeaderOverlay, cardOuterShadow, { overflow: 'visible' }]}>
+        <View style={[styles.radarHeaderBlur, isDark ? cardBorderDark : cardBorderLight, { backgroundColor: cardBg }]}>
+          <View style={{ width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: chipBg }}>
+            <Radio color={txt1} size={15} strokeWidth={2.2} />
+          </View>
+          <Text style={[styles.radarHeaderText, { color: txt1 }]}>Şehir Radarı</Text>
+          <View style={[styles.radarLiveDot, { backgroundColor: amber }]} />
+          <Text style={[styles.radarLiveText, { color: txt1 }]}>CANLI</Text>
+          {loading && <ActivityIndicator size="small" color={txt1} style={{ marginLeft: 6 }} />}
+        </View>
       </View>
 
       {/* Alt açıklama kartı */}
-      <View style={styles.radarLegendOuter}>
-        <BlurView intensity={30} tint={isDark ? 'dark' : 'light'} style={styles.radarLegendBlur}>
-          <Text style={[styles.radarLegendTitle, { color: theme.text }]}>
+      <View style={[styles.radarLegendOuter, cardOuterShadow, { overflow: 'visible' }]}>
+        <View style={[styles.radarLegendBlur, isDark ? cardBorderDark : cardBorderLight, { backgroundColor: cardBg }]}>
+          <Text style={[styles.radarLegendTitle, { color: txt1 }]}>
             Son 4 saatteki hareketlilik
             {activeCount > 0 ? ` · ${activeCount} paylaşım` : ''}
           </Text>
           {districtSummary ? (
-            <Text style={[styles.radarLegendNote, { color: theme.textSub, marginBottom: 6 }]}>
+            <Text style={[styles.radarLegendNote, { color: txt2, marginBottom: 6 }]}>
               En hareketli bölgeler: {districtSummary}
             </Text>
           ) : null}
@@ -1544,15 +1541,15 @@ function RadarView() {
               style={styles.radarLegendGradient}
             />
             <View style={styles.radarLegendLabels}>
-              <Text style={[styles.radarLegendLabel, { color: theme.textSub }]}>Sakin</Text>
-              <Text style={[styles.radarLegendLabel, { color: theme.textSub }]}>Orta</Text>
-              <Text style={[styles.radarLegendLabel, { color: theme.textSub }]}>Yoğun</Text>
+              <Text style={[styles.radarLegendLabel, { color: txt2 }]}>Sakin</Text>
+              <Text style={[styles.radarLegendLabel, { color: txt2 }]}>Orta</Text>
+              <Text style={[styles.radarLegendLabel, { color: txt2 }]}>Yoğun</Text>
             </View>
           </View>
-          <Text style={[styles.radarLegendNote, { color: theme.textSub }]}>
+          <Text style={[styles.radarLegendNote, { color: txt2 }]}>
             Bireyler değil, bölgeler gösteriliyor. Kimlik bilgisi paylaşılmaz.
           </Text>
-        </BlurView>
+        </View>
       </View>
     </View>
   );
@@ -1571,6 +1568,15 @@ export default function SosyalScreen() {
   const isDark = mode === 'dark';
   const insets = useSafeAreaInsets();
   const theme = isDark ? DARK : LIGHT;
+  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
+  const cardBg  = isDark ? '#18181B' : Clean.surface;
+  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
+  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
+  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
+  const ctaBg   = isDark ? '#F5F5F7' : Clean.ctaBg;
+  const ctaTxt  = isDark ? '#111114' : Clean.ctaText;
+  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
+  const amber   = Clean.accent;
   const [snaps, setSnaps] = useState<SnapPost[]>([]);
   const [snapsLoading, setSnapsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('feed');
@@ -1632,6 +1638,39 @@ export default function SosyalScreen() {
   const cycleTimer = useCallback(() => {
     setTimerSec(t => t === 0 ? 3 : t === 3 ? 10 : 0);
   }, []);
+
+  const handleTakePhoto = useCallback(async () => {
+    if (cameraCaptureMode !== 'photo' || !cameraRef.current || cameraBusy) return;
+    try {
+      setCameraBusy(true);
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 1,
+        skipProcessing: false,
+        exif: false,
+        base64: false,
+        imageType: 'jpg',
+        shutterSound: false,
+      });
+
+      if (photo?.uri) {
+        // Ön kameradaysa fotoğrafı yatay flip et
+        if (cameraFacing === 'front') {
+          const flipped = await ImageManipulator.manipulateAsync(
+            photo.uri,
+            [{ flip: ImageManipulator.FlipType.Horizontal }],
+            { compress: 1, format: ImageManipulator.SaveFormat.JPEG }
+          );
+          setCapturedIsVideo(false);
+          setCapturedPhotoUri(flipped.uri);
+        } else {
+          setCapturedIsVideo(false);
+          setCapturedPhotoUri(photo.uri);
+        }
+      }
+    } finally {
+      setCameraBusy(false);
+    }
+  }, [cameraBusy, cameraCaptureMode, cameraFacing]);
 
   const handleTakePhotoWithTimer = useCallback(() => {
     if (timerSec === 0) { handleTakePhoto(); return; }
@@ -2142,39 +2181,6 @@ export default function SosyalScreen() {
     recordingPromiseRef.current = null;
     setCameraVisible(true);
   }, [cameraScale, cameraPermission, requestCameraPermission]);
-
-  const handleTakePhoto = useCallback(async () => {
-    if (cameraCaptureMode !== 'photo' || !cameraRef.current || cameraBusy) return;
-    try {
-      setCameraBusy(true);
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 1,
-        skipProcessing: false,
-        exif: false,
-        base64: false,
-        imageType: 'jpg',
-        shutterSound: false,
-      });
-      
-      if (photo?.uri) {
-        // Ön kameradaysa fotoğrafı yatay flip et
-        if (cameraFacing === 'front') {
-          const flipped = await ImageManipulator.manipulateAsync(
-            photo.uri,
-            [{ flip: ImageManipulator.FlipType.Horizontal }],
-            { compress: 1, format: ImageManipulator.SaveFormat.JPEG }
-          );
-          setCapturedIsVideo(false);
-          setCapturedPhotoUri(flipped.uri);
-        } else {
-          setCapturedIsVideo(false);
-          setCapturedPhotoUri(photo.uri);
-        }
-      }
-    } finally {
-      setCameraBusy(false);
-    }
-  }, [cameraBusy, cameraCaptureMode, cameraFacing]);
 
   const handleVideoRecordToggle = useCallback(async () => {
     if (cameraCaptureMode !== 'video' || !cameraRef.current || cameraBusy) return;
@@ -2714,16 +2720,7 @@ export default function SosyalScreen() {
   });
 
   return (
-    <View style={[styles.root, { backgroundColor: theme.bg }]}>
-      {/* ── Arka plan dokusu ── */}
-      <LinearGradient
-        colors={isDark ? ['#0A0200', '#0F0300', '#000000'] : ['#FFF8F5', '#FFF2EC', '#ffffff']}
-        locations={[0, 0.6, 1]}
-        style={StyleSheet.absoluteFill}
-      />
-      {/* Ambient ışık huzmesi */}
-      <View style={[styles.amberOrb, { backgroundColor: isDark ? 'rgba(255,69,0,0.08)' : 'rgba(255,107,53,0.07)' }]} />
-
+    <View style={[styles.root, { backgroundColor: pageBg }]}>
       {/* ── SafeArea + Header ── */}
       <SafeAreaView edges={['top']} style={styles.safeTop}>
         <View style={styles.header}>
@@ -2731,32 +2728,32 @@ export default function SosyalScreen() {
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => navigation.goBack()}
-            style={[styles.headerBtn, { backgroundColor: theme.surface, borderColor: theme.border, marginRight: 8 }]}
+            style={[styles.headerBtn, { backgroundColor: chipBg, borderWidth: 0, marginRight: 8 }]}
           >
-            <ArrowLeft color={isDark ? NIGHT.warm : LIGHT.accent} size={20} strokeWidth={2} />
+            <ArrowLeft color={txt1} size={20} strokeWidth={2} />
           </TouchableOpacity>
-          
+
           {/* Sol: Profil butonu — tıklanınca SosyalProfile açılır */}
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={() => navigation.navigate('SosyalProfile')}
+            onPress={() => navigation.navigate('SosyalProfile', { userId: profile?.userId })}
             style={styles.headerProfileBtn}
           >
-            <View style={[styles.headerAvatarCircle, { backgroundColor: isDark ? NIGHT.glow : 'rgba(96,165,250,0.15)', borderColor: isDark ? NIGHT.border : 'rgba(96,165,250,0.3)' }]}>
+            <View style={[styles.headerAvatarCircle, { backgroundColor: chipBg, borderWidth: 0 }]}>
               {profile?.avatarUrl ? (
                 <Image
                   source={{ uri: processImageUrl(profile.avatarUrl) || undefined }}
                   style={{ width: '100%', height: '100%', borderRadius: 18 }}
                 />
               ) : (
-                <Text style={[styles.headerAvatarInitial, { color: isDark ? NIGHT.warm : LIGHT.accent }]}>
+                <Text style={[styles.headerAvatarInitial, { color: txt1 }]}>
                   {profile?.name?.charAt(0).toUpperCase() ?? 'S'}
                 </Text>
               )}
             </View>
             <View>
-              <Text style={[styles.headerTitle, { color: theme.text }]}>⚡ Kıvılcım</Text>
-              <Text style={[styles.headerSub, { color: isDark ? NIGHT.text : LIGHT.accent }]}>
+              <Text style={[styles.headerTitle, { color: txt1 }]}>Kıvılcım</Text>
+              <Text style={[styles.headerSub, { color: txt2 }]}>
                 {profile?.username ? `@${profile.username}` : 'Anlık · Doğal · Geçici'}
               </Text>
             </View>
@@ -2765,22 +2762,22 @@ export default function SosyalScreen() {
           <View style={styles.headerActions}>
             {/* Arkadaş ekle butonu */}
             <TouchableOpacity
-              style={[styles.headerBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+              style={[styles.headerBtn, { backgroundColor: chipBg, borderWidth: 0 }]}
               activeOpacity={0.8}
               onPress={handleAddFriendPress}
             >
-              <UserPlus color={isDark ? NIGHT.warm : LIGHT.accent} size={18} strokeWidth={2} />
+              <UserPlus color={txt1} size={18} strokeWidth={2} />
             </TouchableOpacity>
             {/* ŞanlıSosyal bildirimleri */}
             <TouchableOpacity
-              style={[styles.headerBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+              style={[styles.headerBtn, { backgroundColor: chipBg, borderWidth: 0 }]}
               activeOpacity={0.8}
               onPress={() => setRequestsModalVisible(true)}
             >
               {incomingRequests.length > 0 && (
-                <View style={{ position: 'absolute', top: 6, right: 6, width: 8, height: 8, borderRadius: 4, backgroundColor: isDark ? NIGHT.vivid : '#ef4444', zIndex: 1 }} />
+                <View style={{ position: 'absolute', top: 6, right: 6, width: 8, height: 8, borderRadius: 4, backgroundColor: amber, zIndex: 1 }} />
               )}
-              <Bell color={theme.textSub} size={20} strokeWidth={2} />
+              <Bell color={txt2} size={20} strokeWidth={2} />
             </TouchableOpacity>
           </View>
         </View>
@@ -2831,8 +2828,8 @@ export default function SosyalScreen() {
         )}
       </View>
 
-      {/* ── Yeni Alt Bar: Akış | Kamera Orb | Mesajlar ── */}
-      <SafeAreaView edges={['bottom']} style={[styles.sosyalBottomBar, { backgroundColor: isDark ? 'rgba(0,0,0,0.94)' : 'rgba(248,250,252,0.95)', borderTopColor: isDark ? DARK.border : LIGHT.border }]}>
+      {/* ── Alt Bar: Akış | Kamera | Mesajlar ── */}
+      <SafeAreaView edges={['bottom']} style={[styles.sosyalBottomBar, { backgroundColor: cardBg, borderTopColor: cardBdr }]}>
         {/* Akış */}
         <TouchableOpacity
           style={styles.sosyalBottomTab}
@@ -2842,36 +2839,25 @@ export default function SosyalScreen() {
           <Users
             size={22}
             strokeWidth={activeTab === 'feed' ? 2.5 : 1.8}
-            color={activeTab === 'feed' ? (isDark ? NIGHT.warm : LIGHT.accent) : theme.textSub}
+            color={activeTab === 'feed' ? amber : txt2}
           />
-          <Text style={[styles.sosyalBottomLabel, { color: activeTab === 'feed' ? (isDark ? NIGHT.warm : LIGHT.accent) : theme.textSub, fontWeight: activeTab === 'feed' ? '700' : '500' }]}>
+          <Text style={[styles.sosyalBottomLabel, { color: activeTab === 'feed' ? txt1 : txt2, fontWeight: activeTab === 'feed' ? '700' : '500' }]}>
             Akış
           </Text>
         </TouchableOpacity>
 
-        {/* Kamera Orb — merkez, büyük, parlayan */}
+        {/* Kamera butonu */}
         <View style={styles.sosyalOrbWrapper}>
-          <Animated.View style={[styles.sosyalOrbPulse, { transform: [{ scale: cameraScale }] }]}>
-            {/* Dış halka */}
-            <View style={[styles.sosyalOrbRing, { borderColor: 'rgba(255,69,0,0.4)' }]} />
-          </Animated.View>
           <TouchableOpacity
             onPress={handleCameraPress}
             activeOpacity={0.88}
-            style={styles.sosyalOrbTouch}
+            style={[styles.sosyalOrbTouch, { shadowOpacity: 0, elevation: 0 }]}
           >
-            <LinearGradient
-              colors={['#FF4500', '#FF6B35', '#FF9166']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.sosyalOrbGradient}
-            >
-              {/* İç parlama */}
-              <View style={[styles.sosyalOrbInnerGlow, { backgroundColor: 'rgba(255,255,255,0.18)' }]} />
-              <Camera color="#fff" size={26} strokeWidth={2} />
-            </LinearGradient>
+            <View style={[styles.sosyalOrbGradient, { backgroundColor: ctaBg }]}>
+              <Camera color={ctaTxt} size={26} strokeWidth={2} />
+            </View>
           </TouchableOpacity>
-          <Text style={[styles.sosyalOrbLabel, { color: theme.textSub }]}>Çek</Text>
+          <Text style={[styles.sosyalOrbLabel, { color: txt2 }]}>Çek</Text>
         </View>
 
         {/* Mesajlar */}
@@ -2884,13 +2870,13 @@ export default function SosyalScreen() {
             <MessageCircle
               size={22}
               strokeWidth={activeTab === 'messages' ? 2.5 : 1.8}
-              color={activeTab === 'messages' ? (isDark ? NIGHT.warm : LIGHT.accent) : theme.textSub}
+              color={activeTab === 'messages' ? amber : txt2}
             />
             {conversations.some(c => c.unread_count > 0) && (
-              <View style={[styles.sosyalUnreadDot, { backgroundColor: isDark ? NIGHT.vivid : '#ef4444' }]} />
+              <View style={[styles.sosyalUnreadDot, { backgroundColor: amber, borderColor: cardBg }]} />
             )}
           </View>
-          <Text style={[styles.sosyalBottomLabel, { color: activeTab === 'messages' ? (isDark ? NIGHT.warm : LIGHT.accent) : theme.textSub, fontWeight: activeTab === 'messages' ? '700' : '500' }]}>
+          <Text style={[styles.sosyalBottomLabel, { color: activeTab === 'messages' ? txt1 : txt2, fontWeight: activeTab === 'messages' ? '700' : '500' }]}>
             Mesajlar
           </Text>
         </TouchableOpacity>
@@ -2898,7 +2884,7 @@ export default function SosyalScreen() {
 
       {/* ── Şehir Radarı Tam Ekran Modal ── */}
       <Modal visible={radarModalVisible} animationType="slide" onRequestClose={() => setRadarModalVisible(false)}>
-        <View style={{ flex: 1, backgroundColor: isDark ? DARK.bg : LIGHT.bg }}>
+        <View style={{ flex: 1, backgroundColor: pageBg }}>
           <View
             style={{
               paddingHorizontal: 16,
@@ -2909,18 +2895,18 @@ export default function SosyalScreen() {
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Radio size={18} color={isDark ? NIGHT.warm : LIGHT.accent} strokeWidth={2} />
-                <Text style={{ fontSize: 18, fontWeight: '800', color: theme.text, letterSpacing: -0.4 }}>Şehir Radarı</Text>
+                <Radio size={18} color={txt1} strokeWidth={2} />
+                <Text style={{ fontSize: 18, fontWeight: '800', color: txt1, letterSpacing: -0.4 }}>Şehir Radarı</Text>
               </View>
               <TouchableOpacity
                 onPress={() => setRadarModalVisible(false)}
                 style={[
                   styles.headerBtn,
-                  { backgroundColor: theme.surface, borderColor: theme.border, width: 44, height: 44, borderRadius: 22 },
+                  { backgroundColor: chipBg, borderWidth: 0, width: 44, height: 44, borderRadius: 22 },
                 ]}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
-                <XIcon size={18} color={theme.textSub} strokeWidth={2} />
+                <XIcon size={18} color={txt2} strokeWidth={2} />
               </TouchableOpacity>
             </View>
           </View>
@@ -3091,7 +3077,6 @@ export default function SosyalScreen() {
                     flash={flashMode}
                     autofocus="on"
                     mirror={false}
-                    exposure={exposure}
                   />
                 </View>
               </PinchGestureHandler>
@@ -4150,27 +4135,27 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.15)',
   },
   snapTimeText: {
-    fontSize: 10,
+    fontSize: 9,
     color: '#fff',
     fontWeight: '700',
   },
   snapTimeTagPill: {
     position: 'absolute',
-    top: 10,
-    right: 10,
+    top: 8,
+    right: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
     borderRadius: 20,
   },
   snapMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 8,
-    paddingHorizontal: 2,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
   },
   snapMetaLeft: {
     flexDirection: 'row',
@@ -4328,26 +4313,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: NIGHT.border,
     overflow: 'hidden',
   },
   radarHeaderText: {
     fontSize: 14,
     fontWeight: '700',
-    color: DARK.text,
     flex: 1,
   },
   radarLiveDot: {
     width: 7,
     height: 7,
     borderRadius: 3.5,
-    backgroundColor: '#22c55e',
   },
   radarLiveText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#22c55e',
     letterSpacing: 1,
   },
   radarLegendOuter: {
@@ -4361,11 +4341,8 @@ const styles = StyleSheet.create({
   radarLegendBlur: {
     padding: 16,
     borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,69,0,0.4)',
     overflow: 'hidden',
     gap: 10,
-    backgroundColor: 'rgba(0,0,0,0.55)',
   },
   radarLegendTitle: {
     fontSize: 13,

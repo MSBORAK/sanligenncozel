@@ -58,22 +58,26 @@ const CompleteProfileScreen = () => {
   };
 
   const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
-    if (status !== 'granted') {
-      Alert.alert('İzin Gerekli', 'Galeri erişimi için izin vermeniz gerekiyor.');
-      return;
-    }
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
+      if (status !== 'granted') {
+        Alert.alert('İzin Gerekli', 'Galeri erişimi için izin vermeniz gerekiyor.');
+        return;
+      }
 
-    if (!result.canceled) {
-      setAvatarUri(result.assets[0].uri);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        setAvatarUri(result.assets[0].uri);
+      }
+    } catch (e) {
+      Alert.alert('Hata', 'Fotoğraf seçilirken bir sorun oluştu.');
     }
   };
 

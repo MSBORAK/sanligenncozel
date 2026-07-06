@@ -1,142 +1,116 @@
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { StatusBar } from 'expo-status-bar';
-import { Calendar, Clock, Sparkles, CheckCircle2 } from 'lucide-react-native';
-import { Colors, DribbbleColors } from '@/constants/Colors';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { Clock, Sparkles } from 'lucide-react-native';
+import { Clean } from '@/constants/Colors';
+import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { MOCK_WEEKEND_PLANS, WeekendPlan } from '@/api/mockData';
 import { useThemeMode } from '@/context/ThemeContext';
+import { RootStackParamList } from '@/types/navigation';
+import { cityFallback } from '@/lib/imageFallback';
 
-/** Gezi rotası — ana sayfa “Gezi Rotası” (#6d28d9 / lavanta) ile uyumlu tek palet */
-const ROUTE = {
-  violet800: '#5b21b6',
-  violet700: '#6d28d9',
-  violet600: '#7c3aed',
-  violet500: '#8b5cf6',
-  lavender200: '#ddd6fe',
-  lavender100: '#ede9fe',
-  lavender50: '#f5f3ff',
-  iconDark: '#c4b5fd',
-  accentDark: '#a78bfa',
-} as const;
+type Nav = StackNavigationProp<RootStackParamList>;
+
+const CATEGORY_LABELS: Record<string, string> = {
+  'tam-gün': 'Tam Gün',
+  'yarım-gün': 'Yarım Gün',
+  'akşam': 'Akşam',
+};
 
 const CulturalRouteScreen = () => {
   const { mode } = useThemeMode();
   const isDark = mode === 'dark';
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<Nav>();
 
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case 'tam-gün':
-        return { bg: ROUTE.lavender100, text: ROUTE.violet800, label: 'Tam Gün' };
-      case 'yarım-gün':
-        return { bg: ROUTE.lavender200, text: ROUTE.violet700, label: 'Yarım Gün' };
-      case 'akşam':
-        return { bg: '#e9d5ff', text: ROUTE.violet600, label: 'Akşam' };
-      default:
-        return { bg: ROUTE.lavender100, text: ROUTE.violet700, label: category };
-    }
-  };
+  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
+  const cardBg  = isDark ? '#18181B' : Clean.surface;
+  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
+  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
+  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
+  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
+  const amber   = Clean.accent;
+  const cardBorder = isDark ? cardBorderDark : cardBorderLight;
 
   const renderPlanItem = useCallback(({ item }: { item: WeekendPlan }) => {
-    const categoryTheme = getCategoryColor(item.category);
+    const categoryLabel = CATEGORY_LABELS[item.category] ?? item.category;
+    const imageSource = item.image
+      ? (typeof item.image === 'string' ? { uri: item.image } : item.image)
+      : { uri: cityFallback(item.id) };
     return (
-      <TouchableOpacity
-        style={[
-          styles.planCard,
-          isDark
-            ? { backgroundColor: Colors.dark.card, borderWidth: 1, borderColor: Colors.dark.border }
-            : {
-                backgroundColor: DribbbleColors.cardWhite,
-                borderWidth: 1,
-                borderColor: 'rgba(109, 40, 217, 0.12)',
-              },
-        ]}
-        activeOpacity={0.9}
-      >
-        <View style={styles.cardHeader}>
-          <View style={styles.titleRow}>
-            <View
-              style={[
-                styles.iconContainer,
-                { backgroundColor: categoryTheme.bg },
-                isDark && { backgroundColor: 'rgba(167, 139, 250, 0.15)' },
-              ]}
-            >
-              <Calendar color={isDark ? ROUTE.iconDark : categoryTheme.text} size={24} />
-            </View>
-            <View style={styles.titleContainer}>
-              <Text style={[styles.planTitle, isDark && { color: '#f8fafc' }]}>{item.title}</Text>
-              <View style={styles.badgeRow}>
-                <View style={[styles.categoryBadge, { backgroundColor: categoryTheme.bg }]}>
-                  <Text style={[styles.categoryText, { color: categoryTheme.text }]}>
-                    {categoryTheme.label}
-                  </Text>
+      <View style={[styles.planCardOuter, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
+        <TouchableOpacity
+          style={[styles.planCard, cardInnerClip]}
+          activeOpacity={0.9}
+          onPress={() => navigation.navigate('CulturalRouteDetail', { id: item.id })}
+        >
+          <View style={styles.cardHeader}>
+            <View style={styles.titleRow}>
+              <Image source={imageSource} style={styles.iconContainer} resizeMode="cover" />
+              <View style={styles.titleContainer}>
+                <Text style={[styles.planTitle, { color: txt1 }]}>{item.title}</Text>
+                <View style={styles.badgeRow}>
+                  <View style={[styles.categoryBadge, { backgroundColor: chipBg }]}>
+                    <Text style={[styles.categoryText, { color: txt2 }]}>
+                      {categoryLabel}
+                    </Text>
+                  </View>
+                  <View style={[styles.durationBadge, { backgroundColor: chipBg }]}>
+                    <Clock color={txt2} size={12} />
+                    <Text style={[styles.durationText, { color: txt2 }]}>{item.duration}</Text>
+                  </View>
                 </View>
-                <View
-                  style={[
-                    styles.durationBadge,
-                    !isDark && { backgroundColor: ROUTE.lavender50 },
-                    isDark && { backgroundColor: 'rgba(255,255,255,0.06)' },
-                  ]}
-                >
-                  <Clock color={isDark ? '#94a3b8' : DribbbleColors.textSecondary} size={12} />
-                  <Text style={[styles.durationText, isDark && { color: '#94a3b8' }]}>{item.duration}</Text>
-                </View>
+              </View>
+              <View style={[styles.stopCountBadge, { backgroundColor: chipBg }]}>
+                <Text style={[styles.stopCountNumber, { color: txt1 }]}>{item.activities.length}</Text>
+                <Text style={[styles.stopCountLabel, { color: txt2 }]}>durak</Text>
               </View>
             </View>
           </View>
-        </View>
 
-        <Text style={[styles.description, isDark && { color: '#94a3b8' }]}>{item.description}</Text>
+          <Text style={[styles.description, { color: txt2 }]}>{item.description}</Text>
 
-        <View style={styles.activitiesContainer}>
-          <View style={styles.activitiesHeader}>
-            <Sparkles color={isDark ? ROUTE.iconDark : ROUTE.violet700} size={16} />
-            <Text style={[styles.activitiesTitle, isDark && { color: '#f8fafc' }]}>Aktiviteler</Text>
-          </View>
-          {item.activities.map((activity, index) => (
-            <View key={index} style={styles.activityItem}>
-              <CheckCircle2 color={isDark ? ROUTE.accentDark : ROUTE.violet600} size={16} />
-              <Text style={[styles.activityText, isDark && { color: '#cbd5e1' }]}>{activity}</Text>
+          <View style={styles.activitiesContainer}>
+            <View style={styles.activitiesHeader}>
+              <Sparkles color={amber} size={16} />
+              <Text style={[styles.activitiesTitle, { color: txt1 }]}>Aktiviteler</Text>
             </View>
-          ))}
-        </View>
-
-        {item.tips && (
-          <View
-            style={[
-              styles.tipsContainer,
-              !isDark && { backgroundColor: ROUTE.lavender50, borderLeftColor: ROUTE.violet600 },
-              isDark && { backgroundColor: 'rgba(167, 139, 250, 0.12)', borderLeftColor: ROUTE.accentDark },
-            ]}
-          >
-            <Text style={[styles.tipsLabel, isDark && { color: ROUTE.accentDark }]}>İpucu</Text>
-            <Text style={[styles.tipsText, isDark && { color: '#94a3b8' }]}>{item.tips}</Text>
+            {item.activities.map((activity, index) => {
+              const isLast = index === item.activities.length - 1;
+              return (
+                <View key={index} style={styles.timelineRow}>
+                  <View style={styles.timelineTrack}>
+                    <View style={[styles.timelineDot, { backgroundColor: amber }]} />
+                    {!isLast && <View style={[styles.timelineLine, { backgroundColor: chipBg }]} />}
+                  </View>
+                  <Text style={[styles.activityText, { color: txt2 }]}>{activity}</Text>
+                </View>
+              );
+            })}
           </View>
-        )}
-      </TouchableOpacity>
+
+          {item.tips && (
+            <View style={[styles.tipsContainer, { backgroundColor: chipBg, borderLeftColor: amber }]}>
+              <Text style={[styles.tipsLabel, { color: txt1 }]}>İpucu</Text>
+              <Text style={[styles.tipsText, { color: txt2 }]}>{item.tips}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
     );
-  }, [isDark]);
+  }, [cardBg, cardBdr, chipBg, txt1, txt2, amber, navigation]);
 
   const listBottomPad = Math.max(insets.bottom, 20);
 
   return (
-    <View
-      style={[
-        styles.container,
-        isDark ? { backgroundColor: Colors.dark.background } : { backgroundColor: ROUTE.lavender50 },
-      ]}
-    >
-      <StatusBar style="light" />
-      <LinearGradient
-        colors={isDark ? ['#3b0764', '#5b21b6'] : [ROUTE.violet800, ROUTE.violet500]}
-        style={[styles.header, { paddingTop: insets.top + 16 }]}
-      >
-        <Text style={styles.headerTitle}>Gezi Rotaları</Text>
-        <Text style={styles.headerSubtitle}>Urfa'da yapılacaklar ve gezi onerileri</Text>
-      </LinearGradient>
+    <View style={[styles.container, { backgroundColor: pageBg }]}>
+      <View style={[styles.header, { backgroundColor: pageBg, paddingTop: insets.top + 18 }]}>
+        <Text style={[styles.headerLabel, { color: txt2 }]}>KEŞFET</Text>
+        <Text style={[styles.headerTitle, { color: txt1 }]}>Gezi Rotaları</Text>
+        <Text style={[styles.headerSubtitle, { color: txt2 }]}>Urfa'da yapılacaklar ve gezi önerileri</Text>
+      </View>
 
       <FlatList
         data={MOCK_WEEKEND_PLANS}
@@ -149,8 +123,8 @@ const CulturalRouteScreen = () => {
         windowSize={6}
         removeClippedSubviews
         ListHeaderComponent={
-          <View style={[styles.infoNote, isDark ? styles.infoNoteDark : null]}>
-            <Text style={[styles.infoNoteText, isDark ? styles.infoNoteTextDark : null]}>
+          <View style={[styles.infoNote, cardBorder, { backgroundColor: chipBg }]}>
+            <Text style={[styles.infoNoteText, { color: txt2 }]}>
               Rotalar öneridir. İşletme/açılış saatleri ve ulaşım bilgilerini gitmeden önce doğrulayın.
             </Text>
           </View>
@@ -163,58 +137,49 @@ const CulturalRouteScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: ROUTE.lavender50,
   },
   header: {
     paddingHorizontal: 20,
-    paddingBottom: 30,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    paddingBottom: 20,
+    gap: 4,
+  },
+  headerLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.4,
+    marginBottom: 2,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: Colors.white,
-    marginBottom: 4,
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.9)',
+    fontWeight: '500',
   },
   listContent: {
     padding: 20,
+    paddingTop: 4,
   },
   infoNote: {
     marginBottom: 14,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#ede9fe',
-    borderWidth: 1,
-    borderColor: 'rgba(109,40,217,0.18)',
-  },
-  infoNoteDark: {
-    backgroundColor: 'rgba(124,58,237,0.14)',
-    borderColor: 'rgba(167,139,250,0.28)',
   },
   infoNoteText: {
     fontSize: 12,
     lineHeight: 17,
-    color: '#5b21b6',
     fontWeight: '600',
   },
-  infoNoteTextDark: {
-    color: '#c4b5fd',
+  planCardOuter: {
+    borderRadius: 20,
+    marginBottom: 20,
   },
   planCard: {
     borderRadius: 20,
     padding: 18,
-    marginBottom: 20,
-    shadowColor: Platform.OS === 'android' ? 'transparent' : ROUTE.violet800,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: Platform.OS === 'android' ? 0 : 0.08,
-    shadowRadius: Platform.OS === 'android' ? 0 : 12,
-    elevation: Platform.OS === 'android' ? 0 : 3,
   },
   cardHeader: {
     marginBottom: 12,
@@ -222,6 +187,23 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+  },
+  stopCountBadge: {
+    alignItems: 'center',
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    minWidth: 48,
+  },
+  stopCountNumber: {
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  stopCountLabel: {
+    fontSize: 9,
+    fontWeight: '600',
+    marginTop: -2,
   },
   iconContainer: {
     width: 50,
@@ -237,7 +219,6 @@ const styles = StyleSheet.create({
   planTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: DribbbleColors.textPrimary,
     marginBottom: 8,
   },
   badgeRow: {
@@ -265,11 +246,9 @@ const styles = StyleSheet.create({
   durationText: {
     fontSize: 11,
     fontWeight: '500',
-    color: DribbbleColors.textSecondary,
   },
   description: {
     fontSize: 14,
-    color: DribbbleColors.textSecondary,
     marginBottom: 16,
     lineHeight: 20,
   },
@@ -285,37 +264,48 @@ const styles = StyleSheet.create({
   activitiesTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: DribbbleColors.textPrimary,
   },
-  activityItem: {
+  timelineRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    marginBottom: 8,
     paddingLeft: 4,
+  },
+  timelineTrack: {
+    alignItems: 'center',
+    width: 10,
+  },
+  timelineDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginTop: 4,
+  },
+  timelineLine: {
+    width: 2,
+    flex: 1,
+    minHeight: 20,
+    marginVertical: 2,
   },
   activityText: {
     fontSize: 13,
-    color: DribbbleColors.textSecondary,
     flex: 1,
     lineHeight: 20,
+    paddingBottom: 12,
   },
   tipsContainer: {
     padding: 12,
     borderRadius: 12,
     marginTop: 8,
     borderLeftWidth: 3,
-    borderLeftColor: ROUTE.violet600,
   },
   tipsLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: ROUTE.violet700,
     marginBottom: 4,
   },
   tipsText: {
     fontSize: 12,
-    color: DribbbleColors.textSecondary,
     lineHeight: 18,
   },
 });

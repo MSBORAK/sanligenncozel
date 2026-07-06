@@ -1,5 +1,5 @@
 import React from 'react';
-import Svg, { Path, Circle, G } from 'react-native-svg';
+import Svg, { Path, Circle, Ellipse } from 'react-native-svg';
 
 interface IconProps {
   size?: number;
@@ -8,39 +8,51 @@ interface IconProps {
   style?: any;
 }
 
-// Professional Göbeklitepe
+/**
+ * Göbeklitepe — ünlü T-biçimli dikilitaş (T-pillar). Üstteki yatay kol ve
+ * gövdedeki hayvan kabartması siluetiyle tanınabilir hâle getirildi.
+ */
 export const UrfaIcon_Gobeklitepe = ({ size = 24, color = "white", opacity = 1, style }: IconProps) => (
   <Svg width={size} height={size} viewBox="0 0 64 64" fill="none" style={style} opacity={opacity}>
-    <Path d="M14 16H50V24C50 25.1046 49.1046 26 48 26H16C14.8954 26 14 25.1046 14 24V16Z" stroke={color} strokeWidth="3" strokeLinejoin="round"/>
-    <Path d="M26 26V48C26 49.1046 26.8954 50 28 50H36C37.1046 50 38 49.1046 38 48V26" stroke={color} strokeWidth="3" strokeLinejoin="round"/>
-    <Path d="M20 20H24" stroke={color} strokeWidth="3" strokeLinecap="round"/>
-    <Path d="M40 20H44" stroke={color} strokeWidth="3" strokeLinecap="round"/>
-    <Path d="M32 34V40" stroke={color} strokeWidth="3" strokeLinecap="round"/>
+    {/* T-taşının yatay kolu */}
+    <Path d="M16 14C16 12.3431 17.3431 11 19 11H45C46.6569 11 48 12.3431 48 14V20H16V14Z" stroke={color} strokeWidth="3" strokeLinejoin="round"/>
+    {/* T-taşının gövdesi */}
+    <Path d="M25 20V50C25 51.6569 26.3431 53 28 53H36C37.6569 53 39 51.6569 39 50V20" stroke={color} strokeWidth="3" strokeLinejoin="round"/>
+    {/* Kabartma deseni (kolların ucundaki oyma) */}
+    <Circle cx="22" cy="15.5" r="1.6" fill={color} />
+    <Circle cx="42" cy="15.5" r="1.6" fill={color} />
+    <Path d="M29 32C31 30 33 30 35 32" stroke={color} strokeWidth="2.4" strokeLinecap="round"/>
   </Svg>
 );
 
-// Professional Harran Evi
+/**
+ * Harran — ikonik koni/kovan şeklindeki kerpiç evler.
+ */
 export const UrfaIcon_Harran = ({ size = 24, color = "white", opacity = 1, style }: IconProps) => (
   <Svg width={size} height={size} viewBox="0 0 64 64" fill="none" style={style} opacity={opacity}>
-    <Path d="M12 54H52" stroke={color} strokeWidth="3" strokeLinecap="round"/>
-    <Path d="M16 54V38C16 24.7452 27.7452 14 40 14C46.6274 14 52 19.3726 52 26V54" stroke={color} strokeWidth="3" strokeLinejoin="round"/>
-    <Path d="M30 54V42C30 40.8954 30.8954 40 32 40H36C37.1046 40 38 40.8954 38 42V54" stroke={color} strokeWidth="3" strokeLinejoin="round"/>
-    <Path d="M24 30H32" stroke={color} strokeWidth="3" strokeLinecap="round"/>
-    <Path d="M42 38H48" stroke={color} strokeWidth="3" strokeLinecap="round"/>
+    {/* Zemin çizgisi */}
+    <Path d="M8 54H56" stroke={color} strokeWidth="3" strokeLinecap="round"/>
+    {/* Ana koni ev */}
+    <Path d="M18 54V42C18 30.9543 26.9543 22 38 22C40 22 40 24 40 26V54" stroke={color} strokeWidth="3" strokeLinejoin="round"/>
+    <Path d="M18 54H40" stroke={color} strokeWidth="3" strokeLinecap="round"/>
+    {/* Kubbe tepe noktası */}
+    <Circle cx="38" cy="22" r="2" fill={color} />
+    {/* Kapı */}
+    <Path d="M27 54V46C27 44.8954 27.8954 44 29 44H31C32.1046 44 33 44.8954 33 46V54" stroke={color} strokeWidth="2.4" strokeLinejoin="round"/>
+    {/* İkinci küçük koni (arka plan) */}
+    <Path d="M42 54V48C42 41.3726 47.3726 36 54 36" stroke={color} strokeWidth="2.4" strokeLinejoin="round" opacity={0.7}/>
   </Svg>
 );
 
-// Professional Balık
+/**
+ * Balıklıgöl — kutsal balıklar. Sade, tanınabilir balık silüeti.
+ */
 export const UrfaIcon_Balik = ({ size = 24, color = "white", opacity = 1, style }: IconProps) => (
   <Svg width={size} height={size} viewBox="0 0 64 64" fill="none" style={style} opacity={opacity}>
-    <Path d="M8 32C8 32 16 24 28 24C40 24 48 30 54 32C60 34 54 32 54 32C54 32 60 30 54 28M54 32C54 32 60 34 54 36M8 32C8 32 16 40 28 40C40 40 48 34 54 32" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-    <Circle cx="20" cy="31" r="2" fill={color} />
-    <Path d="M28 24C30 20 34 18 38 19" stroke={color} strokeWidth="3" strokeLinecap="round"/>
-    <Path d="M28 40C30 44 34 46 38 45" stroke={color} strokeWidth="3" strokeLinecap="round"/>
+    <Ellipse cx="26" cy="32" rx="18" ry="10" stroke={color} strokeWidth="3"/>
+    <Path d="M44 32L56 24V40L44 32Z" stroke={color} strokeWidth="3" strokeLinejoin="round"/>
+    <Circle cx="17" cy="29" r="1.8" fill={color} />
+    <Path d="M14 32C14 32 20 38 30 38" stroke={color} strokeWidth="2.2" strokeLinecap="round" opacity={0.7}/>
   </Svg>
 );
-
-// We are not using Insan or Arti for now to keep it clean
-// export const UrfaIcon_Insan ...
-// export const UrfaIcon_Arti ...
 

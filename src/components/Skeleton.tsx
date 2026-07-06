@@ -1,10 +1,10 @@
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet, Animated, StyleProp, ViewStyle } from 'react-native';
+import { StyleSheet, Animated, StyleProp, ViewStyle, DimensionValue } from 'react-native';
 import { Colors } from '@/constants/Colors';
 
 interface SkeletonProps {
-  width?: number | string;
-  height?: number | string;
+  width?: DimensionValue;
+  height?: DimensionValue;
   borderRadius?: number;
   style?: StyleProp<ViewStyle>;
   isDark?: boolean;
