@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useMemo } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type ThemeMode = 'light' | 'dark';
 
@@ -8,18 +9,34 @@ type ThemeContextValue = {
   toggleTheme: () => void;
 };
 
+const STORAGE_KEY = '@sanli_theme_mode';
+
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
-// Dark mode geçici olarak kaldırıldı — uygulama sadece açık (gündüz) temada çalışıyor.
-// İleride geri eklenecekse: mode'u tekrar state'e bağla ve toggleTheme'i işlevsel yap.
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
+  const [mode, setMode] = useState<ThemeMode>('light');
+
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY).then((v) => {
+      if (v === 'dark' || v === 'light') setMode(v);
+    });
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    setMode((prev) => {
+      const next = prev === 'light' ? 'dark' : 'light';
+      AsyncStorage.setItem(STORAGE_KEY, next);
+      return next;
+    });
+  }, []);
+
   const value = useMemo<ThemeContextValue>(
     () => ({
-      mode: 'light',
-      modeLabel: 'Gündüz',
-      toggleTheme: () => {},
+      mode,
+      modeLabel: mode === 'light' ? 'Gün Doğumu' : 'Gün Batımı',
+      toggleTheme,
     }),
-    []
+    [mode, toggleTheme],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
@@ -32,5 +49,3 @@ export const useThemeMode = (): ThemeContextValue => {
   }
   return ctx;
 };
-
-

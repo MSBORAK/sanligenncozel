@@ -2,23 +2,14 @@ import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Library, MapPin, Clock, Navigation } from 'lucide-react-native';
-import { Clean } from '@/constants/Colors';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { MOCK_LIBRARIES, Library as LibraryType } from '@/api/mockData';
-import { useThemeMode } from '@/context/ThemeContext';
+import { useAppTheme } from '@/theme/useAppTheme';
 
 const LibraryListScreen = () => {
-  const { mode } = useThemeMode();
-  const isDark = mode === 'dark';
+  const t = useAppTheme();
+  const { isDark, pageBg, cardBg, cardBdr, txt1, txt2, chipBg, accent: amber } = t;
   const insets = useSafeAreaInsets();
-
-  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
-  const cardBg  = isDark ? '#18181B' : Clean.surface;
-  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
-  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
-  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
-  const amber   = Clean.accent;
   const cardBorder = isDark ? cardBorderDark : cardBorderLight;
 
   const handleDirections = useCallback((library: LibraryType) => {

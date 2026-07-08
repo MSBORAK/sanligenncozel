@@ -1,12 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Image, ImageBackground,
-  TouchableOpacity, Modal, Platform, Animated, Easing,
-  NativeSyntheticEvent, NativeScrollEvent, RefreshControl,
+  View, Text, StyleSheet, ScrollView, Image,
+  TouchableOpacity, Modal, Platform, RefreshControl,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Calendar, BookOpen, Search, X, ChevronLeft, ChevronRight, Sparkles,
   CloudRain, Sun, Cloud, CloudSnow, CloudLightning, CloudDrizzle,
@@ -15,16 +12,15 @@ import {
   Scissors, Dumbbell, Film, UtensilsCrossed, ShoppingBag, Stethoscope, Cake, Glasses,
 } from 'lucide-react-native';
 import { CommonActions, useFocusEffect, useNavigation } from '@react-navigation/native';
-import AnimatedPressable from '@/components/AnimatedPressable';
-import AnimatedListItem from '@/components/AnimatedListItem';
 import Skeleton from '@/components/Skeleton';
 import { MOCK_BUSES, MOCK_MAGAZINES } from '@/api/mockData';
 import { HomeScreenProps, MainTabParamList } from '@/types/navigation';
-import { useThemeMode } from '@/context/ThemeContext';
+import { useAppTheme } from '@/theme/useAppTheme';
 import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabase';
 import { Clean } from '@/constants/Colors';
-import { cardBorderLight, cardBorderDark, cardOuterShadow, cardInnerClip } from '@/constants/Shadows';
+import { Editorial } from '@/theme/colors';
+import { cardOuterShadow } from '@/constants/Shadows';
 import * as Haptics from 'expo-haptics';
 import LottieView from 'lottie-react-native';
 import Svg, { Path } from 'react-native-svg';
@@ -43,7 +39,7 @@ const QUICK_ACCESS = [
   { name:'Gezi Rotası', screen:'CulturalRoute',lottie:require('@/assets/images/Travel is fun.json'),      grad:['#92400E','#F59E0B'] as const },
 ];
 
-// Elle düzenlenmiş, daha zengin metinli 4 öne çıkan yer (aynı kalıyor)
+// Elle düzenlenmiş, daha zengin metinli 4 öne çıkan yer
 const CURATED_LANDMARK_META: Record<string, { year: string; desc: string; tag: string }> = {
   m1: { year: '~12.000 YIL ÖNCE', desc: "Dünyanın bilinen en eski tapınak kompleksi. İnsanlık tarihini yeniden yazan keşif.", tag: 'UNESCO Dünya Mirası' },
   m2: { year: 'HZ. İBRAHİM', desc: "Kutsal balıkların yaşadığı göl. Şanlıurfa'nın kalbinde binlerce yıllık inanç merkezi.", tag: 'Kutsal Alan' },
@@ -51,7 +47,6 @@ const CURATED_LANDMARK_META: Record<string, { year: string; desc: string; tag: s
   m3: { year: 'M.Ö. 3. YÜZYIL', desc: "Şehre hâkim tarihi kale. Sütunlarından Balıklıgöl'ün panoramik manzarası.", tag: 'Tarihi Yapı' },
 };
 
-// Diğer kategoriler için genel etiket (Keşfet'teki 5 kategoriyle aynı)
 const LANDMARK_CATEGORY_LABEL: Record<string, string> = {
   historic: 'Tarihi Yer',
   faith: 'İnanç ve Kültür',
@@ -60,7 +55,6 @@ const LANDMARK_CATEGORY_LABEL: Record<string, string> = {
   bazaar: 'Tarihi Çarşı',
 };
 
-// Şehri Keşfet banner'ı artık Keşfet'teki TÜM 16 yeri kapsıyor — sadece 4 tanesi değil
 const LANDMARKS = MOCK_MAGAZINES.map((m) => {
   const curated = CURATED_LANDMARK_META[m.id];
   return {
@@ -74,6 +68,8 @@ const LANDMARKS = MOCK_MAGAZINES.map((m) => {
 });
 
 const MONTHS = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+// Editoryal, sıcak-krem "The Lunch Box" ilham temasında büyük başlıklar için serif — yeni font indirmeden, sistem serif'i
+const SERIF = Platform.select<string>({ ios: 'Georgia', android: 'serif', default: 'serif' });
 const DAYS   = ['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];
 
 const SPECIAL_DAYS: Record<string,{name:string;emoji:string;color:string;type:string}> = {
@@ -122,7 +118,7 @@ const buildTicketPath = (w: number, h: number, r: number, notchY: number, nr: nu
   `Z`,
 ].join(' ');
 
-const TICKET_RADIUS = 20;
+const TICKET_RADIUS = 16;
 const TICKET_NOTCH_RADIUS = 8;
 
 /** Genç Kart fırsat kartı — gerçek bilet siluetiyle (SVG kesik) */
@@ -132,8 +128,8 @@ function FirsatTicketCard({
   p: FirsatData; th: any; Icon: any; discountNum: string | null; onPress: () => void;
   cardBg: string; chipBg: string; amber: string; txt1: string; txt2: string; ctaBg: string; ctaTxt: string; pageBg: string; isDark: boolean;
 }) {
-  const [size, setSize] = useState({ width: 152, height: 168 });
-  const [notchY, setNotchY] = useState(84);
+  const [size, setSize] = useState({ width: 128, height: 148 });
+  const [notchY, setNotchY] = useState(74);
 
   return (
     <View
@@ -144,7 +140,7 @@ function FirsatTicketCard({
         <Path
           d={buildTicketPath(size.width, size.height, TICKET_RADIUS, notchY, TICKET_NOTCH_RADIUS)}
           fill={cardBg}
-          stroke={isDark ? 'rgba(255,255,255,0.16)' : 'rgba(17,17,20,0.14)'}
+          stroke={isDark ? 'rgba(255,255,255,0.16)' : 'rgba(17,17,20,1)'}
           strokeWidth={1.5}
         />
       </Svg>
@@ -187,19 +183,19 @@ function FirsatTicketCard({
 }
 
 const cardShadowForTicket = {
-  shadowColor: '#000000',
-  shadowOffset: { width: 0, height: 5 },
-  shadowOpacity: 0.1,
-  shadowRadius: 8,
-  elevation: 4,
+  shadowColor: 'transparent',
+  shadowOffset: { width: 0, height: 0 },
+  shadowOpacity: 0,
+  shadowRadius: 0,
+  elevation: 0,
 };
 
 // ─── Screen ────────────────────────────────────────────────────────────────────
 export default function HomeScreen() {
   const navigation = useNavigation<HomeScreenProps['navigation']>();
   const { profile, isGuest } = useUser();
-  const { mode } = useThemeMode();
-  const isDark = mode === 'dark';
+  const homeTheme = useAppTheme();
+  const isDark = homeTheme.isDark;
 
   const [promoModalVisible,setPromoModalVisible]           = useState(true);
   const [promoSize,setPromoSize]                           = useState({width:300,height:220});
@@ -208,8 +204,8 @@ export default function HomeScreen() {
   const [calendarView,setCalendarView]                     = useState<'month'|'year'>('month');
   const [selectedDate,setSelectedDate]                     = useState(new Date());
   const [selectedDay,setSelectedDay]                       = useState<{day:number;specialDay:any;events:any[]}|null>(null);
-  const [activeCardIndex,setActiveCardIndex]               = useState(0);
   const [guestModalVisible,setGuestModalVisible]           = useState(false);
+  const [gencDealsVisible,setGencDealsVisible]             = useState(false);
   const [firsatlar,setFirsatlar]                           = useState<FirsatData[]>([]);
   const [calendarEvents,setCalendarEvents]                 = useState<CalendarEventItem[]>([]);
   const [loadingFirsatlar,setLoadingFirsatlar]             = useState(true);
@@ -218,28 +214,12 @@ export default function HomeScreen() {
   const [forecastData,setForecastData]                     = useState<any>(null);
   const [airQualityData,setAirQualityData]                 = useState<any>(null);
 
-  const [lmIndex, setLmIndex] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
-  const lmFadeAnim = useRef(new Animated.Value(1)).current;
-
-  const lottieRefs = useRef(QUICK_ACCESS.map(() => React.createRef<LottieView>())).current;
-  const iconAnims  = useRef(QUICK_ACCESS.map(() => new Animated.Value(0))).current;
-  const rainAnim   = useRef(new Animated.Value(0)).current;
 
   const KOORDINAT       = { lat:37.1674, lon:38.7955 };
 
   useEffect(() => {
-    Animated.stagger(55, iconAnims.map(a => Animated.spring(a,{toValue:1,useNativeDriver:true,tension:100,friction:9}))).start();
-    Animated.loop(Animated.timing(rainAnim,{toValue:1,duration:1000,useNativeDriver:true,easing:Easing.linear})).start();
     fetchAllWeatherData(); fetchFirsatlar(); fetchCalendarEvents();
-
-    const interval = setInterval(() => {
-      Animated.timing(lmFadeAnim, {toValue:0, duration:300, useNativeDriver:true, easing:Easing.out(Easing.ease)}).start(() => {
-        setLmIndex(prev => (prev + 1) % LANDMARKS.length);
-        Animated.timing(lmFadeAnim, {toValue:1, duration:400, useNativeDriver:true, easing:Easing.in(Easing.ease)}).start();
-      });
-    }, 3500);
-    return () => clearInterval(interval);
   }, []);
 
   // Zil ikonundaki rozet — ŞanlıSosyal'den gelen okunmamış mesajlar + bekleyen arkadaşlık istekleri.
@@ -311,7 +291,7 @@ export default function HomeScreen() {
   };
   const onRefresh = async () => {
     setRefreshing(true); setLoadingFirsatlar(true);
-    await Promise.all([fetchAllWeatherData(),fetchFirsatlar(),fetchCalendarEvents()]);
+    await Promise.all([fetchAllWeatherData(), fetchFirsatlar(), fetchCalendarEvents()]);
     setRefreshing(false);
   };
 
@@ -383,9 +363,23 @@ export default function HomeScreen() {
     return{icon:Gift,color:'#fb923c',bg:'#ffedd5',bgDark:'#3a2a1c',grad:['#fb923c','#ea580c'] as [string,string]};
   };
 
+  const getDealDisplay = (p: FirsatData) => {
+    const discountRaw = p.aciklama?.match(/% ?([\d]+)/)?.[1] ?? p.baslik?.match(/% ?([\d]+)/)?.[1];
+    const cleanText = (value?: string | null) => {
+      const text = (value || '').trim();
+      const normalized = text.toLocaleLowerCase('tr-TR');
+      if (!text) return '';
+      if (['fırsat', 'yeni fırsat', 'kampanya', 'yeni kampanya', 'indirim'].includes(normalized)) return '';
+      return text;
+    };
+    return {
+      discountText: discountRaw ? `%${discountRaw}` : null,
+      detailText: cleanText(p.aciklama) || cleanText(p.kategori) || 'Detayları gör',
+    };
+  };
+
   const changeMonth=(d:number)=>{const n=new Date(selectedDate);n.setMonth(n.getMonth()+d);setSelectedDate(n);};
   const changeYear =(d:number)=>{const n=new Date(selectedDate);n.setFullYear(n.getFullYear()+d);setSelectedDate(n);};
-  const handleCardScroll=(e:NativeSyntheticEvent<NativeScrollEvent>)=>setActiveCardIndex(Math.round(e.nativeEvent.contentOffset.x/(152+12)));
   const handleSosyalPress=()=>{if(isGuest){setGuestModalVisible(true);return;}navigation.navigate('Sosyal');};
   const handleGuestLogin=()=>{
     setGuestModalVisible(false);
@@ -398,344 +392,203 @@ export default function HomeScreen() {
   const today    = new Date();
   const todayStr = `${today.getDate()} ${MONTHS[today.getMonth()]}`;
   const tempStr  = weatherData?.main?.temp!=null?`${Math.round(weatherData.main.temp)}°C`:'--°C';
-  // ── DENEME: "Lemonade Glass" paleti — Light Blue / Moonstone / Saffron / Gunmetal ──
-  // Beğenilmezse GLASS_TRIAL'ı false yap, her şey eski Clean temaya döner.
-  const GLASS_TRIAL = false;
-  // ŞanlıSosyal kutusuna deneme amaçlı gerçek cam (blur) efekti — Şehri Keşfet eski haline döndü
-  const SOSYAL_GLASS = false;
-  const PALETTE = {
-    lightBlue: '#C3E7F1',
-    moonstone: '#519CAB',
-    saffron:   '#FFC64F',
-    gunmetal:  '#20373B',
-  };
+  // Bugünkü gerçek etkinlikler — "Recent activities" tarzı liste için (Ofspace dashboard esintili)
+  const todaysEvents = calendarEvents.filter(e=>{
+    const p = parseDate(e.date);
+    if (!p) return false;
+    return p.day===today.getDate() && p.month===today.getMonth()+1 && (p.year?p.year===today.getFullYear():true);
+  });
+  const lunchBoxPicks = [LANDMARKS[0], LANDMARKS[1]].filter(Boolean);
+  const amber    = Clean.accent;
+  const gold     = Clean.accent;
 
-  const amber    = GLASS_TRIAL ? PALETTE.saffron : Clean.accent;
-  const gold     = GLASS_TRIAL ? PALETTE.saffron : Clean.accent;
-
-  // Light / dark shortcuts — sade tema (Clean)
-  const pageBg  = GLASS_TRIAL ? PALETTE.lightBlue : (isDark ? '#0C0C0E' : Clean.bgSoft);
-  const cardBg  = GLASS_TRIAL ? 'rgba(255,255,255,0.42)' : (isDark ? '#18181B' : Clean.surface);
-  const cardBdr = GLASS_TRIAL ? 'rgba(255,255,255,0.65)' : (isDark ? 'rgba(255,255,255,0.08)' : Clean.border);
-  const txt1    = GLASS_TRIAL ? PALETTE.gunmetal : (isDark ? '#F5F5F7' : Clean.textPrimary);
-  const txt2    = GLASS_TRIAL ? 'rgba(32,55,59,0.62)' : (isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary);
-  const ctaBg   = GLASS_TRIAL ? PALETTE.gunmetal : (isDark ? '#F5F5F7' : Clean.ctaBg);
-  const ctaTxt  = GLASS_TRIAL ? '#FFFFFF' : (isDark ? '#111114' : Clean.ctaText);
-  const chipBg  = GLASS_TRIAL ? 'rgba(255,255,255,0.38)' : (isDark ? '#1F1F23' : Clean.chipBg);
+  // Light (Clean, mono) / dark (Editorial, toprak tonu) tema kısayolları
+  const { pageBg, cardBg, cardBdr, txt1, txt2, ctaBg, ctaTxt, chipBg } = homeTheme;
 
   return (
     <View style={[s.root,{backgroundColor:pageBg}]}>
-      {GLASS_TRIAL && (
-        <LinearGradient
-          colors={[PALETTE.lightBlue, '#DCEEF4', '#EFF8F9']}
-          start={{x:0,y:0}} end={{x:0.3,y:1}}
-          style={StyleSheet.absoluteFillObject}
-          pointerEvents="none"
-        />
-      )}
 
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{paddingBottom:130}}
+        contentContainerStyle={[s.lunchScroll,{paddingTop:insets.top + 8}]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={amber} colors={[amber]}/>}
       >
-
-        {/* ═══════════════════════════════════════
-            HERO — sade, beyaz zemin, kimlik odaklı
-        ═══════════════════════════════════════ */}
-        <View style={[s.heroClean, {paddingTop: insets.top + 8, backgroundColor: pageBg}]}>
-          <View style={s.heroCleanTop}>
-            <Text style={[s.heroCleanGreet,{color:txt1, flex:1}]} numberOfLines={1}>Selam, {profile?.name||'Şanlı Genç'} 👋</Text>
-            <View style={[s.heroCleanIcons,{flexShrink:0}]}>
-              <TouchableOpacity style={[s.heroCleanIconBtn,{backgroundColor:chipBg}]} onPress={()=>navigation.navigate('Notifications')} activeOpacity={0.8}>
-                <Bell color={txt1} size={18} strokeWidth={1.8}/>
-                {unreadCount > 0 && (
-                  <View style={s.notifBadge}>
-                    <Text style={s.notifBadgeTxt}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity style={[s.heroCleanAvatar,{backgroundColor:ctaBg}]} onPress={()=>navigation.navigate('Main',{screen:'Profile' as keyof MainTabParamList})} activeOpacity={0.8}>
-                {profile?.avatarUrl ? (
-                  <Image source={{uri:profile.avatarUrl}} style={{width:38,height:38,borderRadius:19}}/>
-                ) : (
-                  <Text style={[s.heroCleanAvatarTxt,{color:ctaTxt}]}>{(profile?.name||'Ş').charAt(0).toUpperCase()}</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+        <View style={[s.lunchTopBar,{borderColor:cardBdr}]}>
+          <View style={{flex:1}}>
+            <Text style={[s.lunchDate,{color:txt2}]}>ŞANLIGENÇ · {DAYS[(today.getDay()+6)%7].toUpperCase()} · {todayStr.toUpperCase()}</Text>
+            <Text style={[s.lunchHello,{color:txt1}]} numberOfLines={1}>Selam, {profile?.name||'Şanlı Genç'} 👋</Text>
           </View>
-
-          {/* Hava + takvim pill — kendi satırında, altta */}
-          <View style={[s.heroPill,{backgroundColor:chipBg, borderColor:cardBdr, alignSelf:'flex-start'}]}>
-            <TouchableOpacity style={s.heroPillSide} onPress={()=>navigation.navigate('WeatherDetail',{weatherData:weatherData||undefined,forecastData:forecastData||undefined,airQualityData:airQualityData||undefined})} activeOpacity={0.8}>
-              {getWeatherIcon(15,txt1)}
-              <Text style={[s.heroPillTxt,{color:txt1}]}>{tempStr}</Text>
+          <View style={s.lunchTopActions}>
+            <TouchableOpacity style={[s.lunchIconBtn,{backgroundColor:cardBg,borderColor:cardBdr}]} onPress={()=>navigation.navigate('Notifications')} activeOpacity={0.8}>
+              <Bell color={txt1} size={18} strokeWidth={1.8}/>
+              {unreadCount > 0 && (
+                <View style={s.notifBadge}>
+                  <Text style={s.notifBadgeTxt}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                </View>
+              )}
             </TouchableOpacity>
-            <View style={[s.heroPillDivider,{backgroundColor:cardBdr}]}/>
-            <TouchableOpacity style={s.heroPillSide} onPress={()=>setCalendarVisible(true)} activeOpacity={0.8}>
-              <Calendar color={txt1} size={14} strokeWidth={2}/>
-              <Text style={[s.heroPillTxt,{color:txt1}]} numberOfLines={1}>{todayStr}</Text>
+            <TouchableOpacity style={[s.lunchAvatar,{backgroundColor:ctaBg}]} onPress={()=>navigation.navigate('Main',{screen:'Profile' as keyof MainTabParamList})} activeOpacity={0.8}>
+              {profile?.avatarUrl ? (
+                <Image source={{uri:profile.avatarUrl}} style={{width:38,height:38,borderRadius:19}}/>
+              ) : (
+                <Text style={[s.heroCleanAvatarTxt,{color:ctaTxt}]}>{(profile?.name||'Ş').charAt(0).toUpperCase()}</Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* ═══════════════════════════════════════
-            ŞANLI SOSYAL — öne çıkan kart
-        ═══════════════════════════════════════ */}
-        <View style={[s.section,{paddingHorizontal:20}]}>
-          {SOSYAL_GLASS ? (
-            <View style={[cardOuterShadow, {borderRadius:28}]}>
-              <BlurView intensity={85} tint="dark" experimentalBlurMethod="dimezisBlurView" blurReductionFactor={2} style={[cardInnerClip,{borderRadius:28}]}>
-                <LinearGradient
-                  colors={['rgba(255,255,255,0.16)','rgba(255,255,255,0.02)']}
-                  start={{x:0,y:0}} end={{x:1,y:1}}
-                  style={StyleSheet.absoluteFill as any}
-                  pointerEvents="none"
-                />
-                <TouchableOpacity activeOpacity={0.88} onPress={handleSosyalPress} style={s.sosyalCard}>
-                  <View style={s.sosyalLeft}>
-                    <View style={s.sosyalLiveBadge}>
-                      <View style={[s.sosyalLiveDot,{backgroundColor:'#22C55E'}]}/>
-                      <Text style={[s.sosyalLiveTxt,{color:'#fff'}]}>CANLI</Text>
-                    </View>
-                    <Text style={[s.sosyalTitle,{color:'#fff'}]}>ŞanlıSosyal</Text>
-                    <Text style={[s.sosyalSub,{color:'rgba(255,255,255,0.65)'}]}>Şehir radarı, akış ve{'\n'}kıvılcımlar · son 4 saat</Text>
-                  </View>
-                  <View style={s.sosyalRight}>
-                    <LottieView source={require('@/assets/images/friends.json')} autoPlay loop resizeMode="contain" style={s.sosyalLottie}/>
-                  </View>
-                </TouchableOpacity>
-              </BlurView>
-            </View>
-          ) : (
-          <View style={[cardOuterShadow, cardBorderDark, {backgroundColor:ctaBg, borderRadius:28}]}>
-            <TouchableOpacity activeOpacity={0.88} onPress={handleSosyalPress} style={[s.sosyalCard, cardInnerClip, {borderRadius:28}]}>
-              <View style={s.sosyalLeft}>
-                <View style={s.sosyalLiveBadge}>
-                  <View style={[s.sosyalLiveDot,{backgroundColor:'#22C55E'}]}/>
-                  <Text style={[s.sosyalLiveTxt,{color:ctaTxt}]}>CANLI</Text>
-                </View>
-                <Text style={[s.sosyalTitle,{color:ctaTxt}]}>ŞanlıSosyal</Text>
-                <Text style={[s.sosyalSub,{color: isDark ? 'rgba(17,17,20,0.6)' : 'rgba(255,255,255,0.6)'}]}>Şehir radarı, akış ve{'\n'}kıvılcımlar · son 4 saat</Text>
-              </View>
-              <View style={s.sosyalRight}>
-                <LottieView source={require('@/assets/images/friends.json')} autoPlay loop resizeMode="contain" style={s.sosyalLottie}/>
-              </View>
-            </TouchableOpacity>
-          </View>
-          )}
+        <View style={[s.lunchInfoRow,{borderColor:cardBdr}]}>
+          <TouchableOpacity
+            style={s.lunchInfoPill}
+            onPress={()=>navigation.navigate('WeatherDetail',{weatherData:weatherData||undefined,forecastData:forecastData||undefined,airQualityData:airQualityData||undefined})}
+            activeOpacity={0.82}
+          >
+            {getWeatherIcon(16,txt1)}
+            <Text style={[s.lunchInfoText,{color:txt1}]}>{tempStr}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={s.lunchInfoPill}
+            onPress={()=>setCalendarVisible(true)}
+            activeOpacity={0.82}
+          >
+            <Calendar color={txt1} size={15} strokeWidth={2}/>
+            <Text style={[s.lunchInfoText,{color:txt1}]}>{todayStr}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={s.lunchInfoPill}
+            onPress={()=>navigation.navigate('Main',{screen:'GencKart' as keyof MainTabParamList})}
+            activeOpacity={0.82}
+          >
+            <Gift color={txt1} size={15} strokeWidth={2}/>
+            <Text style={[s.lunchInfoText,{color:txt1}]}>{firsatlar.length} fırsat</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* ═══════════════════════════════════════
-            GENÇ KART FIRSATLARI
-        ═══════════════════════════════════════ */}
-        <View style={s.section}>
-          <View style={[s.secRow,{paddingHorizontal:20}]}>
-            <Text style={[s.secLabel,{color:txt1}]}>Genç Kart Fırsatları</Text>
-            <TouchableOpacity onPress={()=>navigation.navigate('Main',{screen:'GencKart' as keyof MainTabParamList})} activeOpacity={0.7}>
-              <Text style={[s.secMore,{color:GLASS_TRIAL?PALETTE.moonstone:txt1}]}>Tümü →</Text>
+        <TouchableOpacity activeOpacity={0.88} onPress={handleSosyalPress} style={[s.lunchSocialCard,{backgroundColor:ctaBg, borderColor:cardBdr}]}>
+          <View style={s.sosyalLeft}>
+            <View style={s.sosyalLiveBadge}>
+              <View style={[s.sosyalLiveDot,{backgroundColor:'#22C55E'}]}/>
+              <Text style={[s.sosyalLiveTxt,{color:ctaTxt}]}>CANLI</Text>
+            </View>
+            <Text style={[s.sosyalTitle,{color:ctaTxt}]}>ŞanlıSosyal</Text>
+            <Text style={[s.sosyalSub,{color:ctaTxt, opacity:0.62}]}>Şehir radarı, akış ve kıvılcımlar</Text>
+          </View>
+          <LottieView source={require('@/assets/images/friends.json')} autoPlay loop resizeMode="contain" style={s.sosyalLottie}/>
+        </TouchableOpacity>
+
+        <View style={s.lunchSection}>
+          <View style={s.lunchSectionHead}>
+            <Text style={[s.lunchSectionTitle,{color:txt1}]}>Keşfet</Text>
+            <TouchableOpacity onPress={()=>navigation.navigate('Magazine')} activeOpacity={0.7}>
+              <Text style={[s.secMore,{color:txt1}]}>Tümü →</Text>
             </TouchableOpacity>
           </View>
-
-          {loadingFirsatlar?(
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.pScroll}>
-              {[1,2,3].map(i=>(
-                <View key={i} style={[s.pCard,{backgroundColor:cardBg,borderColor:cardBdr}]}>
-                  <Skeleton width={44} height={44} borderRadius={14} isDark={isDark}/>
-                  <Skeleton width="80%" height={13} borderRadius={6} isDark={isDark}/>
-                  <Skeleton width="55%" height={10} borderRadius={6} isDark={isDark}/>
-                  <Skeleton width="40%" height={28} borderRadius={10} isDark={isDark}/>
+          <View style={[s.lunchMealCard,{backgroundColor:cardBg,borderColor:cardBdr}]}>
+            {lunchBoxPicks.map((item,i)=>(
+              <TouchableOpacity key={item.id} activeOpacity={0.86} onPress={()=>navigation.push('HeritageDetail',{id:item.id})} style={[s.lunchMealRow, i===lunchBoxPicks.length-1 && {borderBottomWidth:0}]}>
+                <View style={{flex:1}}>
+                  <Text style={[s.lunchMealTitle,{color:txt1}]} numberOfLines={1}>{item.name}</Text>
+                  <View style={s.lunchMealMetaRow}>
+                    <View style={[s.lunchMealDot,{backgroundColor:'#ECA7B6'}]}/>
+                    <View style={[s.lunchMealDot,{backgroundColor:'#BEDB7A'}]}/>
+                    <View style={[s.lunchMealDot,{backgroundColor:'#F2C84B'}]}/>
+                    <Text style={[s.lunchMealMeta,{color:txt2}]} numberOfLines={1}>{item.tag}</Text>
+                  </View>
                 </View>
-              ))}
-            </ScrollView>
-          ):firsatlar.length===0?(
-            <View style={[s.empty,{backgroundColor:cardBg,borderColor:cardBdr}]}>
-              <View style={[s.emptyIcon,{backgroundColor:isDark?'rgba(245,158,11,0.1)':'#FEF3C7'}]}>
-                <Gift color={amber} size={26}/>
-              </View>
-              <Text style={[s.emptyTitle,{color:txt1}]}>Bugün öne çıkan fırsat yok</Text>
-              <Text style={[s.emptySub,  {color:txt2}]}>Genç Kart ile indirimler yakında</Text>
-              <AnimatedPressable onPress={()=>navigation.navigate('Main',{screen:'GencKart' as keyof MainTabParamList})} style={[s.emptyCta,{backgroundColor:isDark?'rgba(245,158,11,0.1)':'#FEF3C7'}]}>
-                <Sparkles color={amber} size={15}/>
-                <Text style={[s.emptyCtaTxt,{color:txt1}]}>Genç Kart'ı Keşfet</Text>
-              </AnimatedPressable>
-            </View>
-          ):(
-            <>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.pScroll}
-                onScroll={handleCardScroll} scrollEventThrottle={16} snapToInterval={152+12} decelerationRate="fast">
-                {firsatlar.map((p,i)=>{
-                  const th=getCategoryTheme(p.kategori,p.baslik);const Icon=th.icon;
-                  const discountMatch = p.aciklama?.match(/%([\d]+)/);
-                  const discountNum   = discountMatch ? discountMatch[1] : null;
-                  return(
-                    <AnimatedListItem key={p.id} index={i} delay={80}>
-                      <FirsatTicketCard
-                        p={p} th={th} Icon={Icon} discountNum={discountNum}
-                        onPress={()=>navigation.navigate('PartnerDetail',{partnerId:p.id.toString()})}
-                        cardBg={cardBg} chipBg={chipBg} amber={amber} txt1={txt1} txt2={txt2}
-                        ctaBg={ctaBg} ctaTxt={ctaTxt} pageBg={pageBg} isDark={isDark}
-                      />
-                    </AnimatedListItem>
-                  );
-                })}
-              </ScrollView>
-              <View style={s.dots}>
-                {firsatlar.map((_,i)=>(
-                  <View key={i} style={[s.dot, i===activeCardIndex&&s.dotA, {backgroundColor:i===activeCardIndex?txt1:(GLASS_TRIAL?'rgba(32,55,59,0.22)':(isDark?'#334155':'#CBD5E1'))}]}/>
-                ))}
-              </View>
-            </>
-          )}
-        </View>
-
-        {/* ═══════════════════════════════════════
-            HIZLI ERİŞİM — 3'lü grid
-        ═══════════════════════════════════════ */}
-        <View style={[s.section,{paddingHorizontal:20, marginTop:22}]}>
-          <View style={s.quickGrid}>
-            {QUICK_ACCESS.map((item)=>(
-              <TouchableOpacity
-                key={item.name}
-                activeOpacity={0.85}
-                style={s.quickSquareCard}
-                onPress={()=>{
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  if(item.screen==='Sosyal'){handleSosyalPress();return;}
-                  navigation.navigate(item.screen as any);
-                }}
-              >
-                <View style={[s.quickSquareIconWrap,{backgroundColor:'#111114'}]}>
-                  <LottieView source={item.lottie} autoPlay loop style={s.quickSquareLottie}/>
-                </View>
-                <Text style={[s.quickSquareLabel,{color:txt1}]} numberOfLines={1}>{item.name}</Text>
+                <Image source={typeof item.image === 'string' ? { uri: item.image as string } : item.image} style={s.lunchMealThumb} resizeMode="cover"/>
               </TouchableOpacity>
             ))}
           </View>
-        </View>
-
-        {/* ═══════════════════════════════════════
-            ŞEHRİ KEŞFET — dönen öne çıkan banner
-        ═══════════════════════════════════════ */}
-        <View style={s.section}>
-          <View style={[s.secRow,{paddingHorizontal:20}]}>
-            <Text style={[s.secLabel,{color:txt1}]}>Şehri Keşfet</Text>
-            <TouchableOpacity onPress={()=>navigation.navigate('Magazine')} activeOpacity={0.7}>
-              <Text style={[s.secMore,{color:GLASS_TRIAL?PALETTE.moonstone:txt1}]}>Tümü →</Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity activeOpacity={0.9} onPress={()=>navigation.navigate('HeritageDetail',{id:LANDMARKS[lmIndex].id})} style={{marginHorizontal:20}}>
-            {/* DIŞ wrapper — shadow burada, overflow YOK. Kutu sabit, hiç animasyona girmiyor.
-                GLASS_TRIAL'da gerçek blur (BlurView) — sadece renkli değil, gerçek buzlu cam. */}
-            {(() => {
-              const imageSource = typeof LANDMARKS[lmIndex].image === 'string' ? { uri: LANDMARKS[lmIndex].image as string } : LANDMARKS[lmIndex].image;
-
-              // ── GLASS_TRIAL: fotoğraf TÜM kartı kaplar, bilgi paneli fotoğrafın
-              // alt kısmına GERÇEKTEN biner — BlurView orada gerçek foto pikselini
-              // bulanıklaştırır (iOS Control Center'daki cam düğmeler gibi). ──
-              if (GLASS_TRIAL) {
-                return (
-                  <View style={[cardOuterShadow, {borderRadius:27}]}>
-                    <View style={[cardInnerClip, {borderRadius:27}]}>
-                      <Animated.View style={{opacity:lmFadeAnim}}>
-                        <ImageBackground source={imageSource} style={s.lmImageFull} resizeMode="cover">
-                          <LinearGradient colors={['rgba(0,0,0,0.15)','transparent']} style={StyleSheet.absoluteFill as any} pointerEvents="none"/>
-                          {/* Sayfalama noktaları — fotoğrafın üstünde yüzen küçük cam kapsül */}
-                          <BlurView intensity={70} tint="dark" experimentalBlurMethod="dimezisBlurView" style={s.lmDotsGlass}>
-                            <View style={{flexDirection:'row', gap:6}}>
-                              {LANDMARKS.map((_,i)=>(
-                                <TouchableOpacity key={i} onPress={()=>{
-                                  Animated.timing(lmFadeAnim,{toValue:0,duration:200,useNativeDriver:true}).start(()=>{
-                                    setLmIndex(i);
-                                    Animated.timing(lmFadeAnim,{toValue:1,duration:300,useNativeDriver:true}).start();
-                                  });
-                                }}>
-                                  <View style={[s.lmDot, i===lmIndex&&s.lmDotA]}/>
-                                </TouchableOpacity>
-                              ))}
-                            </View>
-                          </BlurView>
-
-                          {/* Bilgi paneli — fotoğrafın alt kısmına BİNİYOR, gerçek foto pikselini bulanıklaştırıyor */}
-                          <BlurView
-                            intensity={80}
-                            tint="dark"
-                            experimentalBlurMethod="dimezisBlurView"
-                            blurReductionFactor={2}
-                            style={s.lmGlassPanel}
-                          >
-                            <LinearGradient
-                              colors={['rgba(255,255,255,0.22)','rgba(255,255,255,0.04)']}
-                              start={{x:0,y:0}} end={{x:0,y:1}}
-                              style={StyleSheet.absoluteFill as any}
-                              pointerEvents="none"
-                            />
-                            <View style={s.lmBannerBody}>
-                              <Text style={[s.lmBannerName,{color:'#fff'}]}>{LANDMARKS[lmIndex].name}</Text>
-                              <View style={s.lmBannerSubRow}>
-                                <MapPin color="rgba(255,255,255,0.75)" size={12} strokeWidth={2.2}/>
-                                <Text style={[s.lmBannerSub,{color:'rgba(255,255,255,0.75)'}]} numberOfLines={1}>{LANDMARKS[lmIndex].tag}{LANDMARKS[lmIndex].year ? ` · ${LANDMARKS[lmIndex].year}` : ''}</Text>
-                              </View>
-                              <View style={s.lmBannerBottomRow}>
-                                <Text style={[s.lmBannerDesc,{color:'rgba(255,255,255,0.75)'}]} numberOfLines={2}>{LANDMARKS[lmIndex].desc}</Text>
-                                <View style={[s.lmArrowBtn,{backgroundColor:PALETTE.saffron}]}>
-                                  <ArrowUpRight color={PALETTE.gunmetal} size={18} strokeWidth={2.4}/>
-                                </View>
-                              </View>
-                            </View>
-                          </BlurView>
-                        </ImageBackground>
-                      </Animated.View>
-                    </View>
-                  </View>
-                );
-              }
-
-              return (
-                <View style={[cardOuterShadow, isDark ? cardBorderDark : cardBorderLight, {
-                  backgroundColor:cardBg, borderRadius:26,
-                }]}>
-                  <View style={[cardInnerClip, {borderRadius:26}]}>
-                    <Animated.View style={{opacity:lmFadeAnim}}>
-                      <View style={s.lmImageWrap}>
-                        <ImageBackground source={imageSource} style={s.lmImage} imageStyle={s.lmImageRadius} resizeMode="cover">
-                          <LinearGradient colors={['transparent','rgba(0,0,0,0.32)']} style={[StyleSheet.absoluteFill as any, s.lmImageRadius]} />
-                          <View style={s.lmDots}>
-                            {LANDMARKS.map((_,i)=>(
-                              <TouchableOpacity key={i} onPress={()=>{
-                                Animated.timing(lmFadeAnim,{toValue:0,duration:200,useNativeDriver:true}).start(()=>{
-                                  setLmIndex(i);
-                                  Animated.timing(lmFadeAnim,{toValue:1,duration:300,useNativeDriver:true}).start();
-                                });
-                              }}>
-                                <View style={[s.lmDot, i===lmIndex&&s.lmDotA]}/>
-                              </TouchableOpacity>
-                            ))}
-                          </View>
-                        </ImageBackground>
-                      </View>
-                      <View style={s.lmBannerBody}>
-                        <Text style={[s.lmBannerName,{color:txt1}]}>{LANDMARKS[lmIndex].name}</Text>
-                        <View style={s.lmBannerSubRow}>
-                          <MapPin color={txt2} size={12} strokeWidth={2.2}/>
-                          <Text style={[s.lmBannerSub,{color:txt2}]} numberOfLines={1}>{LANDMARKS[lmIndex].tag}{LANDMARKS[lmIndex].year ? ` · ${LANDMARKS[lmIndex].year}` : ''}</Text>
-                        </View>
-                        <View style={s.lmBannerBottomRow}>
-                          <Text style={[s.lmBannerDesc,{color:txt2}]} numberOfLines={2}>{LANDMARKS[lmIndex].desc}</Text>
-                          <View style={[s.lmArrowBtn,{backgroundColor:'#111114'}]}>
-                            <ArrowUpRight color="#fff" size={18} strokeWidth={2.2}/>
-                          </View>
-                        </View>
-                      </View>
-                    </Animated.View>
-                  </View>
-                </View>
-              );
-            })()}
+          <TouchableOpacity
+            activeOpacity={0.88}
+            onPress={()=>navigation.navigate('Assistant')}
+            style={[s.assistantBanner,{backgroundColor:ctaBg}]}
+          >
+            <View style={s.assistantBannerLeft}>
+              <Sparkles color={ctaTxt} size={20} strokeWidth={2}/>
+              <View style={{flex:1}}>
+                <Text style={[s.assistantBannerTitle,{color:ctaTxt}]}>Şanlı Asistan</Text>
+                <Text style={[s.assistantBannerSub,{color:ctaTxt,opacity:0.6}]}>Şehir hakkında her şeyi sor</Text>
+              </View>
+            </View>
+            <Text style={{color:ctaTxt,fontSize:16}}>→</Text>
           </TouchableOpacity>
         </View>
+
+        <View style={s.lunchSection}>
+          <View style={s.lunchSectionHead}>
+            <Text style={[s.lunchSectionTitle,{color:txt1}]}>Genç Kart Fırsatları</Text>
+            <TouchableOpacity onPress={()=>setGencDealsVisible(true)} activeOpacity={0.7}>
+              <Text style={[s.secMore,{color:txt1}]}>Fırsatları Keşfet →</Text>
+            </TouchableOpacity>
+          </View>
+          {loadingFirsatlar ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.dealScroll}>
+              {[1,2,3].map(i=>(
+                <View key={i} style={[s.dealScrollCard,{backgroundColor:cardBg,borderColor:cardBdr}]}>
+                  <Skeleton width="100%" height={80} borderRadius={14} isDark={isDark}/>
+                </View>
+              ))}
+            </ScrollView>
+          ) : firsatlar.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.dealScroll} snapToInterval={140} decelerationRate="fast">
+              {firsatlar.map((p)=>{
+                const th=getCategoryTheme(p.kategori,p.baslik);const Icon=th.icon;
+                const discountRaw = p.aciklama?.match(/%([\d]+)/)?.[1] ?? null;
+                return (
+                  <FirsatTicketCard
+                    key={p.id}
+                    p={p}
+                    th={th}
+                    Icon={Icon}
+                    discountNum={discountRaw}
+                    onPress={()=>navigation.navigate('PartnerDetail',{partnerId:p.id.toString()})}
+                    cardBg={cardBg}
+                    chipBg={chipBg}
+                    amber={amber}
+                    txt1={txt1}
+                    txt2={txt2}
+                    ctaBg={ctaBg}
+                    ctaTxt={ctaTxt}
+                    pageBg={pageBg}
+                    isDark={isDark}
+                  />
+                );
+              })}
+            </ScrollView>
+          ) : (
+            <TouchableOpacity activeOpacity={0.86} onPress={()=>navigation.navigate('Main',{screen:'GencKart' as keyof MainTabParamList})} style={[s.gencDealEmpty,{backgroundColor:cardBg,borderColor:cardBdr}]}>
+              <Gift color={amber} size={20}/>
+              <Text style={[s.emptyTitle,{color:txt1}]}>Genç Kart fırsatları yakında</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {todaysEvents.length > 0 && (
+          <View style={s.lunchSection}>
+            <View style={s.lunchSectionHead}>
+              <Text style={[s.lunchSectionTitle,{color:txt1}]}>Bugün Neler Var</Text>
+              <TouchableOpacity onPress={()=>setCalendarVisible(true)} activeOpacity={0.7}>
+                <Text style={[s.secMore,{color:txt1}]}>Takvim →</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={[s.lunchMealCard,{backgroundColor:cardBg,borderColor:cardBdr}]}>
+              {todaysEvents.slice(0,3).map((ev,i)=>(
+                <TouchableOpacity key={ev.id} activeOpacity={0.85} onPress={()=>{setCalendarVisible(false);navigation.navigate('Events');}} style={[s.lunchEventRow, i===Math.min(todaysEvents.length,3)-1 && {borderBottomWidth:0}]}>
+                  <View style={[s.lunchEventIcon,{backgroundColor:chipBg}]}>
+                    <Calendar color={txt1} size={15} strokeWidth={2}/>
+                  </View>
+                  <View style={{flex:1}}>
+                    <Text style={[s.activityTitle,{color:txt1}]} numberOfLines={1}>{ev.title}</Text>
+                    <Text style={[s.activitySub,{color:txt2}]} numberOfLines={1}>{ev.location || ev.category}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
 
       </ScrollView>
 
@@ -765,6 +618,72 @@ export default function HomeScreen() {
         </View>
       </Modal>
 
+      {/* Genç Kart fırsatları — Home'u kalabalıklaştırmadan tüm fırsatları gösteren yüzen panel */}
+      <Modal visible={gencDealsVisible} animationType="slide" transparent onRequestClose={()=>setGencDealsVisible(false)}>
+        <View style={s.gencSheetBack}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={()=>setGencDealsVisible(false)}/>
+          <View style={[s.gencSheet,{backgroundColor:cardBg,borderColor:cardBdr}]}>
+            <View style={s.gencSheetHandle}/>
+            <View style={s.gencSheetHead}>
+              <View>
+                <Text style={[s.gencSheetEyebrow,{color:txt2}]}>GENÇ KART</Text>
+                <Text style={[s.gencSheetTitle,{color:txt1}]}>Fırsatları Keşfet</Text>
+              </View>
+              <TouchableOpacity style={[s.gencSheetClose,{backgroundColor:chipBg}]} onPress={()=>setGencDealsVisible(false)} activeOpacity={0.8}>
+                <X color={txt1} size={18}/>
+              </TouchableOpacity>
+            </View>
+
+            {loadingFirsatlar ? (
+              <View style={{gap:10}}>
+                {[1,2,3,4].map(i=>(
+                  <View key={i} style={[s.gencSheetDeal,{borderColor:cardBdr}]}>
+                    <Skeleton width="100%" height={54} borderRadius={14} isDark={isDark}/>
+                  </View>
+                ))}
+              </View>
+            ) : firsatlar.length > 0 ? (
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom:18, gap:10}}>
+                {firsatlar.map((p)=>{
+                  const th=getCategoryTheme(p.kategori,p.baslik);const Icon=th.icon;
+                  const { discountText, detailText } = getDealDisplay(p);
+                  return (
+                    <TouchableOpacity
+                      key={p.id}
+                      activeOpacity={0.86}
+                      style={[s.gencSheetDeal,{borderColor:cardBdr}]}
+                      onPress={()=>{
+                        setGencDealsVisible(false);
+                        navigation.navigate('PartnerDetail',{partnerId:p.id.toString()});
+                      }}
+                    >
+                      <View style={[s.gencDealIcon,{backgroundColor:chipBg}]}>
+                        <Icon color={txt1} size={16} strokeWidth={2}/>
+                      </View>
+                      <View style={{flex:1}}>
+                        <Text style={[s.gencDealTitle,{color:txt1}]} numberOfLines={1}>{p.baslik}</Text>
+                        <Text style={[s.gencDealMeta,{color:txt2}]} numberOfLines={1}>{detailText}</Text>
+                      </View>
+                      {discountText ? (
+                        <Text style={[s.gencDealBadge,{color:txt1}]}>{discountText}</Text>
+                      ) : (
+                        <ArrowUpRight color={txt2} size={16} strokeWidth={2.2}/>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            ) : (
+              <View style={[s.gencSheetEmpty,{borderColor:cardBdr}]}>
+                <Gift color={amber} size={22}/>
+                <Text style={[s.emptyTitle,{color:txt1}]}>Fırsat bulunamadı</Text>
+                <Text style={[s.emptySub,{color:txt2}]}>Yeni Genç Kart fırsatları yakında burada görünecek.</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+
       {/* Promo modal — Genç Kart fırsat kartlarıyla birebir aynı bilet tasarımı */}
       <Modal visible={promoModalVisible} animationType="fade" transparent onRequestClose={()=>setPromoModalVisible(false)}>
         <View style={s.mBack}>
@@ -777,7 +696,7 @@ export default function HomeScreen() {
                 <Path
                   d={buildTicketPath(promoSize.width, promoSize.height, TICKET_RADIUS, promoNotchY, TICKET_NOTCH_RADIUS)}
                   fill={cardBg}
-                  stroke={isDark ? 'rgba(255,255,255,0.16)' : 'rgba(17,17,20,0.14)'}
+                  stroke={isDark ? 'rgba(255,255,255,0.16)' : 'rgba(17,17,20,1)'}
                   strokeWidth={1.5}
                 />
               </Svg>
@@ -960,6 +879,100 @@ const s = StyleSheet.create({
   root: {flex:1},
   orb:  {position:'absolute',borderRadius:999},
 
+  // Lunch Box inspired HomeScreen
+  lunchScroll:{paddingHorizontal:18, paddingBottom:126},
+  lunchTopBar:{flexDirection:'row', alignItems:'center', justifyContent:'space-between', gap:14, marginBottom:6},
+  lunchDate:{fontSize:9.5, fontWeight:'900', letterSpacing:1.4, marginBottom:4, textTransform:'uppercase'},
+  lunchHello:{fontSize:23, lineHeight:27, fontWeight:'500', fontFamily:SERIF, letterSpacing:-0.35},
+  lunchTopActions:{flexDirection:'row', alignItems:'center', gap:9},
+  lunchIconBtn:{width:40, height:40, borderRadius:20, alignItems:'center', justifyContent:'center', borderWidth:1, position:'relative'},
+  lunchAvatar:{width:40, height:40, borderRadius:20, alignItems:'center', justifyContent:'center', overflow:'hidden'},
+  lunchCover:{borderRadius:22, borderWidth:1.35, minHeight:360, paddingTop:14, paddingHorizontal:16, paddingBottom:16, alignItems:'center', overflow:'hidden'},
+  lunchCoverLine:{position:'absolute', top:0, bottom:0, width:1.2, backgroundColor:'rgba(17,17,20,0.34)'},
+  lunchCoverHead:{alignSelf:'stretch', alignItems:'center', borderBottomWidth:1.2, borderBottomColor:'rgba(17,17,20,0.42)', paddingBottom:9, marginHorizontal:-16},
+  lunchCoverHeadGlass:{borderRadius:999, overflow:'hidden', paddingHorizontal:14, paddingVertical:4, backgroundColor:'rgba(255,248,234,0.5)', borderWidth:1, borderColor:'rgba(255,255,255,0.45)'},
+  lunchCoverWord:{fontSize:18, lineHeight:23, fontWeight:'500', letterSpacing:1.2, fontFamily:SERIF},
+  lunchBlob:{position:'absolute', width:42, height:42, borderRadius:21, opacity:0.55},
+  lunchCoverArt:{marginTop:16, marginBottom:4},
+  lunchGlassTag:{position:'absolute', left:12, right:12, bottom:12, borderRadius:16, overflow:'hidden', paddingHorizontal:10, paddingVertical:6, backgroundColor:'rgba(248,248,250,0.9)', borderWidth:1, borderColor:'rgba(255,255,255,0.5)'},
+  lunchGlassTagText:{fontSize:11, fontWeight:'900', letterSpacing:1, textTransform:'uppercase'},
+  lunchGlassTagSub:{fontSize:12.5, fontWeight:'700', marginTop:2},
+  lunchCoverTitle:{fontSize:25, lineHeight:30, fontWeight:'500', fontFamily:SERIF, textAlign:'center', letterSpacing:-0.25},
+  lunchCoverSub:{fontSize:12, lineHeight:17, fontWeight:'500', textAlign:'center', marginTop:5, paddingHorizontal:14},
+  lunchNext:{height:42, borderRadius:999, borderWidth:1.1, alignSelf:'stretch', marginTop:12, paddingLeft:18, paddingRight:4, flexDirection:'row', alignItems:'center', justifyContent:'space-between', overflow:'hidden', backgroundColor:'rgba(255,248,234,0.48)'},
+  lunchNextTxt:{fontSize:13.5, fontWeight:'700'},
+  lunchNextCircle:{width:34, height:34, borderRadius:17, borderWidth:1.1, alignItems:'center', justifyContent:'center'},
+  lunchInfoRow:{flexDirection:'row', gap:0, marginTop:6, borderBottomWidth:1.2},
+  lunchInfoPill:{flex:1, minHeight:38, flexDirection:'row', alignItems:'center', justifyContent:'center', gap:6, paddingHorizontal:5},
+  lunchInfoText:{fontSize:11.5, fontWeight:'800'},
+  lunchSection:{marginTop:24},
+  lunchSectionHead:{flexDirection:'row', alignItems:'center', justifyContent:'space-between', marginBottom:12},
+  lunchSectionTitle:{fontSize:11.5, fontWeight:'900', letterSpacing:1.35, textTransform:'uppercase'},
+  lunchFeatureScroll:{paddingRight:18, gap:10},
+  lunchFeatureCard:{width:172, height:148, borderRadius:18, borderWidth:1.2, padding:6, overflow:'hidden'},
+  lunchFeatureImage:{width:'100%', height:'100%', borderRadius:13},
+  lunchFeatureCaption:{position:'absolute', left:12, right:12, bottom:11, borderRadius:999, overflow:'hidden', backgroundColor:'rgba(248,248,250,0.9)', borderWidth:1, borderColor:'rgba(255,255,255,0.46)', paddingHorizontal:10, paddingVertical:5},
+  lunchFeatureName:{fontSize:13.5, fontWeight:'500', fontFamily:SERIF, letterSpacing:-0.1, textAlign:'center'},
+  lunchFeatureMeta:{fontSize:11.5, fontWeight:'700', marginTop:3, marginHorizontal:4, marginBottom:3},
+  lunchEmpty:{borderRadius:22, borderWidth:1, padding:22, alignItems:'center', gap:8},
+  dealScroll:{paddingLeft:18, paddingRight:8, gap:10},
+  dealScrollCard:{width:138, borderRadius:18, borderWidth:1.2, padding:14, gap:8, justifyContent:'space-between', minHeight:160},
+  dealScrollIcon:{width:38, height:38, borderRadius:12, alignItems:'center', justifyContent:'center'},
+  dealScrollTitle:{fontSize:14, fontWeight:'800', letterSpacing:-0.2},
+  dealScrollMeta:{fontSize:11, fontWeight:'500'},
+  dealScrollBadge:{fontSize:22, fontWeight:'900', letterSpacing:-0.5, marginTop:4},
+  assistantBanner:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderRadius:14,padding:14,marginTop:10},
+  assistantBannerLeft:{flexDirection:'row',alignItems:'center',gap:12,flex:1},
+  assistantBannerTitle:{fontSize:15,fontWeight:'800',letterSpacing:-0.2},
+  assistantBannerSub:{fontSize:12,fontWeight:'500'},
+  gencDealGrid:{gap:10},
+  gencDealHero:{borderRadius:22, borderWidth:1.2, padding:18, gap:10},
+  gencDealHeroIcon:{width:44, height:44, borderRadius:14, alignItems:'center', justifyContent:'center'},
+  gencDealHeroTitle:{fontSize:18, fontWeight:'800', letterSpacing:-0.3},
+  gencDealHeroMeta:{fontSize:13, fontWeight:'500', lineHeight:18},
+  gencDealHeroBadge:{fontSize:28, fontWeight:'900', letterSpacing:-1, marginTop:2},
+  gencDealHeroCta:{flexDirection:'row', alignItems:'center', justifyContent:'center', gap:6, paddingVertical:12, borderRadius:14, marginTop:4},
+  gencDealHeroCtaTxt:{fontSize:13.5, fontWeight:'700'},
+  gencDealCard:{minHeight:70, borderRadius:18, borderWidth:1.2, paddingHorizontal:12, paddingVertical:10, flexDirection:'row', alignItems:'center', gap:10},
+  gencTicketDash:{height:42, borderLeftWidth:1.1, borderStyle:'dashed', marginHorizontal:2},
+  gencDealIcon:{width:34, height:34, borderRadius:13, alignItems:'center', justifyContent:'center', borderWidth:1, borderColor:'rgba(17,17,20,0.14)'},
+  gencDealTitle:{fontSize:14.5, fontWeight:'700', letterSpacing:-0.15},
+  gencDealMeta:{fontSize:11.5, fontWeight:'700', marginTop:3},
+  gencDealBadge:{fontSize:13, fontWeight:'900', letterSpacing:-0.1, minWidth:46, textAlign:'center'},
+  gencDealEmpty:{borderRadius:18, borderWidth:1.2, padding:16, flexDirection:'row', alignItems:'center', justifyContent:'center', gap:8},
+  gencSheetBack:{flex:1, backgroundColor:'rgba(19,14,9,0.42)', justifyContent:'flex-end'},
+  gencSheet:{maxHeight:'76%', borderTopLeftRadius:28, borderTopRightRadius:28, borderWidth:1.35, paddingHorizontal:18, paddingTop:10, paddingBottom:Platform.OS==='ios'?28:18},
+  gencSheetHandle:{alignSelf:'center', width:44, height:4, borderRadius:2, backgroundColor:'rgba(17,17,20,0.28)', marginBottom:14},
+  gencSheetHead:{flexDirection:'row', alignItems:'center', justifyContent:'space-between', marginBottom:16},
+  gencSheetEyebrow:{fontSize:10, fontWeight:'900', letterSpacing:1.35, marginBottom:3},
+  gencSheetTitle:{fontSize:25, lineHeight:30, fontWeight:'500', fontFamily:SERIF, letterSpacing:-0.25},
+  gencSheetClose:{width:36, height:36, borderRadius:18, alignItems:'center', justifyContent:'center', borderWidth:1, borderColor:'rgba(17,17,20,0.14)'},
+  gencSheetDeal:{minHeight:68, borderRadius:18, borderWidth:1.2, paddingHorizontal:12, paddingVertical:10, flexDirection:'row', alignItems:'center', gap:10, backgroundColor:'rgba(255,248,234,0.72)'},
+  gencSheetEmpty:{borderRadius:18, borderWidth:1.2, padding:20, alignItems:'center', gap:8, backgroundColor:'rgba(255,248,234,0.72)'},
+  lunchMealCard:{borderRadius:18, borderWidth:1.2, overflow:'hidden'},
+  lunchMealRow:{minHeight:82, flexDirection:'row', alignItems:'center', gap:13, paddingLeft:16, paddingRight:9, paddingVertical:9, borderBottomWidth:1, borderBottomColor:'rgba(17,17,20,0.14)'},
+  lunchMealTitle:{fontSize:18, fontWeight:'500', fontFamily:SERIF, letterSpacing:-0.15, marginBottom:7},
+  lunchMealMetaRow:{flexDirection:'row', alignItems:'center', gap:5},
+  lunchMealDot:{width:13, height:13, borderRadius:6.5, borderWidth:1, borderColor:'rgba(17,17,20,0.2)'},
+  lunchMealMeta:{fontSize:11.5, fontWeight:'700', marginLeft:3, flex:1},
+  lunchMealThumb:{width:92, height:64, borderRadius:10, borderWidth:1, borderColor:'rgba(17,17,20,0.22)', overflow:'hidden'},
+  lunchQuickScroll:{gap:10, paddingRight:20},
+  lunchQuickGrid:{flexDirection:'row', flexWrap:'wrap', gap:10},
+  lunchQuickCard:{width:'31.4%', minHeight:88, borderRadius:18, borderWidth:1, paddingVertical:11, paddingHorizontal:6, alignItems:'center', justifyContent:'center', gap:7, backgroundColor:'#FFFFFF'},
+  lunchQuickIcon:{width:42, height:42, borderRadius:15, borderWidth:1, borderColor:'rgba(17,17,20,0.14)', alignItems:'center', justifyContent:'center', overflow:'hidden'},
+  lunchQuickText:{fontSize:11, fontWeight:'800', color:'#111114', textAlign:'center', letterSpacing:-0.1},
+  lunchEventRow:{minHeight:66, flexDirection:'row', alignItems:'center', gap:12, paddingHorizontal:14, paddingVertical:10, borderBottomWidth:1, borderBottomColor:'rgba(17,17,20,0.12)'},
+  lunchEventIcon:{width:38, height:38, borderRadius:14, alignItems:'center', justifyContent:'center'},
+  lunchSocialCard:{marginTop:16, borderRadius:20, borderWidth:1.35, padding:18, minHeight:122, flexDirection:'row', alignItems:'center', justifyContent:'space-between', overflow:'hidden', backgroundColor:'rgba(255,248,234,0.86)'},
+  sosyalCompact:{marginTop:14, borderRadius:14, borderWidth:1.2, paddingHorizontal:16, paddingVertical:14, flexDirection:'row', alignItems:'center', gap:10},
+  sosyalCompactDot:{width:8, height:8, borderRadius:4},
+  sosyalCompactTitle:{fontSize:15, fontWeight:'800', flex:1},
+  sosyalCompactSub:{fontSize:12, fontWeight:'500'},
+  assistantCard:{marginTop:20, borderRadius:18, borderWidth:1.2, padding:14, flexDirection:'row', alignItems:'center', gap:12},
+  assistantIconWrap:{width:42, height:42, borderRadius:14, alignItems:'center', justifyContent:'center'},
+  assistantTitle:{fontSize:15, fontWeight:'800', letterSpacing:-0.2},
+  assistantSub:{fontSize:12, fontWeight:'500', marginTop:2},
+
   // Hero
   hero:       {height:272, overflow:'hidden'},
   heroGrad:   {flex:1, paddingHorizontal:20, paddingTop:14, paddingBottom:24, justifyContent:'space-between'},
@@ -972,7 +985,10 @@ const s = StyleSheet.create({
 
   // Hero — sade/temiz versiyon
   heroClean:      {paddingHorizontal:20, paddingBottom:14, gap:10},
-  heroCleanGreet: {fontSize:23, fontWeight:'800', letterSpacing:-0.4},
+  heroCleanGreet: {fontSize:24, fontWeight:'700', letterSpacing:-0.2, fontFamily:SERIF},
+  heroCleanGreetLight:{fontSize:19, fontWeight:'500', letterSpacing:-0.2},
+  heroCleanGreetEmoji:{fontSize:19},
+  heroEyebrow:{fontSize:11, fontWeight:'800', letterSpacing:1.2, marginBottom:8},
   heroCleanTop:   {flexDirection:'row', alignItems:'center', gap:12},
   heroCleanIcons: {flexDirection:'row', alignItems:'center', gap:10, marginRight:Platform.OS==='ios'?11:8},
   heroCleanIconBtn:{width:40, height:40, borderRadius:20, alignItems:'center', justifyContent:'center', position:'relative'},
@@ -980,24 +996,90 @@ const s = StyleSheet.create({
   notifBadgeTxt:{color:'#fff', fontSize:9, fontWeight:'800'},
   heroCleanAvatar:{width:40, height:40, borderRadius:20, alignItems:'center', justifyContent:'center', overflow:'hidden'},
   heroCleanAvatarTxt:{fontSize:16, fontWeight:'800'},
-  quickGrid:      {flexDirection:'row', flexWrap:'wrap', rowGap:18},
-  quickSquareCard:{alignItems:'center', width:'33.33%', gap:6},
-  quickSquareIconWrap:{width:56, height:56, borderRadius:18, alignItems:'center', justifyContent:'center', overflow:'hidden'},
-  quickSquareLottie:{width:36, height:36},
+  quickGrid:      {flexDirection:'row', flexWrap:'wrap', rowGap:18, marginTop:14},
+  quickSquareCard:{alignItems:'center', width:'33.33%', gap:8},
+  quickSquareFrame:{width:64, height:64, borderRadius:22, alignItems:'center', justifyContent:'center'},
+  quickSquareIconWrap:{width:52, height:52, borderRadius:16, alignItems:'center', justifyContent:'center', overflow:'hidden'},
+  quickSquareLottie:{width:34, height:34},
   quickSquareLabel:{fontSize:11, fontWeight:'700', textAlign:'center'},
 
   heroPill:   {flexDirection:'row', alignSelf:'flex-start', borderRadius:999, borderWidth:1, overflow:'hidden'},
-  heroPillSide:{flexDirection:'row', alignItems:'center', gap:5, paddingHorizontal:11, paddingVertical:6},
+  heroPillSide:{flexDirection:'row', alignItems:'center', gap:6, paddingHorizontal:13, paddingVertical:8},
   heroPillTxt: {fontSize:12.5, fontWeight:'700'},
   heroPillDesc:{fontSize:10, fontWeight:'500', textTransform:'capitalize'},
   heroPillDivider:{width:1, marginVertical:6},
+
+  statRow:   {flexDirection:'row', gap:12, marginTop:16},
+  statTile:  {flex:1, borderRadius:22, padding:16, gap:10},
+  statIconCircle:{width:36, height:36, borderRadius:18, alignItems:'center', justifyContent:'center'},
+  statLabel: {fontSize:12.5, fontWeight:'600', color:'rgba(17,17,20,0.55)'},
+  statValue: {fontSize:24, fontWeight:'800', color:'#111114', letterSpacing:-0.4, marginTop:-6},
+
+  editorialHeroCard:{borderRadius:28, borderWidth:1.2, paddingTop:18, paddingHorizontal:18, paddingBottom:20, marginTop:10, overflow:'hidden', alignItems:'center'},
+  editorialGridLine:{position:'absolute', top:0, bottom:0, width:1, backgroundColor:'rgba(17,17,20,0.11)'},
+  editorialHeroHeader:{alignSelf:'stretch', alignItems:'center', borderBottomWidth:1, borderBottomColor:'rgba(17,17,20,0.16)', paddingBottom:12, marginHorizontal:-18},
+  editorialWordmark:{fontSize:23, fontWeight:'500', letterSpacing:0.8, fontFamily:SERIF},
+  editorialHeaderRule:{position:'absolute', top:-18, bottom:-12, left:'50%', width:1, backgroundColor:'rgba(17,17,20,0.12)'},
+  editorialHeroArt:{marginTop:18, marginBottom:10},
+  editorialHeroTitle:{fontSize:28, lineHeight:34, fontWeight:'500', fontFamily:SERIF, textAlign:'center', letterSpacing:-0.2},
+  editorialNextPill:{height:46, borderRadius:999, borderWidth:1.2, alignSelf:'stretch', marginTop:16, paddingLeft:22, paddingRight:5, flexDirection:'row', alignItems:'center', justifyContent:'space-between'},
+  editorialNextTxt:{fontSize:14, fontWeight:'600'},
+  editorialNextIcon:{width:36, height:36, borderRadius:18, borderWidth:1.2, alignItems:'center', justifyContent:'center'},
+
+  comparisonPanel:{backgroundColor:'#DCEAF5', borderRadius:24, paddingVertical:16, marginHorizontal:20},
+  comparisonFooter:{flexDirection:'row', alignItems:'center', justifyContent:'space-between', paddingHorizontal:20, marginTop:14, paddingTop:14, borderTopWidth:1, borderTopColor:'rgba(17,17,20,0.08)'},
+  comparisonFooterLabel:{fontSize:13, fontWeight:'600', color:'rgba(17,17,20,0.6)'},
+  comparisonFooterBadge:{backgroundColor:'#111114', borderRadius:12, paddingHorizontal:12, paddingVertical:6},
+  comparisonFooterBadgeTxt:{fontSize:12.5, fontWeight:'800', color:'#fff'},
+
+  dotsTop:{flexDirection:'row', gap:5},
+  dotTop: {width:6, height:6, borderRadius:3},
+
+  featuredCard:{width:168, height:170, marginRight:12, borderRadius:20, borderWidth:1, padding:6, overflow:'hidden'},
+  featuredPhoto:{width:'100%', height:'100%', borderRadius:15},
+  featuredPhotoFallback:{alignItems:'center', justifyContent:'center'},
+
+  detailCard:{marginTop:16, borderRadius:22, borderWidth:1, padding:20},
+  detailTitle:{fontSize:19, fontWeight:'700', letterSpacing:-0.3, fontFamily:SERIF, marginBottom:6},
+  detailDesc: {fontSize:13, lineHeight:19, marginBottom:16},
+  detailSectionLabel:{fontSize:11, fontWeight:'800', letterSpacing:1.2, textTransform:'uppercase', marginBottom:12},
+  detailRow:  {flexDirection:'row', alignItems:'center', gap:10, marginBottom:6},
+  detailDotIcon:{width:26, height:26, borderRadius:13, alignItems:'center', justifyContent:'center'},
+  detailRowLabel:{flex:1, fontSize:13.5, fontWeight:'600'},
+  detailRowValue:{fontSize:13, fontWeight:'700'},
+  detailProgressTrack:{height:3, borderRadius:2, backgroundColor:'rgba(17,17,20,0.08)', marginLeft:36, marginBottom:14, overflow:'hidden'},
+  detailProgressFill:{height:3, borderRadius:2},
+  detailCta:{flexDirection:'row', alignItems:'center', justifyContent:'space-between', backgroundColor:'#111114', borderRadius:26, paddingLeft:20, paddingRight:6, height:48, marginTop:4},
+  detailCtaTxt:{fontSize:14, fontWeight:'700', color:'#fff', fontFamily:SERIF},
+
+  todayBoxList:{borderRadius:24, borderWidth:1, overflow:'hidden'},
+  todayBoxRow:{minHeight:86, flexDirection:'row', alignItems:'center', gap:14, paddingLeft:18, paddingRight:10, paddingVertical:10, borderBottomWidth:1, borderBottomColor:'rgba(17,17,20,0.12)'},
+  todayBoxTitle:{fontSize:19, fontWeight:'500', fontFamily:SERIF, letterSpacing:-0.15, marginBottom:8},
+  todayBoxMetaRow:{flexDirection:'row', alignItems:'center', gap:5},
+  todayBoxDot:{width:13, height:13, borderRadius:6.5, borderWidth:1, borderColor:'rgba(17,17,20,0.2)'},
+  todayBoxMeta:{fontSize:11.5, fontWeight:'700', marginLeft:3, flex:1},
+  todayBoxThumb:{width:96, height:66, borderRadius:13, borderWidth:1, borderColor:'rgba(17,17,20,0.18)'},
+
+  splashCard:{borderRadius:28, borderWidth:1, paddingVertical:28, paddingHorizontal:20, alignItems:'center'},
+  splashWordmark:{fontSize:15, fontWeight:'700', letterSpacing:4, fontFamily:SERIF, marginBottom:22},
+  splashStarWrap:{marginBottom:22},
+  splashTagline:{fontSize:24, fontWeight:'700', letterSpacing:-0.3, fontFamily:SERIF, textAlign:'center', lineHeight:30},
+  splashSub:{fontSize:13, fontWeight:'500', marginTop:8},
+
+  activityList:{borderRadius:20, borderWidth:1, paddingHorizontal:16},
+  activityRow:{flexDirection:'row', alignItems:'center', gap:12, paddingVertical:14, borderBottomWidth:1, borderBottomColor:'rgba(17,17,20,0.06)'},
+  activityIconCircle:{width:44, height:44, borderRadius:13, alignItems:'center', justifyContent:'center'},
+  activityTitle:{fontSize:14.5, fontWeight:'700', letterSpacing:-0.2},
+  activityBadgeRow:{flexDirection:'row', alignItems:'center', gap:6, marginTop:5, flexWrap:'wrap'},
+  activityBadge:{width:18, height:18, borderRadius:9, alignItems:'center', justifyContent:'center'},
+  activitySub:{fontSize:12.5, fontWeight:'500'},
 
   // Section
   section:{marginTop:30},
   secRow: {flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:14, paddingHorizontal:20},
   secTitleWrap:{flexDirection:'row', alignItems:'center', gap:9},
   secBar:  {width:4, height:20, borderRadius:2},
-  secLabel:{fontSize:18, fontWeight:'800', letterSpacing:-0.2},
+  secLabel:{fontSize:13, fontWeight:'700', letterSpacing:1.2, textTransform:'uppercase'},
   secMore: {fontSize:13, fontWeight:'700'},
 
   // Landmarks — kart anatomisi: görsel üstte, içerik altta
@@ -1006,17 +1088,14 @@ const s = StyleSheet.create({
   lmImageWrap: {padding:10},
   lmImage:     {height:180, justifyContent:'flex-end', overflow:'hidden'},
   lmImageRadius:{borderRadius:18},
-  // GLASS_TRIAL — fotoğraf tüm kartı kaplar, bilgi paneli fotoğrafın üstüne biner
-  lmImageFull: {height:290, justifyContent:'flex-end'},
-  lmDotsGlass: {flexDirection:'row', alignSelf:'flex-end', margin:14, paddingHorizontal:10, paddingVertical:7, borderRadius:14, overflow:'hidden'},
-  lmGlassPanel:{margin:10, marginTop:-56, borderRadius:20, overflow:'hidden'},
   lmBannerBody:{gap:6, padding:16, paddingTop:12},
-  lmBannerName:{fontSize:19, fontWeight:'800', letterSpacing:-0.3},
+  lmBannerName:{fontSize:24, fontWeight:'700', letterSpacing:-0.2, fontFamily:SERIF},
   lmBannerSubRow:{flexDirection:'row', alignItems:'center', gap:5},
   lmBannerSub: {fontSize:12.5, fontWeight:'600'},
-  lmBannerBottomRow:{flexDirection:'row', alignItems:'flex-end', justifyContent:'space-between', gap:12, marginTop:4},
-  lmBannerDesc:{fontSize:12.5, lineHeight:18, flex:1},
-  lmArrowBtn:  {width:38, height:38, borderRadius:19, alignItems:'center', justifyContent:'center'},
+  lmBannerDesc:{fontSize:12.5, lineHeight:18},
+  lmNextPill:  {flexDirection:'row', alignItems:'center', justifyContent:'space-between', borderRadius:26, paddingLeft:20, paddingRight:6, height:48},
+  lmNextPillTxt:{fontSize:14, fontWeight:'700', color:'#fff', fontFamily:SERIF},
+  lmArrowBtn:  {width:36, height:36, borderRadius:18, alignItems:'center', justifyContent:'center', backgroundColor:'#fff'},
   lmDots:      {flexDirection:'row', gap:6, alignSelf:'flex-end', margin:14},
   lmDot:       {width:6, height:6, borderRadius:3, backgroundColor:'rgba(255,255,255,0.4)'},
   lmDotA:      {width:20, backgroundColor:'#fff', borderRadius:3},
@@ -1037,8 +1116,8 @@ const s = StyleSheet.create({
   // ŞanlıSosyal
   sosyalCard:   {borderRadius:28, padding:22, flexDirection:'row', alignItems:'center', justifyContent:'space-between', overflow:'hidden', minHeight:130,
     shadowColor:'#111114', shadowOffset:{width:0,height:8}, shadowOpacity:0.16, shadowRadius:20, elevation:8},
-  sosyalLeft:   {flex:1, gap:6},
-  sosyalLiveBadge:{flexDirection:'row', alignItems:'center', gap:5, alignSelf:'flex-start', backgroundColor:'rgba(255,255,255,0.12)', paddingHorizontal:10, paddingVertical:4, borderRadius:999, borderWidth:1, borderColor:'rgba(255,255,255,0.2)'},
+  sosyalLeft:   {flex:1, gap:8},
+  sosyalLiveBadge:{flexDirection:'row', alignItems:'center', gap:5, alignSelf:'flex-start', backgroundColor:'rgba(255,248,234,0.12)', paddingHorizontal:10, paddingVertical:4, borderRadius:999, borderWidth:1, borderColor:'rgba(255,248,234,0.22)'},
   sosyalLiveDot:{width:7, height:7, borderRadius:3.5, backgroundColor:'#4ADE80'},
   sosyalLiveTxt:{fontSize:11, fontWeight:'800', color:'#fff', letterSpacing:0.6},
   sosyalTitle:  {fontSize:26, fontWeight:'800', color:'#fff', letterSpacing:-0.4},
@@ -1048,10 +1127,10 @@ const s = StyleSheet.create({
 
   // Partners — kupon / bilet tasarımı
   pScroll:   {paddingHorizontal:20, paddingVertical:14},
-  pCard:     {width:152, borderRadius:20, paddingHorizontal:13, paddingTop:13, paddingBottom:13, marginRight:12, height:188, overflow:'hidden'},
-  pHero:     {flex:1, alignItems:'center', justifyContent:'center', paddingTop:4},
-  pIconWrap: {width:40, height:40, borderRadius:12, justifyContent:'center', alignItems:'center', marginBottom:8},
-  pBigPct:   {fontSize:34, lineHeight:36, fontWeight:'900', color:'#fff', letterSpacing:-1},
+  pCard:     {width:128, borderRadius:16, paddingHorizontal:10, paddingTop:10, paddingBottom:10, marginRight:10, height:158, overflow:'hidden'},
+  pHero:     {flex:1, alignItems:'center', justifyContent:'center', paddingTop:2},
+  pIconWrap: {width:34, height:34, borderRadius:10, justifyContent:'center', alignItems:'center', marginBottom:6},
+  pBigPct:   {fontSize:28, lineHeight:30, fontWeight:'900', color:'#fff', letterSpacing:-1},
   pBigLabel: {fontSize:9, fontWeight:'800', color:'rgba(255,255,255,0.9)', letterSpacing:2, marginTop:-2},
   pBigFirsat:{fontSize:22, fontWeight:'900', color:'#fff', letterSpacing:0.5, paddingVertical:6},
   pOfferText:{fontSize:15, fontWeight:'800', color:'#fff', letterSpacing:-0.2, textAlign:'center', paddingHorizontal:2},
@@ -1061,10 +1140,10 @@ const s = StyleSheet.create({
   pNotchCircle: {position:'absolute', top:0, width:14, height:14, borderRadius:7},
   pDashRow:  {flex:1, flexDirection:'row', alignItems:'center', justifyContent:'space-between', paddingHorizontal:13},
   pDashSeg:  {width:6, height:2, borderRadius:1, backgroundColor:'rgba(255,255,255,0.6)'},
-  pName:     {fontSize:13, fontWeight:'800', color:'#fff', textAlign:'center'},
-  pKat:      {fontSize:10, fontWeight:'700', letterSpacing:0.3, color:'rgba(255,255,255,0.82)', marginTop:1, marginBottom:8, textAlign:'center'},
-  pCta:      {alignSelf:'stretch', paddingVertical:7, borderRadius:10, backgroundColor:'#fff', alignItems:'center'},
-  pCtaTxt:   {fontSize:11, fontWeight:'800'},
+  pName:     {fontSize:11, fontWeight:'800', color:'#fff', textAlign:'center'},
+  pKat:      {fontSize:9, fontWeight:'700', letterSpacing:0.3, color:'rgba(255,255,255,0.82)', marginTop:1, marginBottom:6, textAlign:'center'},
+  pCta:      {alignSelf:'stretch', paddingVertical:6, borderRadius:8, backgroundColor:'#fff', alignItems:'center'},
+  pCtaTxt:   {fontSize:10, fontWeight:'800'},
   empty:  {marginHorizontal:20, borderRadius:22, padding:24, alignItems:'center', borderWidth:1, gap:8},
   emptyIcon:{width:54, height:54, borderRadius:27, alignItems:'center', justifyContent:'center', marginBottom:4},
   emptyTitle:{fontSize:16, fontWeight:'700'},

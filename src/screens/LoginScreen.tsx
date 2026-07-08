@@ -11,9 +11,10 @@ import { PrimaryButton } from '@/components/PrimaryButton';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import type { RootStackParamList } from '@/types/navigation';
 import type { OnboardingStackParamList } from '../navigation/OnboardingNavigator';
-import { colors } from '@/theme/colors';
+import { colors, Editorial } from '@/theme/colors';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/context/UserContext';
+import { useAppTheme } from '@/theme/useAppTheme';
 
 type AuthMode = 'login' | 'register';
 type NestedNav = StackNavigationProp<OnboardingStackParamList, 'Login'>;
@@ -25,6 +26,7 @@ type AuthStep = 'email' | 'code';
 export const LoginScreen: React.FC = () => {
   const navigation = useNavigation<NestedNav>();
   const { setGuestMode } = useUser();
+  const { isDark, ctaBg, ctaTxt, accent } = useAppTheme();
   const [mode, setMode] = useState<AuthMode>('login');
   const [step, setStep] = useState<AuthStep>('email');
   const [email, setEmail] = useState('');
@@ -142,7 +144,7 @@ export const LoginScreen: React.FC = () => {
                     },
                   ]}
                 >
-                  <LinearGradient colors={['#F59E0B', '#EF4444']} style={styles.indicatorGradient} />
+                  <LinearGradient colors={isDark ? [Editorial.coffee, Editorial.coffeeSoft] : [ctaBg, accent]} style={styles.indicatorGradient} />
                 </Animated.View>
                 <Pressable style={styles.segmentButton} onPress={() => onModeChange('login')}>
                   <Text style={[styles.segmentLabel, mode === 'login' && styles.segmentLabelActive]}>Giriş Yap</Text>
@@ -224,12 +226,12 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     paddingHorizontal: 10,
     justifyContent: 'center',
-    backgroundColor: 'rgba(245,158,11,0.3)',
+    backgroundColor: 'rgba(255,248,234,0.18)',
     borderWidth: 1,
-    borderColor: 'rgba(249,115,22,0.5)',
+    borderColor: 'rgba(255,248,234,0.32)',
     marginBottom: 10,
   },
-  badgeText: { color: '#FCD9A8', fontSize: 10, letterSpacing: 1.4, fontWeight: '700' },
+  badgeText: { color: Editorial.creamText, fontSize: 10, letterSpacing: 1.4, fontWeight: '700' },
   title: { color: colors.white, fontSize: 30, fontWeight: '800', marginBottom: 6 },
   subtitle: { color: colors.textSecondary, fontSize: 13, textAlign: 'center' },
   segmentWrap: {
@@ -254,7 +256,7 @@ const styles = StyleSheet.create({
   segmentLabelActive: { color: colors.white },
   inputSpacing: { marginTop: 10 },
   forgotWrap: { alignSelf: 'flex-end', marginTop: 8, marginBottom: 12 },
-  forgotText: { color: '#FCD9A8', fontSize: 11 },
+  forgotText: { color: Editorial.creamText, fontSize: 11 },
   buttonSpacing: { marginTop: 9 },
   finePrint: {
     marginTop: 12,

@@ -15,13 +15,9 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase, processImageUrl } from '@/lib/supabase';
 import { cityFallback } from '@/lib/imageFallback';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAppTheme } from '@/theme/useAppTheme';
 
 const { width, height } = Dimensions.get('window');
-
-const SnapColors = {
-  black: '#000000',
-  white: '#FFFFFF',
-};
 
 interface Story {
   id: string;
@@ -39,6 +35,7 @@ interface Story {
 const StoryViewScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const t = useAppTheme();
   const params = route.params as { userId: string };
   
   const [stories, setStories] = useState<Story[]>([]);
@@ -157,7 +154,7 @@ const StoryViewScreen = () => {
   if (loading) {
     return (
       <View style={[styles.root, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color={SnapColors.white} />
+        <ActivityIndicator size="large" color={t.ctaTxt} />
       </View>
     );
   }
@@ -241,7 +238,7 @@ const StoryViewScreen = () => {
             style={styles.closeButton}
             onPress={() => navigation.goBack()}
           >
-            <X color={SnapColors.white} size={28} />
+            <X color={t.ctaTxt} size={28} />
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -265,7 +262,7 @@ const getTimeAgo = (timestamp: string): string => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: SnapColors.black,
+    backgroundColor: '#000000',
   },
   loadingContainer: {
     justifyContent: 'center',
@@ -307,7 +304,7 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: SnapColors.white,
+    backgroundColor: '#FFF8EA',
   },
   userInfo: {
     flexDirection: 'row',
@@ -319,7 +316,7 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     borderWidth: 2,
-    borderColor: SnapColors.white,
+    borderColor: '#FFF8EA',
   },
   userTextContainer: {
     flex: 1,
@@ -327,7 +324,7 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 16,
     fontWeight: '700',
-    color: SnapColors.white,
+    color: '#FFF8EA',
   },
   timeAgo: {
     fontSize: 13,

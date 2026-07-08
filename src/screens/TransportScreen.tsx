@@ -5,17 +5,14 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Search, MapPin, Star, Maximize2, Minimize2, Navigation, ArrowRight, Bus, X } from 'lucide-react-native';
 import * as Location from 'expo-location';
 import { Platform } from 'react-native';
-import { Colors, DribbbleColors, Clean } from '@/constants/Colors';
+import { Colors } from '@/constants/Colors';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { MOCK_STOPS } from '@/data/transport';
 import { estimateTime, calculateDistance } from '@/utils/estimateTime';
-import { useThemeMode } from '@/context/ThemeContext';
+import { useAppTheme } from '@/theme/useAppTheme';
 import { useFavorites } from '@/context/FavoritesContext';
 
-/** Home ekranıyla aynı tek aksan rengi — artık mavi değil */
-const TRANSPORT_ACCENT      = Clean.accent;
-const TRANSPORT_ACCENT_SOFT = Clean.accentSoft;
-const ROUTE_LINE_FALLBACK   = TRANSPORT_ACCENT;
+const SERIF = Platform.select<string>({ ios: 'Georgia', android: 'serif', default: 'serif' });
 
 const FAVORITE_STOPS = [
   { id: 'abide', name: 'Abide Durağı', lines: '63, 73, 90' },
@@ -24,8 +21,7 @@ const FAVORITE_STOPS = [
 ];
 
 const TransportScreen = () => {
-  const { mode } = useThemeMode();
-  const isDark = mode === 'dark';
+  const { isDark, pageBg, cardBg, cardBdr, txt1, txt2, ctaBg, ctaTxt, chipBg, accent } = useAppTheme();
   const [selectedArea, setSelectedArea] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
@@ -255,15 +251,9 @@ const TransportScreen = () => {
   }, [fromStop, toStop]);
 
   const insets  = useSafeAreaInsets();
-  // Home ekranıyla birebir aynı tema (Clean) — mavi Material Design tamamen kaldırıldı
-  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
-  const cardBg  = isDark ? '#18181B' : Clean.surface;
-  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
-  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
-  const ctaBg   = isDark ? '#F5F5F7' : Clean.ctaBg;
-  const ctaTxt  = isDark ? '#111114' : Clean.ctaText;
-  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
+  const TRANSPORT_ACCENT      = ctaBg;
+  const TRANSPORT_ACCENT_SOFT = chipBg;
+  const ROUTE_LINE_FALLBACK   = TRANSPORT_ACCENT;
 
   if (isLoading) {
     return (
@@ -399,19 +389,19 @@ const TransportScreen = () => {
       {!isMapExpanded && (
         <>
           {/* ── HERO — Home ekranındaki sade, düz zeminli başlık dili ── */}
-          <View style={[styles.hero, { paddingTop: insets.top + 18, backgroundColor: pageBg }]}>
+          <View style={[styles.hero, { paddingTop: insets.top + 18, backgroundColor: pageBg, borderBottomColor: cardBdr }]}>
             <View style={styles.heroTop}>
               <View>
                 <Text style={[styles.heroLabel,{color:txt2}]}>ULAŞIM REHBERİ</Text>
-                <Text style={[styles.heroTitle,{color:txt1}]}>Durağını Bul</Text>
+                <Text style={[styles.heroTitle,{color:txt1}]}>Durağını bul,{'\n'}yolunu planla</Text>
               </View>
-              <View style={[styles.heroIconWrap,{backgroundColor:chipBg}]}>
+              <View style={[styles.heroIconWrap,{backgroundColor:chipBg, borderColor:cardBdr}]}>
                 <Bus color={txt1} size={22} strokeWidth={1.8}/>
               </View>
             </View>
             {nearestStop && (
               <View style={[styles.heroPill,{backgroundColor:chipBg, borderColor:cardBdr}]}>
-                <MapPin color={TRANSPORT_ACCENT} size={12} strokeWidth={2.5}/>
+                <MapPin color={txt1} size={12} strokeWidth={2.5}/>
                 <Text style={[styles.heroPillTxt,{color:txt1}]}>En yakın: {nearestStop.name}</Text>
               </View>
             )}
@@ -427,7 +417,7 @@ const TransportScreen = () => {
 
             {/* Nereden - Nereye Seçimi */}
             <View style={styles.routeSelector}>
-              <View style={[cardOuterShadow, isDark ? cardBorderDark : cardBorderLight, {flex:1, backgroundColor:cardBg, borderRadius:18}]}>
+              <View style={[cardOuterShadow, {flex:1, backgroundColor:cardBg, borderRadius:18, borderWidth:1.2, borderColor:cardBdr}]}>
                 <TouchableOpacity
                   style={[styles.routeButton, cardInnerClip, {borderRadius:18}]}
                   onPress={() => setShowStopPicker('from')}
@@ -450,9 +440,9 @@ const TransportScreen = () => {
                 </TouchableOpacity>
               </View>
 
-              <ArrowRight color={txt2} size={22} style={{ marginHorizontal: 10 }} />
+              <ArrowRight color={txt2} size={20} style={{ marginHorizontal: 8 }} />
 
-              <View style={[cardOuterShadow, isDark ? cardBorderDark : cardBorderLight, {flex:1, backgroundColor:cardBg, borderRadius:18}]}>
+              <View style={[cardOuterShadow, {flex:1, backgroundColor:cardBg, borderRadius:18, borderWidth:1.2, borderColor:cardBdr}]}>
                 <TouchableOpacity
                   style={[styles.routeButton, cardInnerClip, {borderRadius:18}]}
                   onPress={() => setShowStopPicker('to')}
@@ -477,7 +467,7 @@ const TransportScreen = () => {
             </View>
 
             {/* Harita — artık destekleyici, küçük bir kart (merkezi eleman değil) */}
-            <View style={[cardOuterShadow, isDark ? cardBorderDark : cardBorderLight, {backgroundColor:cardBg, borderRadius:20, marginBottom:16}]}>
+            <View style={[cardOuterShadow, {backgroundColor:cardBg, borderRadius:20, marginBottom:16, borderWidth:1.2, borderColor:cardBdr}]}>
               <View style={[styles.mapPreview, cardInnerClip, {borderRadius:20}]}>
                 <MapView
                   provider={PROVIDER_DEFAULT}
@@ -529,8 +519,8 @@ const TransportScreen = () => {
 
           {/* Search */}
           <View style={{ zIndex: 10 }}>
-            <View style={[styles.searchContainer, { backgroundColor: cardBg, borderColor: cardBdr, borderWidth: 1 }]}>
-              <Search color={isDark ? '#94a3b8' : '#9ca3af'} size={20} />
+            <View style={[styles.searchContainer, { backgroundColor: cardBg, borderColor: cardBdr, borderWidth: 1.2 }]}>
+              <Search color={txt1} size={19} />
               <TextInput
                 placeholder="Hat no veya durak adı ara..."
                 style={[styles.searchInput, { color: txt1 }]}
@@ -593,11 +583,11 @@ const TransportScreen = () => {
                 <TouchableOpacity
                   key={area}
                   style={[styles.areaPill,
-                    active ? { backgroundColor: ctaBg } : { backgroundColor: chipBg, borderColor: cardBdr, borderWidth: 1 },
+                    active ? { backgroundColor: ctaBg, borderColor: ctaBg, borderWidth: 1 } : { backgroundColor: chipBg, borderColor: cardBdr, borderWidth: 1 },
                   ]}
                   onPress={() => setSelectedArea(area === 'Tümü' ? null : area)}
                 >
-                  <Text style={[styles.areaPillText, { color: active ? ctaTxt : txt2, fontWeight: active ? '700' : '500' }]}>{area}</Text>
+                  <Text style={[styles.areaPillText, { color: active ? ctaTxt : txt2, fontWeight: active ? '800' : '700' }]}>{area}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -621,7 +611,7 @@ const TransportScreen = () => {
                 const stop = MOCK_STOPS.find((s) => s.id === favId);
                 if (!stop) return null;
                 return (
-                  <View key={stop.id} style={[cardOuterShadow, isDark ? cardBorderDark : cardBorderLight, {backgroundColor:cardBg, borderRadius:20, marginRight:12}]}>
+                  <View key={stop.id} style={[cardOuterShadow, {backgroundColor:cardBg, borderRadius:18, marginRight:12, borderWidth:1.2, borderColor:cardBdr}]}>
                     <TouchableOpacity
                       style={[styles.favoriteCard, cardInnerClip, {backgroundColor:cardBg, marginRight:0, borderRadius:20}]}
                       onPress={() => {
@@ -928,15 +918,16 @@ const TransportScreen = () => {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingHorizontal: 18,
+    paddingTop: 20,
     paddingBottom: 110,
   },
   // Hero
   hero: {
-    paddingHorizontal: 20,
-    paddingBottom: 28,
+    paddingHorizontal: 18,
+    paddingBottom: 18,
     gap: 12,
+    borderBottomWidth: 1.2,
   },
   heroTop: {
     flexDirection: 'row',
@@ -944,15 +935,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   heroLabel: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: '900',
     letterSpacing: 1.4,
     marginBottom: 4,
   },
   heroTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    letterSpacing: -0.5,
+    fontSize: 25,
+    lineHeight: 30,
+    fontWeight: '500',
+    letterSpacing: -0.35,
+    fontFamily: SERIF,
   },
   heroIconWrap: {
     width: 46,
@@ -960,6 +953,7 @@ const styles = StyleSheet.create({
     borderRadius: 23,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1.2,
   },
   heroPill: {
     flexDirection: 'row',
@@ -972,12 +966,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   heroPillTxt: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12.5,
+    fontWeight: '800',
   },
   card: {},
   mapPreview: {
-    height: 130,
+    height: 142,
     position: 'relative',
   },
   mapExpanded: {
@@ -1087,26 +1081,27 @@ const styles = StyleSheet.create({
   },
   mapStopLabel: {
     fontSize: 10,
-    color: Clean.textSecondary,
+    color: '#9ca3af',
   },
   mapStopValue: {
     fontSize: 13,
     fontWeight: '600',
-    color: Clean.accent,
+    color: '#2F2418',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f3f4f6',
-    borderRadius: 20,
+    backgroundColor: '#FFF8EA',
+    borderRadius: 18,
     paddingHorizontal: 15,
-    height: 50,
+    height: 48,
     marginBottom: 16,
   },
   searchInput: {
     flex: 1,
     marginLeft: 10,
-    fontSize: 16,
+    fontSize: 15,
+    fontWeight: '700',
     color: Colors.darkGray,
   },
   areaPillsRow: {
@@ -1118,15 +1113,16 @@ const styles = StyleSheet.create({
   areaPill: {
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 16,
-    backgroundColor: '#f3f4f6',
+    borderRadius: 999,
+    backgroundColor: '#F1E3CB',
   },
   areaPillActive: {
-    backgroundColor: TRANSPORT_ACCENT,
+    backgroundColor: '#111114',
   },
   areaPillText: {
     color: '#6b7280',
-    fontWeight: '500',
+    fontSize: 12.5,
+    fontWeight: '700',
   },
   areaPillTextActive: {
     color: '#ffffff',
@@ -1138,12 +1134,12 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '900',
     letterSpacing: 1.4,
   },
   editText: {
-    color: TRANSPORT_ACCENT,
-    fontWeight: '600',
+    color: '#111114',
+    fontWeight: '800',
   },
   favoriteRow: {
     paddingVertical: 16,
@@ -1152,8 +1148,8 @@ const styles = StyleSheet.create({
   favoriteCard: {
     width: 150,
     marginRight: 12,
-    backgroundColor: '#f9fafb',
-    borderRadius: 20,
+    backgroundColor: '#FFF8EA',
+    borderRadius: 18,
     padding: 14,
     position: 'relative',
   },
@@ -1261,8 +1257,8 @@ const styles = StyleSheet.create({
     top: 55,
     left: 0,
     right: 0,
-    backgroundColor: 'white',
-    borderRadius: 16,
+    backgroundColor: '#FFF8EA',
+    borderRadius: 18,
     maxHeight: 250, // Yüksekliği sınırla
     overflow: 'hidden', // Taşmayı engelle
     zIndex: 1000,
@@ -1272,14 +1268,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: 'rgba(58,42,26,0.32)',
   },
   searchResultItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: 'rgba(58,42,26,0.12)',
   },
   searchResultIcon: {
     width: 32,
@@ -1291,8 +1287,8 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   searchResultTitle: {
-    fontWeight: '600',
-    color: Colors.darkGray,
+    fontWeight: '800',
+    color: '#111114',
     fontSize: 14,
   },
   searchResultLines: {
@@ -1322,13 +1318,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   routeButtonLabel: {
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
     color: '#6b7280',
     marginBottom: 4,
   },
   routeButtonValue: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '800',
     color: Colors.darkGray,
   },
   modalRootFill: {
@@ -1345,17 +1344,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
   },
-  modalHeaderLight: {
-    borderBottomColor: 'rgba(244,114,182,0.22)',
-    backgroundColor: DribbbleColors.cardWhite,
-  },
-  modalHeaderDark: {
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-    backgroundColor: '#000000',
-  },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: '500',
+    fontFamily: SERIF,
     color: Colors.darkGray,
   },
   modalCloseButton: {
@@ -1368,8 +1361,8 @@ const styles = StyleSheet.create({
   modalSearchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f3f4f6',
-    borderRadius: 16,
+    backgroundColor: '#FFF8EA',
+    borderRadius: 18,
     paddingHorizontal: 15,
     marginHorizontal: 20,
     marginTop: 16,
@@ -1393,7 +1386,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: 'rgba(58,42,26,0.12)',
   },
   modalStopItemSelected: {
     backgroundColor: 'rgba(244,114,182,0.14)',
@@ -1405,7 +1398,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: TRANSPORT_ACCENT_SOFT,
+    backgroundColor: '#F7F7F8',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1423,13 +1416,13 @@ const styles = StyleSheet.create({
   routeInfoCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
-    borderRadius: 16,
+    backgroundColor: '#FFF8EA',
+    borderRadius: 18,
     padding: 14,
     marginTop: 12,
     marginBottom: 4,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: 'rgba(58,42,26,0.32)',
   },
   routeInfoRow: {
     flex: 1,
@@ -1453,11 +1446,11 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
   },
   noRouteCard: {
-    backgroundColor: '#f9fafb',
-    borderRadius: 16,
+    backgroundColor: '#FFF8EA',
+    borderRadius: 18,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: 'rgba(58,42,26,0.32)',
     marginTop: 12,
   },
   noRouteText: {
@@ -1470,11 +1463,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   routeCard: {
-    backgroundColor: Colors.white,
-    borderRadius: 16,
+    backgroundColor: '#FFF8EA',
+    borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: 'rgba(58,42,26,0.32)',
   },
   routeCardContent: {
     width: '100%',

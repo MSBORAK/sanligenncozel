@@ -63,11 +63,12 @@ import { PinchGestureHandler, State } from 'react-native-gesture-handler';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
-import { useThemeMode } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
 import { supabase, processImageUrl, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase';
 import { notify } from '@/lib/notifications';
+import { useAppTheme } from '@/theme/useAppTheme';
 import { Clean } from '@/constants/Colors';
+import { Editorial } from '@/theme/colors';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 
 // ─────────────────────────────────────────────
@@ -243,20 +244,20 @@ const DARK = {
 };
 
 const LIGHT = {
-  bg: '#f8fafc',
-  surface: 'rgba(255,255,255,0.92)',
-  surfaceHi: '#ffffff',
-  border: 'rgba(148,163,184,0.18)',
-  text: '#1e293b',
-  textSub: '#64748b',
-  glass: 'rgba(255,255,255,0.72)',
-  card: '#ffffff',
-  amberSoft: 'rgba(255,69,0,0.10)',
-  amberBorder: 'rgba(255,69,0,0.16)',
-  accent: '#FF4500',
-  accentSoft: 'rgba(255,69,0,0.10)',
-  tabBg: 'rgba(255,255,255,0.92)',
-  tabActiveBg: '#ffffff',
+  bg: Editorial.bg,
+  surface: 'rgba(255,248,234,0.92)',
+  surfaceHi: Editorial.surface,
+  border: Editorial.borderSoft,
+  text: Editorial.ink,
+  textSub: Editorial.coffeeSoft,
+  glass: 'rgba(255,248,234,0.72)',
+  card: Editorial.surface,
+  amberSoft: 'rgba(47,36,24,0.10)',
+  amberBorder: 'rgba(58,42,26,0.18)',
+  accent: Editorial.coffee,
+  accentSoft: 'rgba(47,36,24,0.10)',
+  tabBg: 'rgba(255,248,234,0.92)',
+  tabActiveBg: Editorial.surface,
 };
 
 // ─────────────────────────────────────────────
@@ -462,10 +463,10 @@ function SnapGroupCard({ group, onPress, isDark, currentUserId, onAvatarPress }:
   currentUserId?: string;
   onAvatarPress?: (userId: string) => void;
 }) {
-  const txt1   = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2   = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
-  const cardBg = isDark ? '#18181B' : Clean.surface;
-  const chipBg = isDark ? '#1F1F23' : Clean.chipBg;
+  const txt1   = isDark ? Editorial.ink : Clean.textPrimary;
+  const txt2   = isDark ? Editorial.coffeeSoft : Clean.textSecondary;
+  const cardBg = isDark ? Editorial.surface : Clean.surface;
+  const chipBg = isDark ? Editorial.chip : Clean.bgSoft;
   const amber  = Clean.accent;
   const cardBorder = isDark ? cardBorderDark : cardBorderLight;
   const [activeIdx, setActiveIdx] = useState(0);
@@ -589,11 +590,11 @@ function SnapGroupCard({ group, onPress, isDark, currentUserId, onAvatarPress }:
 // ─── Kompakt Radar Kartı (Akış içinde) ──────────────────────────────────────
 
 function RadarCompactCard({ isDark, onPress }: { isDark: boolean; onPress: () => void }) {
-  const cardBg  = isDark ? '#18181B' : Clean.surface;
-  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
-  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
-  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
+  const cardBg  = isDark ? Editorial.surface : Clean.surface;
+  const cardBdr = isDark ? 'rgba(255,255,255,0.12)' : Editorial.border;
+  const txt1    = isDark ? Editorial.ink : Clean.textPrimary;
+  const txt2    = isDark ? Editorial.coffeeSoft : Clean.textSecondary;
+  const chipBg  = isDark ? Editorial.chip : Clean.bgSoft;
   const amber   = Clean.accent;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const [activeCount, setActiveCount] = useState<number | null>(null);
@@ -924,12 +925,12 @@ function FeedHeader({
   feedFilter: 'everyone' | 'friends';
   onFilterChange: (filter: 'everyone' | 'friends') => void;
 }) {
-  const txt1   = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2   = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
-  const ctaBg  = isDark ? '#F5F5F7' : Clean.ctaBg;
-  const ctaTxt = isDark ? '#111114' : Clean.ctaText;
-  const chipBg = isDark ? '#1F1F23' : Clean.chipBg;
-  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
+  const txt1   = isDark ? Editorial.ink : Clean.textPrimary;
+  const txt2   = isDark ? Editorial.coffeeSoft : Clean.textSecondary;
+  const ctaBg  = isDark ? Editorial.coffee : Clean.ctaBg;
+  const ctaTxt = isDark ? '#111114' : Editorial.creamText;
+  const chipBg = isDark ? Editorial.chip : Clean.bgSoft;
+  const cardBdr = isDark ? 'rgba(255,255,255,0.12)' : Editorial.border;
 
   return (
     <View style={styles.feedHeaderContainer}>
@@ -991,10 +992,10 @@ function StreakStrip({
   onPressBuddy: () => void;
   loggedIn: boolean;
 }) {
-  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
-  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
-  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
+  const txt1    = isDark ? Editorial.ink : Clean.textPrimary;
+  const txt2    = isDark ? Editorial.coffeeSoft : Clean.textSecondary;
+  const chipBg  = isDark ? Editorial.chip : Clean.bgSoft;
+  const cardBdr = isDark ? 'rgba(255,255,255,0.12)' : Editorial.border;
   const amber   = Clean.accent;
   if (!loggedIn) return null;
   return (
@@ -1018,7 +1019,7 @@ function StreakStrip({
             width: 40,
             height: 40,
             borderRadius: 20,
-            backgroundColor: isDark ? '#18181B' : Clean.surface,
+            backgroundColor: isDark ? Editorial.surface : Clean.surface,
             alignItems: 'center',
             justifyContent: 'center',
           }}>
@@ -1042,9 +1043,9 @@ function StreakStrip({
 }
 
 function FeedEmpty({ isDark, onAddFriendPress }: { isDark: boolean; onAddFriendPress: () => void }) {
-  const txt1   = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2   = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
-  const chipBg = isDark ? '#1F1F23' : Clean.chipBg;
+  const txt1   = isDark ? Editorial.ink : Clean.textPrimary;
+  const txt2   = isDark ? Editorial.coffeeSoft : Clean.textSecondary;
+  const chipBg = isDark ? Editorial.chip : Clean.bgSoft;
   return (
     <View style={styles.emptyContainer}>
       <Users color={txt1} size={40} strokeWidth={1.5} />
@@ -1090,17 +1091,17 @@ function MessagesView({
   isSearching, searchResults, loading, currentUserId, formatMsgTime, onNavigateChat,
   onDeleteConversation, incomingRequests, onShowRequests,
 }: MessagesViewProps) {
-  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
-  const cardBg  = isDark ? '#18181B' : Clean.surface;
-  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
-  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
+  const txt1    = isDark ? Editorial.ink : Clean.textPrimary;
+  const txt2    = isDark ? Editorial.coffeeSoft : Clean.textSecondary;
+  const cardBg  = isDark ? Editorial.surface : Clean.surface;
+  const cardBdr = isDark ? 'rgba(58,42,26,1)' : 'rgba(17,17,20,1)';
+  const chipBg  = isDark ? Editorial.chip : Clean.bgSoft;
   const amber   = Clean.accent;
 
   const renderUserItem = (user: UserProfile) => (
     <TouchableOpacity
       key={user.user_id}
-      style={[styles.msgItem, { borderBottomColor: cardBdr }]}
+      style={[styles.msgItem, { borderColor: cardBdr }]}
       activeOpacity={0.75}
       onPress={() => Alert.alert(
         user.name,
@@ -1131,7 +1132,7 @@ function MessagesView({
   const renderConvItem = (conv: Conversation) => (
     <TouchableOpacity
       key={conv.conversation_id}
-      style={[styles.msgItem, { borderBottomColor: cardBdr }]}
+      style={[styles.msgItem, { borderColor: cardBdr }]}
       activeOpacity={0.75}
       onPress={() => onNavigateChat(
         conv.other_user.user_id, conv.other_user.name,
@@ -1273,14 +1274,14 @@ interface UserSnapMarker {
 }
 
 function RadarView() {
-  const { mode } = useThemeMode();
-  const isDark = mode === 'dark';
-  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
-  const cardBg  = isDark ? '#18181B' : Clean.surface;
-  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
-  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
-  const amber   = Clean.accent;
+  const t = useAppTheme();
+  const isDark = t.isDark;
+  const txt1    = t.txt1;
+  const txt2    = t.txt2;
+  const cardBg  = t.cardBg;
+  const cardBdr = t.cardBdr;
+  const chipBg  = t.chipBg;
+  const amber   = t.accent;
   const [heatPoints, setHeatPoints] = useState<HeatPoint[]>([]);
   const [userMarkers, setUserMarkers] = useState<UserSnapMarker[]>([]);
   const [activeCount, setActiveCount] = useState(0);
@@ -1563,20 +1564,20 @@ type Tab = 'feed' | 'messages';
 
 export default function SosyalScreen() {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
-  const { mode } = useThemeMode();
+  const t = useAppTheme();
   const { profile } = useUser();
-  const isDark = mode === 'dark';
+  const isDark = t.isDark;
   const insets = useSafeAreaInsets();
   const theme = isDark ? DARK : LIGHT;
-  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
-  const cardBg  = isDark ? '#18181B' : Clean.surface;
-  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
-  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
-  const ctaBg   = isDark ? '#F5F5F7' : Clean.ctaBg;
-  const ctaTxt  = isDark ? '#111114' : Clean.ctaText;
-  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
-  const amber   = Clean.accent;
+  const pageBg  = t.pageBg;
+  const cardBg  = t.cardBg;
+  const cardBdr = t.cardBdr;
+  const txt1    = t.txt1;
+  const txt2    = t.txt2;
+  const ctaBg   = t.ctaBg;
+  const ctaTxt  = t.ctaTxt;
+  const chipBg  = t.chipBg;
+  const amber   = t.accent;
   const [snaps, setSnaps] = useState<SnapPost[]>([]);
   const [snapsLoading, setSnapsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('feed');
@@ -3476,7 +3477,7 @@ export default function SosyalScreen() {
                     key={f.user_id}
                     activeOpacity={0.75}
                     onPress={() => toggleGroupRecipient(f.user_id)}
-                    style={[styles.msgItem, { borderBottomColor: theme.border }]}
+                    style={[styles.msgItem, { borderColor: theme.border }]}
                   >
                     <View style={[styles.msgAvatar, { backgroundColor: isDark ? NIGHT.glow : 'rgba(255,69,0,0.12)' }]}>
                       {f.avatar_url ? (
@@ -3529,7 +3530,7 @@ export default function SosyalScreen() {
               <TouchableOpacity
                 activeOpacity={0.75}
                 onPress={() => setStreakBuddyPickId(null)}
-                style={[styles.msgItem, { borderBottomColor: theme.border }]}
+                style={[styles.msgItem, { borderColor: theme.border }]}
               >
                 <Text style={[styles.msgName, { color: theme.text, flex: 1 }]}>Kimse (sadece kişisel zincir)</Text>
                 {!streakBuddyPickId && <Check color={isDark ? NIGHT.warm : LIGHT.accent} size={18} strokeWidth={2.5} />}
@@ -3541,7 +3542,7 @@ export default function SosyalScreen() {
                     key={f.user_id}
                     activeOpacity={0.75}
                     onPress={() => setStreakBuddyPickId(f.user_id)}
-                    style={[styles.msgItem, { borderBottomColor: theme.border }]}
+                    style={[styles.msgItem, { borderColor: theme.border }]}
                   >
                     <View style={[styles.msgAvatar, { backgroundColor: isDark ? NIGHT.glow : 'rgba(255,69,0,0.12)' }]}>
                       <Text style={[styles.msgAvatarText, { color: isDark ? NIGHT.warm : LIGHT.accent }]}>
@@ -3680,7 +3681,7 @@ export default function SosyalScreen() {
                   <Text style={[styles.msgsEmptyText, { color: theme.textSub }]}>Bekleyen istek yok</Text>
                 </View>
               ) : incomingRequests.map((req) => (
-                <View key={req.id} style={[styles.msgItem, { borderBottomColor: theme.border }]}>
+                <View key={req.id} style={[styles.msgItem, { borderColor: theme.border }]}>
                   <View style={[styles.msgAvatar, { backgroundColor: isDark ? NIGHT.glow : 'rgba(255,69,0,0.12)' }]}>
                     <Text style={[styles.msgAvatarText, { color: isDark ? NIGHT.warm : LIGHT.accent }]}>
                       {(req.sender_profile?.name || '?').charAt(0).toUpperCase()}
@@ -4901,7 +4902,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    borderWidth: 1.2,
+    borderRadius: 16,
+    marginBottom: 8,
     gap: 12,
   },
   msgAvatar: {

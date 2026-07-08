@@ -4,10 +4,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Clock, Sparkles } from 'lucide-react-native';
-import { Clean } from '@/constants/Colors';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { MOCK_WEEKEND_PLANS, WeekendPlan } from '@/api/mockData';
-import { useThemeMode } from '@/context/ThemeContext';
+import { useAppTheme } from '@/theme/useAppTheme';
 import { RootStackParamList } from '@/types/navigation';
 import { cityFallback } from '@/lib/imageFallback';
 
@@ -20,19 +19,11 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const CulturalRouteScreen = () => {
-  const { mode } = useThemeMode();
-  const isDark = mode === 'dark';
+  const t = useAppTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
 
-  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
-  const cardBg  = isDark ? '#18181B' : Clean.surface;
-  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
-  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
-  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
-  const amber   = Clean.accent;
-  const cardBorder = isDark ? cardBorderDark : cardBorderLight;
+  const cardBorder = t.isDark ? cardBorderDark : cardBorderLight;
 
   const renderPlanItem = useCallback(({ item }: { item: WeekendPlan }) => {
     const categoryLabel = CATEGORY_LABELS[item.category] ?? item.category;
@@ -40,7 +31,7 @@ const CulturalRouteScreen = () => {
       ? (typeof item.image === 'string' ? { uri: item.image } : item.image)
       : { uri: cityFallback(item.id) };
     return (
-      <View style={[styles.planCardOuter, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
+      <View style={[styles.planCardOuter, cardOuterShadow, cardBorder, { backgroundColor: t.cardBg }]}>
         <TouchableOpacity
           style={[styles.planCard, cardInnerClip]}
           activeOpacity={0.9}
@@ -48,68 +39,70 @@ const CulturalRouteScreen = () => {
         >
           <View style={styles.cardHeader}>
             <View style={styles.titleRow}>
-              <Image source={imageSource} style={styles.iconContainer} resizeMode="cover" />
+              <View style={styles.iconClip}>
+                <Image source={imageSource} style={styles.iconImage} resizeMode="cover" />
+              </View>
               <View style={styles.titleContainer}>
-                <Text style={[styles.planTitle, { color: txt1 }]}>{item.title}</Text>
+                <Text style={[styles.planTitle, { color: t.txt1 }]}>{item.title}</Text>
                 <View style={styles.badgeRow}>
-                  <View style={[styles.categoryBadge, { backgroundColor: chipBg }]}>
-                    <Text style={[styles.categoryText, { color: txt2 }]}>
+                  <View style={[styles.categoryBadge, { backgroundColor: t.chipBg }]}>
+                    <Text style={[styles.categoryText, { color: t.txt2 }]}>
                       {categoryLabel}
                     </Text>
                   </View>
-                  <View style={[styles.durationBadge, { backgroundColor: chipBg }]}>
-                    <Clock color={txt2} size={12} />
-                    <Text style={[styles.durationText, { color: txt2 }]}>{item.duration}</Text>
+                  <View style={[styles.durationBadge, { backgroundColor: t.chipBg }]}>
+                    <Clock color={t.txt2} size={12} />
+                    <Text style={[styles.durationText, { color: t.txt2 }]}>{item.duration}</Text>
                   </View>
                 </View>
               </View>
-              <View style={[styles.stopCountBadge, { backgroundColor: chipBg }]}>
-                <Text style={[styles.stopCountNumber, { color: txt1 }]}>{item.activities.length}</Text>
-                <Text style={[styles.stopCountLabel, { color: txt2 }]}>durak</Text>
+              <View style={[styles.stopCountBadge, { backgroundColor: t.chipBg }]}>
+                <Text style={[styles.stopCountNumber, { color: t.txt1 }]}>{item.activities.length}</Text>
+                <Text style={[styles.stopCountLabel, { color: t.txt2 }]}>durak</Text>
               </View>
             </View>
           </View>
 
-          <Text style={[styles.description, { color: txt2 }]}>{item.description}</Text>
+          <Text style={[styles.description, { color: t.txt2 }]}>{item.description}</Text>
 
           <View style={styles.activitiesContainer}>
             <View style={styles.activitiesHeader}>
-              <Sparkles color={amber} size={16} />
-              <Text style={[styles.activitiesTitle, { color: txt1 }]}>Aktiviteler</Text>
+              <Sparkles color={t.accent} size={16} />
+              <Text style={[styles.activitiesTitle, { color: t.txt1 }]}>Aktiviteler</Text>
             </View>
             {item.activities.map((activity, index) => {
               const isLast = index === item.activities.length - 1;
               return (
                 <View key={index} style={styles.timelineRow}>
                   <View style={styles.timelineTrack}>
-                    <View style={[styles.timelineDot, { backgroundColor: amber }]} />
-                    {!isLast && <View style={[styles.timelineLine, { backgroundColor: chipBg }]} />}
+                    <View style={[styles.timelineDot, { backgroundColor: t.accent }]} />
+                    {!isLast && <View style={[styles.timelineLine, { backgroundColor: t.chipBg }]} />}
                   </View>
-                  <Text style={[styles.activityText, { color: txt2 }]}>{activity}</Text>
+                  <Text style={[styles.activityText, { color: t.txt2 }]}>{activity}</Text>
                 </View>
               );
             })}
           </View>
 
           {item.tips && (
-            <View style={[styles.tipsContainer, { backgroundColor: chipBg, borderLeftColor: amber }]}>
-              <Text style={[styles.tipsLabel, { color: txt1 }]}>İpucu</Text>
-              <Text style={[styles.tipsText, { color: txt2 }]}>{item.tips}</Text>
+            <View style={[styles.tipsContainer, { backgroundColor: t.chipBg, borderLeftColor: t.accent }]}>
+              <Text style={[styles.tipsLabel, { color: t.txt1 }]}>İpucu</Text>
+              <Text style={[styles.tipsText, { color: t.txt2 }]}>{item.tips}</Text>
             </View>
           )}
         </TouchableOpacity>
       </View>
     );
-  }, [cardBg, cardBdr, chipBg, txt1, txt2, amber, navigation]);
+  }, [t, cardBorder, navigation]);
 
   const listBottomPad = Math.max(insets.bottom, 20);
 
   return (
-    <View style={[styles.container, { backgroundColor: pageBg }]}>
-      <View style={[styles.header, { backgroundColor: pageBg, paddingTop: insets.top + 18 }]}>
-        <Text style={[styles.headerLabel, { color: txt2 }]}>KEŞFET</Text>
-        <Text style={[styles.headerTitle, { color: txt1 }]}>Gezi Rotaları</Text>
-        <Text style={[styles.headerSubtitle, { color: txt2 }]}>Urfa'da yapılacaklar ve gezi önerileri</Text>
+    <View style={[styles.container, { backgroundColor: t.pageBg }]}>
+      <View style={[styles.header, { backgroundColor: t.pageBg, paddingTop: insets.top + 18 }]}>
+        <Text style={[styles.headerLabel, { color: t.txt2 }]}>KEŞFET</Text>
+        <Text style={[styles.headerTitle, { color: t.txt1 }]}>Gezi Rotaları</Text>
+        <Text style={[styles.headerSubtitle, { color: t.txt2 }]}>Urfa'da yapılacaklar ve gezi önerileri</Text>
       </View>
 
       <FlatList
@@ -123,8 +116,8 @@ const CulturalRouteScreen = () => {
         windowSize={6}
         removeClippedSubviews
         ListHeaderComponent={
-          <View style={[styles.infoNote, cardBorder, { backgroundColor: chipBg }]}>
-            <Text style={[styles.infoNoteText, { color: txt2 }]}>
+          <View style={[styles.infoNote, cardBorder, { backgroundColor: t.chipBg }]}>
+            <Text style={[styles.infoNoteText, { color: t.txt2 }]}>
               Rotalar öneridir. İşletme/açılış saatleri ve ulaşım bilgilerini gitmeden önce doğrulayın.
             </Text>
           </View>
@@ -178,7 +171,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   planCard: {
+    width: '100%',
     borderRadius: 20,
+    overflow: 'hidden',
     padding: 18,
   },
   cardHeader: {
@@ -205,13 +200,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: -2,
   },
-  iconContainer: {
+  iconClip: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
+    overflow: 'hidden',
     marginRight: 12,
+  },
+  iconImage: {
+    width: '100%',
+    height: '100%',
   },
   titleContainer: {
     flex: 1,

@@ -17,13 +17,14 @@ import { GradientBackground } from '@/components/GradientBackground';
 import { DotIndicator } from '@/components/DotIndicator';
 import type { RootStackParamList } from '@/types/navigation';
 import { markOnboardingCompleted } from '@/utils/onboarding';
+import { Editorial } from '@/theme/colors';
 
 const friendsLottie = require('@/assets/images/friends.json');
 
 type NavProp = StackNavigationProp<RootStackParamList, 'Onboarding3'>;
 
-const ACCENT = '#8B5CF6';
-const ACCENT2 = '#DDD6FE';
+const ACCENT = Editorial.coffee;
+const ACCENT2 = Editorial.chip;
 
 const COMMUNITY_STATS = [
   { value: '🗺️', label: 'ŞanlıSosyal' },

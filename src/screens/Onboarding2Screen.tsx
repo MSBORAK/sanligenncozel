@@ -17,13 +17,14 @@ import { GradientBackground } from '@/components/GradientBackground';
 import { DotIndicator } from '@/components/DotIndicator';
 import type { RootStackParamList } from '@/types/navigation';
 import { markOnboardingCompleted } from '@/utils/onboarding';
+import { Editorial } from '@/theme/colors';
 
 const jumpingLottie = require('@/assets/images/Jumping Lottie Animation.json');
 
 type NavProp = StackNavigationProp<RootStackParamList, 'Onboarding2'>;
 
-const ACCENT = '#F97316';
-const ACCENT2 = '#FED7AA';
+const ACCENT = Editorial.coffee;
+const ACCENT2 = Editorial.chip;
 
 export const Onboarding2Screen: React.FC = () => {
   const navigation = useNavigation<NavProp>();
@@ -166,7 +167,7 @@ export const Onboarding2Screen: React.FC = () => {
               opacity: card1Anim,
               transform: [{ translateY: card1Anim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
             }]}>
-              <LinearGradient colors={['#F97316', '#EF4444']} style={styles.eventIcon}>
+              <LinearGradient colors={[Editorial.coffeeSoft, '#EF4444']} style={styles.eventIcon}>
                 <Text style={{ fontSize: 18 }}>🎵</Text>
               </LinearGradient>
               <View style={styles.eventBody}>
@@ -182,7 +183,7 @@ export const Onboarding2Screen: React.FC = () => {
               opacity: card2Anim,
               transform: [{ translateY: card2Anim.interpolate({ inputRange: [0, 1], outputRange: [30, 12] }) }],
             }]}>
-              <LinearGradient colors={['#8B5CF6', '#3B82F6']} style={styles.eventIcon}>
+              <LinearGradient colors={[Editorial.coffee, Editorial.coffeeSoft]} style={styles.eventIcon}>
                 <Text style={{ fontSize: 18 }}>🎪</Text>
               </LinearGradient>
               <View style={styles.eventBody}>
@@ -213,7 +214,7 @@ export const Onboarding2Screen: React.FC = () => {
               style={styles.pillBtn}
             >
               <LinearGradient
-                colors={['#F97316', '#EF4444']}
+                colors={[Editorial.coffeeSoft, '#EF4444']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.pillGradient}

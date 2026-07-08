@@ -19,13 +19,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Send } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAppTheme } from '@/theme/useAppTheme';
 
 const { width, height } = Dimensions.get('window');
-
-const SnapColors = {
-  black: '#000000',
-  white: '#FFFFFF',
-};
 
 interface SnapItem {
   id: string;
@@ -53,6 +49,7 @@ const SNAP_DURATION = 10000; // 10 seconds in milliseconds
 const SnapViewScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const t = useAppTheme();
   const params = route.params as RouteParams;
   
   const [loading, setLoading] = useState(true);
@@ -248,7 +245,7 @@ const SnapViewScreen = () => {
 
       {loading && (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={SnapColors.white} />
+          <ActivityIndicator size="large" color={t.ctaTxt} />
         </View>
       )}
 
@@ -292,7 +289,7 @@ const SnapViewScreen = () => {
             style={styles.closeIconButton}
             onPress={() => navigation.goBack()}
           >
-            <X color={SnapColors.white} size={28} />
+            <X color={t.ctaTxt} size={28} />
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -357,7 +354,7 @@ const SnapViewScreen = () => {
                   onPress={handleSendReply}
                   disabled={!replyText.trim()}
                 >
-                  <Send size={18} color="#000" />
+                  <Send size={18} color={t.ctaTxt} />
                 </TouchableOpacity>
               </View>
             )}
@@ -371,7 +368,7 @@ const SnapViewScreen = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: SnapColors.black,
+    backgroundColor: '#000000',
   },
   snapContainer: {
     width,
@@ -385,7 +382,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: SnapColors.black,
+    backgroundColor: '#000000',
   },
   topGradient: {
     position: 'absolute',
@@ -424,12 +421,12 @@ const styles = StyleSheet.create({
   },
   timerProgress: {
     height: '100%',
-    backgroundColor: SnapColors.white,
+    backgroundColor: '#fff',
   },
   timerText: {
     fontSize: 14,
     fontWeight: '700',
-    color: SnapColors.white,
+    color: '#fff',
     minWidth: 30,
   },
   closeIconButton: {
@@ -459,12 +456,12 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 18,
     fontWeight: '600',
-    color: SnapColors.white,
+    color: '#fff',
     textAlign: 'center',
     marginBottom: 24,
   },
   closeButton: {
-    backgroundColor: SnapColors.white,
+    backgroundColor: '#fff',
     paddingHorizontal: 32,
     paddingVertical: 12,
     borderRadius: 24,
@@ -472,7 +469,7 @@ const styles = StyleSheet.create({
   closeButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: SnapColors.black,
+    color: '#000',
   },
   reactionBarWrapper: {
     position: 'absolute',
@@ -526,7 +523,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#fff',
+    backgroundColor: '#2F2418',
     justifyContent: 'center',
     alignItems: 'center',
   },

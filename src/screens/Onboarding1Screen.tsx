@@ -17,13 +17,14 @@ import type { RootStackParamList } from '@/types/navigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { markOnboardingCompleted } from '@/utils/onboarding';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Editorial } from '@/theme/colors';
 
 const planningRouteLottie = require('@/assets/images/Man Planning A Sightseeing Route.json');
 
 type NavProp = StackNavigationProp<RootStackParamList, 'Onboarding1'>;
 
-const ACCENT = '#F59E0B';
-const ACCENT2 = '#FCD34D';
+const ACCENT = Editorial.coffee;
+const ACCENT2 = Editorial.chip;
 
 export const Onboarding1Screen: React.FC = () => {
   const navigation = useNavigation<NavProp>();
@@ -183,7 +184,7 @@ export const Onboarding1Screen: React.FC = () => {
               style={styles.pillBtn}
             >
               <LinearGradient
-                colors={['#F59E0B', '#F97316']}
+                colors={[Editorial.coffee, Editorial.coffeeSoft]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.pillGradient}
@@ -226,7 +227,7 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 100,
     backgroundColor: 'rgba(245,158,11,0.14)',
-    shadowColor: '#F59E0B',
+    shadowColor: Editorial.coffee,
     shadowOpacity: 0.5,
     shadowRadius: 50,
     shadowOffset: { width: 0, height: 0 },
@@ -238,7 +239,7 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 90,
     backgroundColor: 'rgba(245,158,11,0.18)',
-    shadowColor: '#F59E0B',
+    shadowColor: Editorial.coffee,
     shadowOpacity: 0.6,
     shadowRadius: 28,
     shadowOffset: { width: 0, height: 8 },
@@ -286,7 +287,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#F59E0B',
+    backgroundColor: Editorial.coffee,
   },
   badgeText: {
     color: '#FCD34D',
@@ -332,7 +333,7 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 999,
     overflow: 'hidden',
-    shadowColor: '#F59E0B',
+    shadowColor: Editorial.coffee,
     shadowOpacity: 0.45,
     shadowRadius: 20,
     shadowOffset: { width: 0, height: 6 },

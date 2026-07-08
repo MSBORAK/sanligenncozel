@@ -17,16 +17,20 @@ import { X, Image as ImageIcon, Send, Camera as CameraIcon } from 'lucide-react-
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
-
-const SnapColors = {
-  yellow: '#FFFC00',
-  black: '#000000',
-  white: '#FFFFFF',
-  blue: '#0FADFF',
-};
+import { useAppTheme } from '@/theme/useAppTheme';
 
 const CreatePostScreen = ({ route }: any) => {
   const navigation = useNavigation();
+  const t = useAppTheme();
+
+  // Theme-derived colors for this screen (dark camera overlay)
+  const SnapColors = {
+    yellow: t.chipBg,
+    black: '#000000',
+    white: t.ctaTxt,
+    blue: t.ctaBg,
+  };
+
   const [imageUri, setImageUri] = useState<string | null>(route?.params?.imageUri || null);
   const [uploading, setUploading] = useState(false);
 
@@ -169,7 +173,7 @@ const CreatePostScreen = ({ route }: any) => {
   return (
     <View style={styles.root}>
       <LinearGradient 
-        colors={[SnapColors.black, SnapColors.black]} 
+        colors={['#000000', '#000000']} 
         style={StyleSheet.absoluteFill} 
       />
       
@@ -274,10 +278,10 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: SnapColors.white,
+    color: '#FFF8EA',
   },
   postButton: {
-    backgroundColor: SnapColors.blue,
+    backgroundColor: '#2F2418',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
@@ -307,7 +311,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: SnapColors.blue,
+    backgroundColor: '#2F2418',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -322,7 +326,7 @@ const styles = StyleSheet.create({
   cameraOptionText: {
     fontSize: 16,
     fontWeight: '600',
-    color: SnapColors.white,
+    color: '#FFF8EA',
   },
   imagePreviewContainer: {
     marginTop: 20,
@@ -348,7 +352,7 @@ const styles = StyleSheet.create({
   },
   textInput: {
     fontSize: 16,
-    color: SnapColors.white,
+    color: '#FFF8EA',
     minHeight: 100,
     textAlignVertical: 'top',
     backgroundColor: 'rgba(255,255,255,0.1)',
@@ -390,12 +394,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   recipientBadgeText: {
-    color: SnapColors.white,
+    color: '#FFF8EA',
     fontSize: 11,
     fontWeight: '700',
   },
   sendButton: {
-    backgroundColor: SnapColors.blue,
+    backgroundColor: '#2F2418',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -409,7 +413,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   sendButtonText: {
-    color: SnapColors.white,
+    color: '#FFF8EA',
     fontSize: 16,
     fontWeight: '700',
   },
@@ -419,7 +423,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: SnapColors.white,
+    backgroundColor: '#FFF8EA',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '80%',
@@ -437,7 +441,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: SnapColors.black,
+    color: '#000000',
   },
   modalActions: {
     flexDirection: 'row',
@@ -457,7 +461,7 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: SnapColors.black,
+    color: '#000000',
   },
   userItem: {
     flexDirection: 'row',
@@ -477,7 +481,7 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 16,
     fontWeight: '600',
-    color: SnapColors.black,
+    color: '#000000',
   },
   userUsername: {
     fontSize: 14,
@@ -494,8 +498,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   checkboxSelected: {
-    backgroundColor: SnapColors.blue,
-    borderColor: SnapColors.blue,
+    backgroundColor: '#2F2418',
+    borderColor: '#2F2418',
   },
   emptyState: {
     paddingVertical: 40,
@@ -506,7 +510,7 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
   },
   doneButton: {
-    backgroundColor: SnapColors.blue,
+    backgroundColor: '#2F2418',
     marginHorizontal: 20,
     marginVertical: 20,
     paddingVertical: 16,
@@ -517,7 +521,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   doneButtonText: {
-    color: SnapColors.white,
+    color: '#FFF8EA',
     fontSize: 16,
     fontWeight: '700',
   },

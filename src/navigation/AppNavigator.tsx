@@ -11,6 +11,7 @@ import { RootStackParamList } from '@/types/navigation';
 import HomeScreen from '@/screens/HomeScreen';
 import TransportScreen from '@/screens/TransportScreen';
 import GencKartScreen from '@/screens/GencKartScreen';
+import HizliErisimScreen from '@/screens/HizliErisimScreen';
 import AssistantScreen from '@/screens/AssistantScreen';
 import ProfileScreen from '@/screens/ProfileScreen';
 import EventsScreen from '@/screens/EventsScreen';
@@ -43,15 +44,17 @@ import { supabase } from '@/lib/supabase';
 
 // Custom Tab Bar
 import CustomTabBar from './CustomTabBar';
+import { useAppTheme } from '@/theme/useAppTheme';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
 // Sayfa isimleri ve sırası
-const TAB_NAMES = ['Home', 'Transport', 'GencKart', 'Assistant', 'Profile'] as const;
+const TAB_NAMES = ['Transport', 'GencKart', 'Home', 'HizliErisim', 'Profile'] as const;
 type TabName = typeof TAB_NAMES[number];
 
 const MainTabs = ({ route, navigation }: any) => {
-  const [activeIndex, setActiveIndex] = useState(0);
+  const { pageBg } = useAppTheme();
+  const [activeIndex, setActiveIndex] = useState(2);
   const pagerRef = useRef<PagerView>(null);
   const isProgrammaticChangeRef = useRef(false);
 
@@ -102,23 +105,23 @@ const MainTabs = ({ route, navigation }: any) => {
     <View style={styles.container}>
       <PagerView
         ref={pagerRef}
-        style={styles.pagerView}
-        initialPage={0}
+        style={[styles.pagerView, { backgroundColor: pageBg }]}
+        initialPage={2}
         onPageSelected={handlePageSelected}
       >
-        <View key="0" style={styles.page}>
-          <HomeScreen />
-        </View>
-        <View key="1" style={styles.page}>
+        <View key="0" style={[styles.page, { backgroundColor: pageBg }]}>
           <TransportScreen />
         </View>
-        <View key="2" style={styles.page}>
+        <View key="1" style={[styles.page, { backgroundColor: pageBg }]}>
           <GencKartScreen />
         </View>
-        <View key="3" style={styles.page}>
-          <AssistantScreen />
+        <View key="2" style={[styles.page, { backgroundColor: pageBg }]}>
+          <HomeScreen />
         </View>
-        <View key="4" style={styles.page}>
+        <View key="3" style={[styles.page, { backgroundColor: pageBg }]}>
+          <HizliErisimScreen />
+        </View>
+        <View key="4" style={[styles.page, { backgroundColor: pageBg }]}>
           <ProfileScreen />
         </View>
       </PagerView>
@@ -221,6 +224,7 @@ const AppNavigator = () => {
         <Stack.Screen name="StoryView" component={StoryViewScreen} />
         <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
         <Stack.Screen name="CreatePost" component={CreatePostScreen} />
+        <Stack.Screen name="Assistant" component={AssistantScreen} />
         <Stack.Screen name="SosyalProfile" component={SosyalProfileScreen} />
       </Stack.Navigator>
     </NavigationContainer>
@@ -230,18 +234,16 @@ const AppNavigator = () => {
 const styles = StyleSheet.create({
   bootSplash: {
     flex: 1,
-    backgroundColor: '#07090f',
+    backgroundColor: '#FFFFFF',
   },
   container: {
     flex: 1,
   },
   pagerView: {
     flex: 1,
-    backgroundColor: '#F7F7F8',
   },
   page: {
     flex: 1,
-    backgroundColor: '#F7F7F8',
   },
 });
 

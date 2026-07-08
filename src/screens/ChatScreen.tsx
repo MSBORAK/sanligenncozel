@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import Animated, { useAnimatedStyle, interpolate, Extrapolation, type SharedValue } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import {
   View,
   Text,
   StyleSheet,
   TextInput,
-  TouchableOpacity,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -15,7 +16,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { GestureHandlerRootView, TouchableOpacity } from 'react-native-gesture-handler';
 import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { ArrowLeft, Send, Camera, X, RefreshCw, Heart, Reply } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -25,24 +26,20 @@ import { supabase, processImageUrl } from '@/lib/supabase';
 import { notify } from '@/lib/notifications';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { useThemeMode } from '@/context/ThemeContext';
+import { useAppTheme } from '@/theme/useAppTheme';
+import { Editorial } from '@/theme/colors';
 import { Clean } from '@/constants/Colors';
 
-// Snapchat Renk Paleti
+// SnapColors — static fallback values (Editorial defaults); theme-responsive
+// values come from useAppTheme via `sc` inside the component.
 const SnapColors = {
-  yellow: '#FFFC00',
-  black: '#000000',
-  white: '#FFFFFF',
-  gray: '#8E8E93',
-  lightGray: '#F2F2F7',
-  blue: Clean.textPrimary,
+  yellow: '#F1E3CB',
+  black: '#111114',
+  white: '#FFF8EA',
+  gray: '#3A2A1A',
+  lightGray: '#F1E3CB',
+  blue: '#2F2418',
   red: '#FF2D55',
-  // Dark mode colors
-  darkBg: '#000000',
-  darkCard: '#1C1C1E',
-  darkBorder: '#38383A',
-  darkText: '#FFFFFF',
-  darkSecondary: '#8E8E93',
 };
 
 interface Message {
@@ -68,13 +65,45 @@ interface RouteParams {
   username: string;
 }
 
+/** Kaydırınca beliren yanıt ikonu — parmakla senkron scale/opacity (WA/IG hissi) */
+function SwipeReplyIcon({ progress, color }: { progress: SharedValue<number>; color: string }) {
+  const iconStyle = useAnimatedStyle(() => {
+    const scale = interpolate(progress.value, [0, 1], [0.4, 1], Extrapolation.CLAMP);
+    const opacity = interpolate(progress.value, [0, 0.6, 1], [0, 0.6, 1], Extrapolation.CLAMP);
+    return { transform: [{ scale }], opacity };
+  });
+  return (
+    <View style={styles.swipeReplyWrap}>
+      <Animated.View style={iconStyle}>
+        <Reply color={color} size={22} strokeWidth={2.2} />
+      </Animated.View>
+    </View>
+  );
+}
+
 const ChatScreen = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const route = useRoute();
   const params = route.params as RouteParams;
-  const { mode } = useThemeMode();
-  const isDark = mode === 'dark';
-  
+  const t = useAppTheme();
+  const isDark = t.isDark;
+
+  // Theme-derived chat colors
+  const sc = useMemo(() => ({
+    yellow: t.chipBg,
+    black: t.txt1,
+    white: t.ctaTxt,
+    gray: t.txt2,
+    lightGray: t.chipBg,
+    blue: t.ctaBg,
+    red: '#FF2D55',
+    darkBg: t.pageBg,
+    darkCard: t.cardBg,
+    darkBorder: t.cardBdr,
+    darkText: t.txt1,
+    darkSecondary: t.txt2,
+  }), [t]);
+
   const [messages, setMessages] = useState<Message[]>([]);
   /** Ters FlatList için: en yeni mesaj index 0'da (yani dipte) olacak şekilde */
   const invertedMessages = useMemo(() => [...messages].slice().reverse(), [messages]);
@@ -556,7 +585,7 @@ const ChatScreen = () => {
                 >
                   {item.reply_snippet ? replyQuoteBlock(item.reply_snippet, isMe) : null}
                   <View style={styles.snapContent}>
-                    <Camera color={isMe ? SnapColors.white : SnapColors.blue} size={20} />
+                    <Camera color={isMe ? sc.white : sc.blue} size={20} />
                     <Text style={[styles.snapText, isMe ? styles.mySnapText : styles.theirSnapText]}>
                       {isExpired ? '🔒 Süre doldu' : isOpened && !isMe ? '👁 Açıldı' : 'Kıvılcım'}
                     </Text>
@@ -613,7 +642,7 @@ const ChatScreen = () => {
                     styles.messageBubble,
                     styles.kivilcimReplyBubble,
                     { maxWidth: maxBubbleWidth },
-                    isMe ? styles.myBubble : (isDark ? styles.theirBubbleDark : styles.theirBubble),
+                    isMe ? [styles.myBubble, isDark && styles.myBubbleDark] : (isDark ? styles.theirBubbleDark : styles.theirBubble),
                   ]}
                 >
                   {item.reply_snippet ? replyQuoteBlock(item.reply_snippet, isMe) : null}
@@ -688,7 +717,7 @@ const ChatScreen = () => {
                 style={[
                   styles.messageBubble,
                   { maxWidth: maxBubbleWidth },
-                  isMe ? styles.myBubble : (isDark ? styles.theirBubbleDark : styles.theirBubble),
+                  isMe ? [styles.myBubble, isDark && styles.myBubbleDark] : (isDark ? styles.theirBubbleDark : styles.theirBubble),
                 ]}
               >
                 {item.reply_snippet ? replyQuoteBlock(item.reply_snippet, isMe) : null}
@@ -721,15 +750,11 @@ const ChatScreen = () => {
       </View>
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUserId, isDark, maxBubbleWidth, params.userAvatar, toggleMessageHeart, setReplyingTo, setPreviewImageUri]);
+  }, [currentUserId, isDark, maxBubbleWidth, params.userAvatar, toggleMessageHeart, setReplyingTo, setPreviewImageUri, sc, t]);
 
   const renderReplySwipeAction = useCallback(
-    () => (
-      <View style={styles.swipeReplyWrap}>
-        <Reply color={SnapColors.white} size={22} strokeWidth={2.2} />
-      </View>
-    ),
-    []
+    (progress: SharedValue<number>) => <SwipeReplyIcon progress={progress} color={sc.white} />,
+    [sc]
   );
 
   const replyQuoteBlock = (snippet: string, isMe: boolean) => (
@@ -765,8 +790,8 @@ const ChatScreen = () => {
         >
           <Heart
             size={15}
-            color={iLiked ? SnapColors.red : SnapColors.gray}
-            fill={iLiked ? SnapColors.red : 'transparent'}
+            color={iLiked ? sc.red : sc.gray}
+            fill={iLiked ? sc.red : 'transparent'}
             strokeWidth={2.2}
           />
           {count > 0 ? <Text style={[styles.heartCount, isDark && styles.heartCountDark]}>{count}</Text> : null}
@@ -782,17 +807,16 @@ const ChatScreen = () => {
       <ReanimatedSwipeable
         ref={swipeableRef}
         friction={1}
-        leftThreshold={28}
+        leftThreshold={60}
         overshootLeft={false}
         overshootFriction={8}
-        dragOffsetFromLeftEdge={12}
+        dragOffsetFromLeftEdge={1}
         containerStyle={styles.swipeableRowContainer}
         childrenContainerStyle={styles.swipeableRowChildren}
         renderLeftActions={renderReplySwipeAction}
-        onSwipeableOpen={(direction) => {
-          if (direction !== 'left') return;
+        onSwipeableWillOpen={() => {
           setReplyingTo(item);
-          requestAnimationFrame(() => swipeableRef.current?.close());
+          swipeableRef.current?.close();
         }}
       >
         {row}
@@ -802,16 +826,16 @@ const ChatScreen = () => {
 
   return (
     <GestureHandlerRootView style={styles.gestureRoot}>
-    <SafeAreaView style={[styles.root, isDark && styles.rootDark]} edges={['top']}>
+    <SafeAreaView style={[styles.root, { backgroundColor: t.pageBg }]} edges={['top']}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         {/* Header */}
-        <View style={[styles.header, isDark && styles.headerDark]}>
+        <View style={[styles.header, { backgroundColor: t.cardBg, borderBottomColor: t.divider }]}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <ArrowLeft color={isDark ? SnapColors.darkText : SnapColors.black} size={24} />
+            <ArrowLeft color={t.txt1} size={24} />
           </TouchableOpacity>
           <TouchableOpacity
             activeOpacity={0.7}
@@ -823,11 +847,11 @@ const ChatScreen = () => {
               style={styles.headerAvatar}
             />
             <View style={styles.headerInfo}>
-              <Text style={[styles.headerName, isDark && styles.headerNameDark]}>{params.userName}</Text>
+              <Text style={[styles.headerName, { color: t.txt1 }]}>{params.userName}</Text>
               {otherTyping ? (
-                <Text style={[styles.headerTyping, isDark && styles.headerTypingDark]}>Yazıyor ✍️</Text>
+                <Text style={[styles.headerTyping, { color: t.ctaBg }]}>Yazıyor ✍️</Text>
               ) : (
-                <Text style={[styles.headerUsername, isDark && styles.headerUsernameDark]}>@{params.username}</Text>
+                <Text style={[styles.headerUsername, { color: t.txt2 }]}>@{params.username}</Text>
               )}
             </View>
           </TouchableOpacity>
@@ -836,7 +860,7 @@ const ChatScreen = () => {
         {/* Messages */}
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={SnapColors.blue} />
+            <ActivityIndicator size="large" color={sc.blue} />
           </View>
         ) : (
           <FlatList
@@ -844,7 +868,7 @@ const ChatScreen = () => {
             data={invertedMessages}
             renderItem={renderMessage}
             keyExtractor={(item) => item.id}
-            inverted
+            style={{ transform: [{ scaleY: -1 }] }}
             contentContainerStyle={styles.messagesList}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
@@ -854,7 +878,7 @@ const ChatScreen = () => {
             initialNumToRender={15}
             ListEmptyComponent={
               <View style={[styles.emptyState, { transform: [{ scaleY: -1 }] }]}>
-                <Text style={[styles.emptyStateText, isDark && styles.emptyStateTextDark]}>
+                <Text style={[styles.emptyStateText, { color: t.txt2 }]}>
                   {params.userName} ile sohbete başla! 👋
                 </Text>
               </View>
@@ -863,33 +887,33 @@ const ChatScreen = () => {
         )}
 
         {/* Input */}
-        <View style={[styles.inputOuter, isDark && styles.inputOuterDark]}>
+        <View style={[styles.inputOuter, { borderTopColor: t.divider, backgroundColor: t.cardBg }]}>
           {replyingTo ? (
-            <View style={[styles.replyBar, isDark && styles.replyBarDark]}>
+            <View style={[styles.replyBar, { backgroundColor: t.chipBg }]}>
               <View style={styles.replyBarAccent} />
               <View style={{ flex: 1 }}>
-                <Text style={[styles.replyBarLabel, isDark && styles.replyBarLabelDark]}>Yanıtlanıyor</Text>
-                <Text style={[styles.replyBarText, isDark && styles.replyBarTextDark]} numberOfLines={2}>
+                <Text style={[styles.replyBarLabel, { color: t.ctaBg }]}>Yanıtlanıyor</Text>
+                <Text style={[styles.replyBarText, { color: t.txt1 }]} numberOfLines={3}>
                   {replyingTo.content?.trim() ||
                     (replyingTo.image_url ? (replyingTo.is_snap ? '📷 Kıvılcım' : '📷 Medya') : '')}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => setReplyingTo(null)} hitSlop={12}>
-                <X color={isDark ? SnapColors.darkSecondary : SnapColors.gray} size={22} />
+              <TouchableOpacity onPress={() => setReplyingTo(null)} hitSlop={12} style={{ paddingTop: 2 }}>
+                <X color={t.txt2} size={22} />
               </TouchableOpacity>
             </View>
           ) : null}
-        <View style={[styles.inputContainer, isDark && styles.inputContainerDark]}>
+        <View style={[styles.inputContainer, { backgroundColor: t.cardBg }]}>
           <TouchableOpacity
             style={styles.cameraButton}
             onPress={handleCameraPress}
           >
-            <Camera color={SnapColors.blue} size={24} />
+            <Camera color={sc.blue} size={24} />
           </TouchableOpacity>
           <TextInput
-            style={[styles.input, isDark && styles.inputDark]}
+            style={[styles.input, { backgroundColor: t.pageBg, color: t.txt1, borderColor: t.border }]}
             placeholder="Mesaj yaz..."
-            placeholderTextColor={isDark ? SnapColors.darkSecondary : SnapColors.gray}
+            placeholderTextColor={t.txt2}
             value={newMessage}
             onChangeText={handleMessageInputChange}
             multiline
@@ -901,9 +925,9 @@ const ChatScreen = () => {
             disabled={!newMessage.trim() || sending}
           >
             {sending ? (
-              <ActivityIndicator size="small" color={SnapColors.white} />
+              <ActivityIndicator size="small" color={sc.white} />
             ) : (
-              <Send color={SnapColors.white} size={20} />
+              <Send color={sc.white} size={20} />
             )}
           </TouchableOpacity>
         </View>
@@ -955,7 +979,7 @@ const ChatScreen = () => {
                   <TouchableOpacity onPress={() => setCapturedPhoto(null)} style={{ paddingHorizontal: 24, paddingVertical: 12, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 24 }}>
                     <Text style={{ color: '#fff', fontWeight: '600' }}>Tekrar</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={handleConfirmSnap} style={{ paddingHorizontal: 32, paddingVertical: 12, backgroundColor: SnapColors.blue, borderRadius: 24 }}>
+                  <TouchableOpacity onPress={handleConfirmSnap} style={{ paddingHorizontal: 32, paddingVertical: 12, backgroundColor: sc.blue, borderRadius: 24 }}>
                     <Text style={{ color: '#fff', fontWeight: '700' }}>Gönder</Text>
                   </TouchableOpacity>
                 </View>
@@ -1007,10 +1031,10 @@ const styles = StyleSheet.create({
   },
   root: {
     flex: 1,
-    backgroundColor: '#FFF8F5',
+    backgroundColor: Clean.bg,
   },
   rootDark: {
-    backgroundColor: '#0A0200',
+    backgroundColor: Editorial.bg,
   },
   container: {
     flex: 1,
@@ -1021,12 +1045,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.06)',
-    backgroundColor: '#FFF8F5',
+    borderBottomColor: Clean.divider,
+    backgroundColor: Clean.surface,
   },
   headerDark: {
-    backgroundColor: '#130500',
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: Editorial.surface,
+    borderBottomColor: Editorial.divider,
   },
   backButton: {
     marginRight: 12,
@@ -1051,7 +1075,7 @@ const styles = StyleSheet.create({
     color: SnapColors.black,
   },
   headerNameDark: {
-    color: SnapColors.darkText,
+    color: Editorial.ink,
   },
   headerUsername: {
     fontSize: 13,
@@ -1059,7 +1083,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   headerUsernameDark: {
-    color: SnapColors.darkSecondary,
+    color: Editorial.coffeeSoft,
   },
   headerTyping: {
     fontSize: 13,
@@ -1100,7 +1124,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.06)',
   },
   replyQuoteThemDark: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(47,36,24,0.10)',
   },
   replyQuoteBar: {
     width: 3,
@@ -1122,7 +1146,7 @@ const styles = StyleSheet.create({
     color: SnapColors.black,
   },
   replyQuoteTextThemDark: {
-    color: SnapColors.darkText,
+    color: Editorial.ink,
   },
   timeSeenRow: {
     flexDirection: 'row',
@@ -1168,27 +1192,27 @@ const styles = StyleSheet.create({
     color: SnapColors.gray,
   },
   heartCountDark: {
-    color: SnapColors.darkSecondary,
+    color: Editorial.coffeeSoft,
   },
   inputOuter: {
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.06)',
-    backgroundColor: '#FFF8F5',
+    borderTopColor: Clean.divider,
+    backgroundColor: Clean.surface,
   },
   inputOuterDark: {
-    borderTopColor: 'rgba(255,255,255,0.1)',
-    backgroundColor: '#130500',
+    borderTopColor: Editorial.divider,
+    backgroundColor: Editorial.surface,
   },
   replyBar: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 10,
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: SnapColors.lightGray,
+    paddingVertical: 12,
+    backgroundColor: Clean.bgSoft,
   },
   replyBarDark: {
-    backgroundColor: SnapColors.darkBorder,
+    backgroundColor: Editorial.chip,
   },
   replyBarAccent: {
     width: 3,
@@ -1203,7 +1227,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   replyBarLabelDark: {
-    color: '#FF9166',
+    color: Editorial.coffee,
   },
   replyBarText: {
     fontSize: 13,
@@ -1211,7 +1235,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   replyBarTextDark: {
-    color: SnapColors.darkText,
+    color: Editorial.ink,
   },
   loadingContainer: {
     flex: 1,
@@ -1226,6 +1250,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     width: '100%',
     marginBottom: 16,
+    transform: [{ scaleY: -1 }],
   },
   swipeableRowContainer: {
     width: '100%',
@@ -1256,8 +1281,8 @@ const styles = StyleSheet.create({
   },
   messageBubble: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
+    paddingVertical: 11,
+    borderRadius: 14,
   },
   kivilcimReplyBubble: {
     paddingTop: 8,
@@ -1315,19 +1340,22 @@ const styles = StyleSheet.create({
   },
   myBubble: {
     backgroundColor: Clean.ctaBg,
-    borderBottomRightRadius: 4,
+    borderBottomRightRadius: 0,
+  },
+  myBubbleDark: {
+    backgroundColor: Editorial.coffee,
   },
   theirBubble: {
-    backgroundColor: '#fff',
-    borderBottomLeftRadius: 4,
-    borderWidth: 1,
-    borderColor: Clean.border,
+    backgroundColor: 'transparent',
+    borderBottomLeftRadius: 0,
+    borderWidth: 1.2,
+    borderColor: Clean.textPrimary,
   },
   theirBubbleDark: {
-    backgroundColor: '#18181B',
-    borderBottomLeftRadius: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'transparent',
+    borderBottomLeftRadius: 0,
+    borderWidth: 1.2,
+    borderColor: Editorial.border,
   },
   messageText: {
     fontSize: 15,
@@ -1340,7 +1368,7 @@ const styles = StyleSheet.create({
     color: SnapColors.black,
   },
   theirMessageTextDark: {
-    color: SnapColors.darkText,
+    color: Editorial.ink,
   },
   messageTime: {
     fontSize: 11,
@@ -1354,23 +1382,23 @@ const styles = StyleSheet.create({
     color: SnapColors.gray,
   },
   theirMessageTimeDark: {
-    color: SnapColors.darkSecondary,
+    color: Editorial.coffeeSoft,
   },
   snapBubble: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderRadius: 20,
+    borderRadius: 14,
   },
   mySnapBubble: {
     backgroundColor: SnapColors.blue,
-    borderBottomRightRadius: 4,
+    borderBottomRightRadius: 0,
   },
   theirSnapBubble: {
     backgroundColor: SnapColors.lightGray,
-    borderBottomLeftRadius: 4,
+    borderBottomLeftRadius: 0,
   },
   theirSnapBubbleDark: {
-    backgroundColor: SnapColors.darkCard,
+    backgroundColor: Editorial.chip,
     borderBottomLeftRadius: 4,
   },
   snapContent: {
@@ -1411,7 +1439,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   emptyStateTextDark: {
-    color: SnapColors.darkSecondary,
+    color: Editorial.coffeeSoft,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -1419,10 +1447,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 12,
-    backgroundColor: '#FFF8F5',
+    backgroundColor: Clean.surface,
   },
   inputContainerDark: {
-    backgroundColor: '#130500',
+    backgroundColor: Editorial.surface,
   },
   cameraButton: {
     width: 40,
@@ -1433,20 +1461,20 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: Clean.bgSoft,
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 10,
     fontSize: 15,
     maxHeight: 100,
-    color: '#1a0800',
+    color: Clean.textPrimary,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: Clean.border,
   },
   inputDark: {
-    backgroundColor: '#1C0800',
-    color: '#fff',
-    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: Editorial.chip,
+    color: Editorial.ink,
+    borderColor: Editorial.borderSoft,
   },
   sendButton: {
     width: 40,

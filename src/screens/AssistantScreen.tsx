@@ -13,12 +13,11 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SendHorizonal, Bot, Bus, Percent, Calendar, MapPin, BookOpen, Map as MapIcon, Sparkles } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Clean } from '@/constants/Colors';
 import { cardOuterShadow, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { FontFamily } from '@/constants/Typography';
 import { MOCK_MESSAGES } from '@/api/mockData';
 import { ChatMessage } from '@/types';
-import { useThemeMode } from '@/context/ThemeContext';
+import { useAppTheme } from '@/theme/useAppTheme';
 import { supabase } from '@/lib/supabase';
 
 // Gemini çağrısı client'ta değil, Supabase Edge Function (gemini-proxy) üzerinden
@@ -47,8 +46,7 @@ const DAILY_LIMIT = 40;
 const PER_MINUTE_LIMIT = 8;
 
 const AssistantScreen = () => {
-  const { mode } = useThemeMode();
-  const isDark = mode === 'dark';
+  const t = useAppTheme();
   const insets = useSafeAreaInsets();
   const tabBarLift = Math.max(TAB_BAR_BOTTOM_MARGIN, insets.bottom + 8);
   const pageBottomMargin = tabBarLift + TAB_BAR_HEIGHT + 14;
@@ -169,14 +167,7 @@ const AssistantScreen = () => {
     }, TYPING_DELAY_MS);
   };
 
-  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
-  const cardBg  = isDark ? '#18181B' : Clean.surface;
-  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
-  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
-  const ctaBg   = isDark ? '#F5F5F7' : Clean.ctaBg;
-  const ctaTxt  = isDark ? '#111114' : Clean.ctaText;
-  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
+  const { pageBg, cardBg, cardBdr, txt1, txt2, ctaBg, ctaTxt, chipBg, isDark } = t;
   const cardBorder = isDark ? cardBorderDark : cardBorderLight;
 
   const hasMessages = messages.length > 0;

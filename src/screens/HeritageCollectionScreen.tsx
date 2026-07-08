@@ -1,17 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { ArrowLeft, ChevronRight } from 'lucide-react-native';
 import { RootStackParamList } from '@/types/navigation';
-import { Clean } from '@/constants/Colors';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
-import { supabase, processImageUrl } from '@/lib/supabase';
-import { cityFallback } from '@/lib/imageFallback';
-import { useThemeMode } from '@/context/ThemeContext';
+import { supabase } from '@/lib/supabase';
+import { mapKesfetRow, type KesfetRow } from '@/lib/kesfet';
+import { useAppTheme } from '@/theme/useAppTheme';
 import { MOCK_MAGAZINES } from '@/api/mockData';
 import type { HeritageCategory } from '@/types';
+
+const { width: SCREEN_W } = Dimensions.get('window');
+const GRID_PAD = 20;
+const GRID_GAP = 14;
+const CARD_W = (SCREEN_W - GRID_PAD * 2 - GRID_GAP) / 2;
 
 const CATEGORY_META: Record<HeritageCategory, { title: string; subtitle: string }> = {
   historic: { title: 'Tarihi Yerler', subtitle: "Şanlıurfa'nın binlerce yıllık mirasını keşfetmeye hazır mısın?" },
@@ -35,20 +39,12 @@ const HeritageCollectionScreen = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute();
   const { category } = route.params as { category: HeritageCategory };
-  const { mode } = useThemeMode();
-  const isDark = mode === 'dark';
+  const t = useAppTheme();
   const insets = useSafeAreaInsets();
   const [items, setItems] = useState<MagazineData[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
-  const cardBg  = isDark ? '#18181B' : Clean.surface;
-  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
-  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
-  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
-  const amber   = Clean.accent;
-  const cardBorder = isDark ? cardBorderDark : cardBorderLight;
+  const cardBorder = t.isDark ? cardBorderDark : cardBorderLight;
 
   useEffect(() => {
     const fetchItems = async () => {
@@ -65,12 +61,17 @@ const HeritageCollectionScreen = () => {
   }, [category]);
 
   const formatted = useMemo(() => {
-    const fromSupabase = items.map((mag) => ({
-      id: mag.id.toString(),
-      title: mag.baslik,
-      description: mag.aciklama,
-      image: processImageUrl(mag.resim_url, 'kesfet_resimleri') || cityFallback(mag.id),
-    }));
+    const fromSupabase = items
+      .filter((mag) => !!mag.baslik?.trim())
+      .map((mag) => {
+        const place = mapKesfetRow(mag as KesfetRow);
+        return {
+          id: place.id,
+          title: place.title,
+          description: place.description,
+          image: place.image,
+        };
+      });
     const fromMock = MOCK_MAGAZINES.filter((m) => m.category === category).map((m) => ({
       id: m.id,
       title: m.title,
@@ -83,42 +84,46 @@ const HeritageCollectionScreen = () => {
   const meta = CATEGORY_META[category] ?? { title: 'Koleksiyon', subtitle: '' };
 
   return (
-    <View style={[styles.container, { backgroundColor: pageBg }]}>
+    <View style={[styles.container, { backgroundColor: t.pageBg }]}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <TouchableOpacity style={[styles.backBtn, { backgroundColor: chipBg }]} onPress={() => navigation.goBack()} activeOpacity={0.85}>
-          <ArrowLeft color={txt1} size={20} strokeWidth={2.2} />
+        <TouchableOpacity style={[styles.backBtn, { backgroundColor: t.chipBg }]} onPress={() => navigation.goBack()} activeOpacity={0.85}>
+          <ArrowLeft color={t.txt1} size={20} strokeWidth={2.2} />
         </TouchableOpacity>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 24) + 20 }}>
         <View style={styles.titleBlock}>
-          <Text style={[styles.eyebrow, { color: txt2 }]}>KOLEKSİYON</Text>
-          <Text style={[styles.title, { color: txt1 }]}>{meta.title}</Text>
-          {!!meta.subtitle && <Text style={[styles.subtitle, { color: txt2 }]}>{meta.subtitle}</Text>}
-          <Text style={[styles.count, { color: txt2 }]}>{formatted.length} Mekan</Text>
+          <Text style={[styles.eyebrow, { color: t.txt2 }]}>KOLEKSİYON</Text>
+          <Text style={[styles.title, { color: t.txt1 }]}>{meta.title}</Text>
+          {!!meta.subtitle && <Text style={[styles.subtitle, { color: t.txt2 }]}>{meta.subtitle}</Text>}
+          <Text style={[styles.count, { color: t.txt2 }]}>{formatted.length} Mekan</Text>
         </View>
 
         {loading ? (
-          <ActivityIndicator color={txt1} style={{ marginTop: 30 }} />
+          <ActivityIndicator color={t.txt1} style={{ marginTop: 30 }} />
         ) : (
           <View style={styles.grid}>
             {formatted.map((item, index) => (
-              <View key={item.id} style={[styles.cardOuter, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
+              <View key={item.id} style={[styles.cardOuter, cardOuterShadow, cardBorder, { width: CARD_W, backgroundColor: t.cardBg }]}>
                 <TouchableOpacity
                   style={[styles.card, cardInnerClip]}
                   activeOpacity={0.9}
-                  onPress={() => navigation.navigate('HeritageDetail', { id: item.id })}
+                  onPress={() => navigation.push('HeritageDetail', { id: item.id })}
                 >
-                  <View style={styles.cardImageWrap}>
-                    <Image source={typeof item.image === 'string' ? { uri: item.image } : item.image} style={styles.cardImage} resizeMode="cover" />
+                  <View style={[styles.cardImageWrap, { width: CARD_W, height: CARD_W }]}>
+                    <Image
+                      source={typeof item.image === 'string' ? { uri: item.image } : item.image}
+                      style={styles.cardImage}
+                      resizeMode="cover"
+                    />
                     <View style={[styles.numberBadge, { backgroundColor: 'rgba(0,0,0,0.45)' }]}>
                       <Text style={styles.numberBadgeText}>{String(index + 1).padStart(2, '0')}</Text>
                     </View>
                   </View>
                   <View style={styles.cardInfo}>
-                    <Text style={[styles.cardTitle, { color: txt1 }]} numberOfLines={1}>{item.title}</Text>
+                    <Text style={[styles.cardTitle, { color: t.txt1 }]} numberOfLines={1}>{item.title}</Text>
                     {!!item.description && (
-                      <Text style={[styles.cardDesc, { color: txt2 }]} numberOfLines={2}>{item.description}</Text>
+                      <Text style={[styles.cardDesc, { color: t.txt2 }]} numberOfLines={2}>{item.description}</Text>
                     )}
                   </View>
                 </TouchableOpacity>
@@ -171,21 +176,22 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   grid: {
-    paddingHorizontal: 20,
+    paddingHorizontal: GRID_PAD,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 14,
+    gap: GRID_GAP,
   },
   cardOuter: {
-    width: '47%',
     borderRadius: 18,
+    overflow: 'hidden',
   },
   card: {
+    width: '100%',
     borderRadius: 18,
+    overflow: 'hidden',
   },
   cardImageWrap: {
-    width: '100%',
-    aspectRatio: 1,
+    overflow: 'hidden',
   },
   cardImage: {
     width: '100%',

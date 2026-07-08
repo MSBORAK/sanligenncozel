@@ -27,14 +27,14 @@ export const cardInnerClip = {
   overflow: 'hidden' as const,
 };
 
-/** Açık (beyaz) kartlar için ince kenarlık */
+/** Açık (beyaz) kartlar için belirgin kenarlık */
 export const cardBorderLight = {
-  borderWidth: 1,
-  borderColor: 'rgba(0,0,0,0.07)',
+  borderWidth: 1.2,
+  borderColor: 'rgba(17,17,20,1)',
 };
 
-/** Koyu (siyah/dark) kartlar için ince kenarlık */
+/** Koyu (siyah/dark) kartlar için belirgin kenarlık */
 export const cardBorderDark = {
-  borderWidth: 1,
-  borderColor: 'rgba(255,255,255,0.06)',
+  borderWidth: 1.2,
+  borderColor: 'rgba(58,42,26,1)',
 };

@@ -20,6 +20,7 @@ import { GradientBackground } from '@/components/GradientBackground';
 import { DotIndicator } from '@/components/DotIndicator';
 import type { OnboardingStackParamList } from '../navigation/OnboardingNavigator';
 import { markOnboardingCompleted } from '@/utils/onboarding';
+import { Editorial } from '@/theme/colors';
 
 const planningRouteLottie = require('@/assets/images/Man Planning A Sightseeing Route.json');
 const jumpingLottie = require('@/assets/images/Jumping Lottie Animation.json');
@@ -148,8 +149,8 @@ const Slide1: React.FC<{
               transform: [{ translateY: btnAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }, { scale: btnScale }],
               marginTop: 12,
             }]}>
-              <Pressable onPress={onNext} onPressIn={onPressIn} onPressOut={onPressOut} style={[styles.pillBtn, { shadowColor: '#F59E0B' }]}>
-                <LinearGradient colors={['#F59E0B', '#F97316']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.pillGradient}>
+              <Pressable onPress={onNext} onPressIn={onPressIn} onPressOut={onPressOut} style={[styles.pillBtn, { shadowColor: Editorial.coffee }]}>
+                <LinearGradient colors={[Editorial.coffee, Editorial.coffeeSoft]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.pillGradient}>
                   <Text style={styles.pillText}>Hadi Başlayalım</Text>
                   <View style={styles.arrowCircle}><Text style={styles.arrowText}>→</Text></View>
                 </LinearGradient>
@@ -225,7 +226,7 @@ const Slide2: React.FC<{
         transform: [{ translateY: titleAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
       }]}>
         <View style={[styles.inlineBadge, { backgroundColor: 'rgba(249,115,22,0.15)', borderColor: 'rgba(253,186,116,0.3)' }]}>
-          <View style={[styles.badgeDot, { backgroundColor: '#F97316' }]} />
+          <View style={[styles.badgeDot, { backgroundColor: Editorial.coffeeSoft }]} />
           <Text style={[styles.inlineBadgeText, { color: '#FED7AA' }]}>ETKİNLİKLER · FIRSATLAR</Text>
         </View>
         <Text style={styles.splitTitle}>İndirim mi?{'\n'}Haber Sende</Text>
@@ -238,7 +239,7 @@ const Slide2: React.FC<{
           opacity: card1,
           transform: [{ translateY: card1.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) }],
         }]}>
-          <LinearGradient colors={['#F97316', '#EF4444']} style={styles.eventIconBox}>
+          <LinearGradient colors={[Editorial.coffeeSoft, '#EF4444']} style={styles.eventIconBox}>
             <Text style={{ fontSize: 18 }}>🎵</Text>
           </LinearGradient>
           <View style={{ flex: 1 }}>
@@ -252,7 +253,7 @@ const Slide2: React.FC<{
           opacity: card2,
           transform: [{ translateY: card2.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }],
         }]}>
-          <LinearGradient colors={['#8B5CF6', '#3B82F6']} style={styles.eventIconBox}>
+          <LinearGradient colors={[Editorial.coffee, Editorial.coffeeSoft]} style={styles.eventIconBox}>
             <Text style={{ fontSize: 18 }}>🎪</Text>
           </LinearGradient>
           <View style={{ flex: 1 }}>
@@ -274,8 +275,8 @@ const Slide2: React.FC<{
         <View style={{ alignItems: 'center', marginBottom: 16 }}>
           <DotIndicator total={3} active={1} accentColor="#F97316" />
         </View>
-        <Pressable onPress={onNext} onPressIn={onPressIn} onPressOut={onPressOut} style={[styles.pillBtn, { shadowColor: '#F97316' }]}>
-          <LinearGradient colors={['#F97316', '#EF4444']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.pillGradient}>
+        <Pressable onPress={onNext} onPressIn={onPressIn} onPressOut={onPressOut} style={[styles.pillBtn, { shadowColor: Editorial.coffeeSoft }]}>
+          <LinearGradient colors={[Editorial.coffeeSoft, '#EF4444']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.pillGradient}>
             <Text style={styles.pillText}>Devam Et</Text>
             <View style={styles.arrowCircle}><Text style={styles.arrowText}>→</Text></View>
           </LinearGradient>
@@ -363,7 +364,7 @@ const Slide3: React.FC<{
         transform: [{ translateY: titleAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
       }]}>
         <View style={[styles.inlineBadge, { backgroundColor: 'rgba(244,63,94,0.15)', borderColor: 'rgba(253,164,175,0.35)', marginBottom: 14 }]}>
-          <View style={[styles.badgeDot, { backgroundColor: '#FB7185' }]} />
+          <View style={[styles.badgeDot, { backgroundColor: Editorial.coffeeSoft }]} />
           <Text style={[styles.inlineBadgeText, { color: '#FECDD3' }]}>TOPLULUK · KIVILCIM</Text>
         </View>
         <Text style={styles.splitTitle}>Kıvılcım At,{'\n'}Bağlantıda Kal</Text>
@@ -397,8 +398,8 @@ const Slide3: React.FC<{
         <View style={{ alignItems: 'center', marginBottom: 16 }}>
           <DotIndicator total={3} active={2} accentColor="#FB7185" />
         </View>
-        <Pressable onPress={onFinish} onPressIn={onPressIn} onPressOut={onPressOut} style={[styles.pillBtn, { shadowColor: '#FB7185' }]}>
-          <LinearGradient colors={['#FB7185', '#E11D48']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.pillGradient}>
+        <Pressable onPress={onFinish} onPressIn={onPressIn} onPressOut={onPressOut} style={[styles.pillBtn, { shadowColor: Editorial.coffeeSoft }]}>
+          <LinearGradient colors={[Editorial.coffeeSoft, '#E11D48']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.pillGradient}>
             <Text style={styles.pillText}>Hemen Katıl</Text>
             <View style={styles.arrowCircle}><ArrowRight color="#FFFFFF" size={16} strokeWidth={2.5} /></View>
           </LinearGradient>
@@ -419,7 +420,7 @@ export const OnboardingScreen: React.FC = () => {
   const pagerRef = useRef<PagerView>(null);
   const [activePage, setActivePage] = useState(0);
 
-  const ACCENT_COLORS = ['#F59E0B', '#F97316', '#FB7185'];
+  const ACCENT_COLORS = [Editorial.coffee, Editorial.coffeeSoft, Editorial.coffeeSoft];
 
   const goToLogin = async () => {
     await markOnboardingCompleted();
@@ -616,7 +617,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   cardShadow: {
-    shadowColor: '#F97316',
+    shadowColor: Editorial.coffeeSoft,
     shadowOpacity: 0.2,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },

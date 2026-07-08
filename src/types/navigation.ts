@@ -7,7 +7,7 @@ export type MainTabParamList = {
   Home: undefined;
   Transport: undefined;
   GencKart: undefined;
-  Assistant: undefined;
+  HizliErisim: undefined;
   Profile: undefined;
 };
 
@@ -42,6 +42,7 @@ export type RootStackParamList = {
   StoryView: { storyId?: string; userId?: string } | undefined;
   CompleteProfile: undefined;
   CreatePost: undefined;
+  Assistant: undefined;
   SosyalProfile: { userId?: string };
 };
 

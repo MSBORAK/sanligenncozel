@@ -4,9 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bell, UserPlus, Check, X, MessageSquare, Sparkles, Calendar, Percent, ChevronLeft } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { Clean } from '@/constants/Colors';
 import { cardOuterShadow, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
-import { useThemeMode } from '@/context/ThemeContext';
+import { useAppTheme } from '@/theme/useAppTheme';
 import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabase';
 import { RootStackParamList } from '@/types/navigation';
@@ -27,9 +26,8 @@ type NotificationItem =
 
 const NotificationsScreen = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
-  const { mode } = useThemeMode();
+  const t = useAppTheme();
   const { profile } = useUser();
-  const isDark = mode === 'dark';
 
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -241,12 +239,7 @@ const NotificationsScreen = () => {
   };
 
   const insets = useSafeAreaInsets();
-  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
-  const cardBg  = isDark ? '#18181B' : Clean.surface;
-  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
-  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
-  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
+  const { isDark, pageBg, cardBg, cardBdr, txt1, txt2, chipBg } = t;
   const cardBorder = isDark ? cardBorderDark : cardBorderLight;
 
   const iconForType = (type: NotificationItem['type']) => {

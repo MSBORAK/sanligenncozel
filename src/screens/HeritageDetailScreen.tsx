@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   Image,
+  ImageBackground,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
@@ -19,24 +20,25 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Landmark, MapPin, Navigation, Heart, Star, X } from 'lucide-react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/types/navigation';
-import { useThemeMode } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
 import { useFavorites } from '@/context/FavoritesContext';
-import { Clean } from '@/constants/Colors';
+import { useAppTheme } from '@/theme/useAppTheme';
 import { cardOuterShadow, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
-import { supabase, processImageUrl } from '@/lib/supabase';
-import { cityFallback } from '@/lib/imageFallback';
+import { supabase } from '@/lib/supabase';
+import { mapKesfetRow, type KesfetRow } from '@/lib/kesfet';
 import { MOCK_MAGAZINES } from '@/api/mockData';
 import type { HeritageCategory } from '@/types';
 
 type Props = StackScreenProps<RootStackParamList, 'HeritageDetail'>;
 
-const HERO_RATIO = 0.72;
+const HERO_RATIO = 0.62;
 const RADIUS = 26;
+const { width: SCREEN_W } = Dimensions.get('window');
+const HERO_W = SCREEN_W - 32;
+const HERO_H = HERO_W * HERO_RATIO;
 
 const categoryLabel: Record<HeritageCategory, string> = {
   historic: 'Tarihi yer',
@@ -45,14 +47,6 @@ const categoryLabel: Record<HeritageCategory, string> = {
   nature: 'Doğa & park',
   bazaar: 'Tarihi çarşı',
 };
-
-interface KesfetRow {
-  id: number;
-  baslik: string;
-  aciklama?: string;
-  kategori?: string;
-  resim_url?: string;
-}
 
 interface PlaceView {
   title: string;
@@ -68,15 +62,6 @@ interface ReviewRow {
   comment: string;
   created_at: string;
   reviewer_name?: string;
-}
-
-function toPlaceFromRow(row: KesfetRow): PlaceView {
-  return {
-    title: row.baslik,
-    description: row.aciklama,
-    category: (row.kategori as PlaceView['category']) || 'historic',
-    image: processImageUrl(row.resim_url, 'kesfet_resimleri') || cityFallback(row.id),
-  };
 }
 
 function toPlaceFromMock(id: string): PlaceView | null {
@@ -107,21 +92,13 @@ function openInMaps(placeName: string) {
 
 const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { id } = route.params;
-  const { mode } = useThemeMode();
-  const isDark = mode === 'dark';
+  const t = useAppTheme();
   const insets = useSafeAreaInsets();
   const { profile } = useUser();
   const { isFavoriteHeritage, toggleFavorite } = useFavorites();
 
-  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
-  const cardBg  = isDark ? '#18181B' : Clean.surface;
-  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
-  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
-  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
-  const amber   = Clean.accent;
   const starYellow = '#EAB308';
-  const cardBorder = isDark ? cardBorderDark : cardBorderLight;
+  const cardBorder = t.isDark ? cardBorderDark : cardBorderLight;
   const isFav = isFavoriteHeritage(id);
 
   const [place, setPlace] = useState<PlaceView | null>(null);
@@ -135,7 +112,6 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [newRating, setNewRating] = useState(5);
   const [newComment, setNewComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [imgAspect, setImgAspect] = useState<number | null>(null);
 
   const loadPlace = useCallback(
     async (fromRefresh = false) => {
@@ -147,13 +123,18 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         if (numericId != null) {
           const { data, error } = await supabase.from('kesfet').select('*').eq('id', numericId).single();
           if (!error && data) {
-            setPlace(toPlaceFromRow(data as KesfetRow));
+            const p = mapKesfetRow(data as KesfetRow);
+            setPlace({
+              title: p.title,
+              description: p.description,
+              category: p.category,
+              image: p.image,
+            });
             return;
           }
         }
 
-        const mockPlace = toPlaceFromMock(id);
-        setPlace(mockPlace);
+        setPlace(toPlaceFromMock(id));
       } catch (e) {
         console.error('Keşfet detay yüklenemedi:', e);
         setPlace(toPlaceFromMock(id));
@@ -206,22 +187,6 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     loadReviews();
   }, [loadPlace, loadReviews]);
 
-  useEffect(() => {
-    if (!place) return;
-    setImgAspect(null);
-    const src = resolveImageSource(place.image);
-    if (typeof src === 'number') {
-      const { width, height } = Image.resolveAssetSource(src);
-      if (width && height) setImgAspect(width / height);
-    } else if (src && 'uri' in src && src.uri) {
-      Image.getSize(
-        src.uri,
-        (w, h) => setImgAspect(w / h),
-        () => setImgAspect(null)
-      );
-    }
-  }, [place]);
-
   const avgRating = useMemo(() => {
     if (reviews.length === 0) return null;
     return reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
@@ -261,19 +226,13 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   };
 
-  const heroWidth = Dimensions.get('window').width - 32;
-  const heroHeight = imgAspect
-    ? Math.min(Math.max(heroWidth / imgAspect, heroWidth * 0.55), heroWidth * 1.05)
-    : heroWidth * HERO_RATIO;
-  const backButtonTop = insets.top + 10;
-
   if (loading && !place) {
     return (
-      <View style={[styles.screen, { backgroundColor: pageBg }]}>
-        <StatusBar style={isDark ? 'light' : 'dark'} />
+      <View style={[styles.screen, { backgroundColor: t.pageBg }]}>
+        <StatusBar style={t.isDark ? 'light' : 'dark'} />
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={txt1} />
-          <Text style={[styles.loadingLabel, { color: txt2 }]}>Yükleniyor…</Text>
+          <ActivityIndicator size="large" color={t.txt1} />
+          <Text style={[styles.loadingLabel, { color: t.txt2 }]}>Yükleniyor…</Text>
         </View>
       </View>
     );
@@ -281,16 +240,16 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   if (!place) {
     return (
-      <View style={[styles.screen, { backgroundColor: pageBg }]}>
-        <StatusBar style={isDark ? 'light' : 'dark'} />
+      <View style={[styles.screen, { backgroundColor: t.pageBg }]}>
+        <StatusBar style={t.isDark ? 'light' : 'dark'} />
         <View style={[styles.simpleHeader, { paddingTop: insets.top + 8 }]}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backIconBtn, { backgroundColor: chipBg }]} hitSlop={12}>
-            <ChevronLeft color={txt1} size={22} strokeWidth={2.2} />
+          <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backIconBtn, { backgroundColor: t.chipBg }]} hitSlop={12}>
+            <ChevronLeft color={t.txt1} size={22} strokeWidth={2.2} />
           </TouchableOpacity>
-          <Text style={[styles.simpleHeaderTitle, { color: txt1 }]}>İçerik bulunamadı</Text>
+          <Text style={[styles.simpleHeaderTitle, { color: t.txt1 }]}>İçerik bulunamadı</Text>
         </View>
         <View style={styles.emptyBody}>
-          <Text style={[styles.emptyCopy, { color: txt2 }]}>
+          <Text style={[styles.emptyCopy, { color: t.txt2 }]}>
             Bu mekân bulunamadı veya kaldırılmış olabilir.
           </Text>
         </View>
@@ -301,7 +260,7 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const imgSource = resolveImageSource(place.image);
 
   return (
-    <View style={[styles.screen, { backgroundColor: pageBg }]}>
+    <View style={[styles.screen, { backgroundColor: t.pageBg }]}>
       <StatusBar style="light" />
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -311,13 +270,18 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => loadPlace(true)}
-            tintColor={txt2}
+            tintColor={t.txt2}
             progressViewOffset={insets.top}
           />
         }
       >
-        <View style={[styles.hero, { height: heroHeight, marginTop: insets.top + 8 }]}>
-          <Image source={imgSource} style={[StyleSheet.absoluteFillObject, { borderRadius: RADIUS }]} resizeMode="cover" />
+        <View style={[styles.hero, { height: HERO_H, marginTop: insets.top + 8 }]}>
+          <ImageBackground
+            source={imgSource}
+            style={styles.heroImageBg}
+            imageStyle={styles.heroImageRadius}
+            resizeMode="cover"
+          />
         </View>
 
         <TouchableOpacity
@@ -338,47 +302,47 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <Heart color="#111114" fill={isFav ? '#111114' : 'transparent'} size={22} strokeWidth={2.2} />
         </TouchableOpacity>
 
-        <View style={[styles.sheet, { backgroundColor:pageBg }]}>
+        <View style={[styles.sheet, { backgroundColor: t.pageBg }]}>
           <View style={styles.titleRow}>
-            <Text style={[styles.title, { color: txt1, flex: 1 }]}>{place.title}</Text>
+            <Text style={[styles.title, { color: t.txt1, flex: 1 }]}>{place.title}</Text>
             {avgRating != null && (
-              <View style={[styles.ratingPill, { backgroundColor: chipBg }]}>
+              <View style={[styles.ratingPill, { backgroundColor: t.chipBg }]}>
                 <Star color={starYellow} fill={starYellow} size={14} strokeWidth={0} />
-                <Text style={[styles.ratingPillTxt, { color: txt1 }]}>{avgRating.toFixed(1)}</Text>
+                <Text style={[styles.ratingPillTxt, { color: t.txt1 }]}>{avgRating.toFixed(1)}</Text>
               </View>
             )}
           </View>
 
           <View style={styles.chipRow}>
-            <View style={[styles.chip, { backgroundColor: chipBg }]}>
-              <Landmark color={amber} size={14} strokeWidth={2.2} />
-              <Text style={[styles.chipText, { color: txt1 }]}>{categoryLabel[place.category]}</Text>
+            <View style={[styles.chip, { backgroundColor: t.chipBg }]}>
+              <Landmark color={t.accent} size={14} strokeWidth={2.2} />
+              <Text style={[styles.chipText, { color: t.txt1 }]}>{categoryLabel[place.category]}</Text>
             </View>
-            <View style={[styles.chip, { backgroundColor: chipBg }]}>
-              <MapPin color={txt2} size={14} strokeWidth={2.2} />
-              <Text style={[styles.chipText, { color: txt1 }]}>Şanlıurfa</Text>
+            <View style={[styles.chip, { backgroundColor: t.chipBg }]}>
+              <MapPin color={t.txt2} size={14} strokeWidth={2.2} />
+              <Text style={[styles.chipText, { color: t.txt1 }]}>Şanlıurfa</Text>
             </View>
           </View>
 
-          <View style={[styles.descCard, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
-            <Text style={[styles.descLabel, { color: txt2 }]}>HAKKINDA</Text>
-            <Text style={[styles.description, { color: txt1 }]}>
+          <View style={[styles.descCard, cardOuterShadow, cardBorder, { backgroundColor: t.cardBg }]}>
+            <Text style={[styles.descLabel, { color: t.txt2 }]}>HAKKINDA</Text>
+            <Text style={[styles.description, { color: t.txt1 }]}>
               {place.description?.trim() || 'Bu mekân için henüz detaylı açıklama eklenmemiş.'}
             </Text>
           </View>
 
           <TouchableOpacity
-            style={[styles.mapCta, { backgroundColor: txt1 }]}
+            style={[styles.mapCta, { backgroundColor: t.txt1 }]}
             activeOpacity={0.88}
             onPress={() => openInMaps(place.title)}
           >
-            <Navigation color={pageBg} size={18} strokeWidth={2.2} />
-            <Text style={[styles.mapCtaText, { color: pageBg }]}>Haritada Aç</Text>
+            <Navigation color={t.pageBg} size={18} strokeWidth={2.2} />
+            <Text style={[styles.mapCtaText, { color: t.pageBg }]}>Haritada Aç</Text>
           </TouchableOpacity>
 
           {/* Yorumlar */}
           <View style={styles.sectionHeadRow}>
-            <Text style={[styles.sectionTitle, { color: txt1 }]}>
+            <Text style={[styles.sectionTitle, { color: t.txt1 }]}>
               Yorumlar {reviews.length > 0 ? `(${reviews.length})` : ''}
             </Text>
             <TouchableOpacity onPress={() => setReviewModalVisible(true)}>
@@ -387,30 +351,30 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
 
           {reviewsLoading ? (
-            <ActivityIndicator color={txt2} style={{ marginVertical: 12 }} />
+            <ActivityIndicator color={t.txt2} style={{ marginVertical: 12 }} />
           ) : reviews.length === 0 ? (
-            <Text style={[styles.emptyReviewsTxt, { color: txt2 }]}>Henüz yorum yok — ilk yorumu sen yaz.</Text>
+            <Text style={[styles.emptyReviewsTxt, { color: t.txt2 }]}>Henüz yorum yok — ilk yorumu sen yaz.</Text>
           ) : (
             <View style={{ gap: 10 }}>
               {reviews.slice(0, 2).map((r) => (
-                <View key={r.id} style={[styles.reviewCard, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
+                <View key={r.id} style={[styles.reviewCard, cardOuterShadow, cardBorder, { backgroundColor: t.cardBg }]}>
                   <View style={styles.reviewHeadRow}>
-                    <View style={[styles.reviewAvatar, { backgroundColor: chipBg }]}>
-                      <Text style={[styles.reviewAvatarTxt, { color: txt1 }]}>{(r.reviewer_name || 'K').charAt(0).toUpperCase()}</Text>
+                    <View style={[styles.reviewAvatar, { backgroundColor: t.chipBg }]}>
+                      <Text style={[styles.reviewAvatarTxt, { color: t.txt1 }]}>{(r.reviewer_name || 'K').charAt(0).toUpperCase()}</Text>
                     </View>
-                    <Text style={[styles.reviewerName, { color: txt1 }]} numberOfLines={1}>{r.reviewer_name || 'Kullanıcı'}</Text>
+                    <Text style={[styles.reviewerName, { color: t.txt1 }]} numberOfLines={1}>{r.reviewer_name || 'Kullanıcı'}</Text>
                   </View>
                   <View style={styles.reviewStarsRow}>
                     {Array.from({ length: 5 }).map((_, i) => (
                       <Star key={i} color={starYellow} fill={i < r.rating ? starYellow : "transparent"} size={13} strokeWidth={1.5} />
                     ))}
                   </View>
-                  <Text style={[styles.reviewComment, { color: txt1 }]}>{r.comment}</Text>
+                  <Text style={[styles.reviewComment, { color: t.txt1 }]}>{r.comment}</Text>
                 </View>
               ))}
               {reviews.length > 2 && (
                 <TouchableOpacity onPress={() => setAllReviewsModalVisible(true)} style={styles.seeAllBtn}>
-                  <Text style={[styles.sectionAction, { color: txt1 }]}>Tümünü Gör ({reviews.length})</Text>
+                  <Text style={[styles.sectionAction, { color: t.txt1 }]}>Tümünü Gör ({reviews.length})</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -420,7 +384,7 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           {relatedPlaces.length > 0 && (
             <View style={{ marginTop: 24 }}>
               <View style={styles.sectionHeadRow}>
-                <Text style={[styles.sectionTitle, { color: txt1 }]}>Diğer Yerler</Text>
+                <Text style={[styles.sectionTitle, { color: t.txt1 }]}>Diğer Yerler</Text>
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 4 }}>
                 {relatedPlaces.map((rp) => {
@@ -429,7 +393,7 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                   return (
                     <TouchableOpacity
                       key={rp.id}
-                      style={[styles.relatedCard, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}
+                      style={[styles.relatedCard, cardOuterShadow, cardBorder, { backgroundColor: t.cardBg }]}
                       activeOpacity={0.9}
                       onPress={() => navigation.push('HeritageDetail', { id: rp.id })}
                     >
@@ -440,10 +404,10 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                           onPress={() => toggleFavorite('heritage', rp.id)}
                           hitSlop={8}
                         >
-                          <Heart color={rpFav ? amber : '#111114'} fill={rpFav ? amber : 'transparent'} size={15} strokeWidth={2.2} />
+                          <Heart color={rpFav ? t.accent : '#111114'} fill={rpFav ? t.accent : 'transparent'} size={15} strokeWidth={2.2} />
                         </TouchableOpacity>
                       </View>
-                      <Text style={[styles.relatedTitle, { color: txt1 }]} numberOfLines={1}>{rp.title}</Text>
+                      <Text style={[styles.relatedTitle, { color: t.txt1 }]} numberOfLines={1}>{rp.title}</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -456,28 +420,28 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       {/* Tüm yorumlar modalı */}
       <Modal visible={allReviewsModalVisible} animationType="slide" transparent onRequestClose={() => setAllReviewsModalVisible(false)}>
         <View style={styles.modalBack}>
-          <View style={[styles.modalCard, { backgroundColor: cardBg, maxHeight: '75%' }]}>
+          <View style={[styles.modalCard, { backgroundColor: t.cardBg, maxHeight: '75%' }]}>
             <View style={styles.modalHeadRow}>
-              <Text style={[styles.modalTitle, { color: txt1 }]}>Tüm Yorumlar ({reviews.length})</Text>
-              <TouchableOpacity onPress={() => setAllReviewsModalVisible(false)} style={[styles.modalCloseBtn, { backgroundColor: chipBg }]}>
-                <X color={txt1} size={18} />
+              <Text style={[styles.modalTitle, { color: t.txt1 }]}>Tüm Yorumlar ({reviews.length})</Text>
+              <TouchableOpacity onPress={() => setAllReviewsModalVisible(false)} style={[styles.modalCloseBtn, { backgroundColor: t.chipBg }]}>
+                <X color={t.txt1} size={18} />
               </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingBottom: 10 }}>
               {reviews.map((r) => (
-                <View key={r.id} style={[styles.reviewCard, cardOuterShadow, cardBorder, { backgroundColor: pageBg }]}>
+                <View key={r.id} style={[styles.reviewCard, cardOuterShadow, cardBorder, { backgroundColor: t.pageBg }]}>
                   <View style={styles.reviewHeadRow}>
-                    <View style={[styles.reviewAvatar, { backgroundColor: chipBg }]}>
-                      <Text style={[styles.reviewAvatarTxt, { color: txt1 }]}>{(r.reviewer_name || 'K').charAt(0).toUpperCase()}</Text>
+                    <View style={[styles.reviewAvatar, { backgroundColor: t.chipBg }]}>
+                      <Text style={[styles.reviewAvatarTxt, { color: t.txt1 }]}>{(r.reviewer_name || 'K').charAt(0).toUpperCase()}</Text>
                     </View>
-                    <Text style={[styles.reviewerName, { color: txt1 }]} numberOfLines={1}>{r.reviewer_name || 'Kullanıcı'}</Text>
+                    <Text style={[styles.reviewerName, { color: t.txt1 }]} numberOfLines={1}>{r.reviewer_name || 'Kullanıcı'}</Text>
                   </View>
                   <View style={styles.reviewStarsRow}>
                     {Array.from({ length: 5 }).map((_, i) => (
                       <Star key={i} color={starYellow} fill={i < r.rating ? starYellow : "transparent"} size={13} strokeWidth={1.5} />
                     ))}
                   </View>
-                  <Text style={[styles.reviewComment, { color: txt1 }]}>{r.comment}</Text>
+                  <Text style={[styles.reviewComment, { color: t.txt1 }]}>{r.comment}</Text>
                 </View>
               ))}
             </ScrollView>
@@ -491,11 +455,11 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           style={styles.modalBack}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={[styles.modalCard, { backgroundColor: cardBg }]}>
+          <View style={[styles.modalCard, { backgroundColor: t.cardBg }]}>
             <View style={styles.modalHeadRow}>
-              <Text style={[styles.modalTitle, { color: txt1 }]}>Yorum Yap</Text>
-              <TouchableOpacity onPress={() => setReviewModalVisible(false)} style={[styles.modalCloseBtn, { backgroundColor: chipBg }]}>
-                <X color={txt1} size={18} />
+              <Text style={[styles.modalTitle, { color: t.txt1 }]}>Yorum Yap</Text>
+              <TouchableOpacity onPress={() => setReviewModalVisible(false)} style={[styles.modalCloseBtn, { backgroundColor: t.chipBg }]}>
+                <X color={t.txt1} size={18} />
               </TouchableOpacity>
             </View>
             <View style={styles.starsPickerRow}>
@@ -506,9 +470,9 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               ))}
             </View>
             <TextInput
-              style={[styles.modalInput, { backgroundColor: chipBg, color: txt1 }]}
+              style={[styles.modalInput, { backgroundColor: t.chipBg, color: t.txt1 }]}
               placeholder="Bu mekân hakkında ne düşünüyorsun?"
-              placeholderTextColor={txt2}
+              placeholderTextColor={t.txt2}
               value={newComment}
               onChangeText={setNewComment}
               multiline
@@ -517,11 +481,11 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               blurOnSubmit
             />
             <TouchableOpacity
-              style={[styles.modalSubmitBtn, { backgroundColor: txt1, opacity: submitting ? 0.6 : 1 }]}
+              style={[styles.modalSubmitBtn, { backgroundColor: t.txt1, opacity: submitting ? 0.6 : 1 }]}
               onPress={submitReview}
               disabled={submitting}
             >
-              <Text style={[styles.modalSubmitTxt, { color: pageBg }]}>{submitting ? 'Gönderiliyor…' : 'Gönder'}</Text>
+              <Text style={[styles.modalSubmitTxt, { color: t.pageBg }]}>{submitting ? 'Gönderiliyor…' : 'Gönder'}</Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -574,11 +538,19 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   hero: {
-    marginHorizontal: 16,
+    width: HERO_W,
+    alignSelf: 'center',
     position: 'relative',
     backgroundColor: '#EEF1F4',
     borderRadius: RADIUS,
     overflow: 'hidden',
+  },
+  heroImageBg: {
+    width: '100%',
+    height: '100%',
+  },
+  heroImageRadius: {
+    borderRadius: RADIUS,
   },
   heroBottomFade: {
     position: 'absolute',
@@ -748,6 +720,7 @@ const styles = StyleSheet.create({
     width: 130,
     borderRadius: 16,
     padding: 8,
+    overflow: 'hidden',
   },
   relatedImgWrap: {
     width: '100%',

@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   Image,
+  ImageBackground,
   ActivityIndicator,
   TouchableOpacity,
   Dimensions,
@@ -37,9 +38,8 @@ import {
 } from 'lucide-react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/types/navigation';
-import { useThemeMode } from '@/context/ThemeContext';
+import { useAppTheme } from '@/theme/useAppTheme';
 import { useFavorites } from '@/context/FavoritesContext';
-import { Clean } from '@/constants/Colors';
 import { cardOuterShadow, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { FontFamily } from '@/constants/Typography';
 import { supabase, processImageUrl } from '@/lib/supabase';
@@ -47,8 +47,11 @@ import { MOCK_PARTNERS } from '@/api/mockData';
 
 type Props = StackScreenProps<RootStackParamList, 'PartnerDetail'>;
 
-const HERO_RATIO = 0.66;
+const HERO_RATIO = 0.62;
 const RADIUS = 24;
+const { width: SCREEN_W } = Dimensions.get('window');
+const HERO_W = SCREEN_W - 32;
+const HERO_H = HERO_W * HERO_RATIO;
 
 interface FirsatRow {
   id: number;
@@ -124,18 +127,10 @@ function fromMock(id: string): PartnerView | null {
 
 const PartnerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { partnerId } = route.params;
-  const { mode } = useThemeMode();
-  const isDark = mode === 'dark';
+  const t = useAppTheme();
+  const { isDark, pageBg, cardBg, cardBdr, chipBg, txt1, txt2, accent: amber } = t;
   const insets = useSafeAreaInsets();
   const { isFavoritePartner, toggleFavorite } = useFavorites();
-
-  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
-  const cardBg  = isDark ? '#18181B' : Clean.surface;
-  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
-  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
-  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
-  const amber   = Clean.accent;
   const cardBorder = isDark ? cardBorderDark : cardBorderLight;
 
   const [partner, setPartner] = useState<PartnerView | null>(null);
@@ -174,8 +169,7 @@ const PartnerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     loadPartner(false);
   }, [loadPartner]);
 
-  const heroHeight = Dimensions.get('window').width * HERO_RATIO;
-  const backTop = insets.top + 10;
+
   const Icon = getCategoryIcon(partner?.category || '', partner?.title);
   const isFav = isFavoritePartner(partnerId);
   const rawUrl = partner?.externalUrl?.trim();
@@ -234,9 +228,20 @@ const PartnerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           />
         }
       >
-        <View style={[styles.hero, { height: heroHeight, backgroundColor: chipBg }]}>
+        <View style={[styles.hero, { height: HERO_H, marginTop: insets.top + 8, backgroundColor: chipBg }]}>
           {hasImage ? (
-            <Image source={{ uri: partner.imageUrl! }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+            <ImageBackground
+              source={{ uri: partner.imageUrl! }}
+              style={styles.heroImageBg}
+              imageStyle={styles.heroImageRadius}
+              resizeMode="cover"
+            >
+              <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.5)']}
+                style={styles.heroBottomFade}
+                pointerEvents="none"
+              />
+            </ImageBackground>
           ) : (
             <View style={styles.heroIconCenter}>
               <View style={[styles.heroIconRing, { backgroundColor: cardBg, borderColor: cardBdr }]}>
@@ -244,17 +249,10 @@ const PartnerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               </View>
             </View>
           )}
-          {hasImage && (
-            <LinearGradient
-              colors={['transparent', 'rgba(0,0,0,0.5)']}
-              style={styles.heroBottomFade}
-              pointerEvents="none"
-            />
-          )}
 
           <TouchableOpacity
             onPress={() => navigation.goBack()}
-            style={[styles.backFab, { top: backTop, left: 18, backgroundColor: '#ffffff' }]}
+            style={[styles.backFab, { top: 14, left: 18, backgroundColor: t.cardBg }]}
             activeOpacity={0.88}
             hitSlop={8}
           >
@@ -263,7 +261,7 @@ const PartnerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
           <TouchableOpacity
             onPress={() => toggleFavorite('partner', partnerId)}
-            style={[styles.backFab, { top: backTop, right: 18, backgroundColor: '#ffffff' }]}
+            style={[styles.backFab, { top: 14, right: 18, backgroundColor: t.cardBg }]}
             activeOpacity={0.88}
             hitSlop={8}
           >
@@ -359,7 +357,20 @@ const styles = StyleSheet.create({
   simpleHeaderTitle: { fontFamily: FontFamily.semiBold, fontSize: 18 },
   emptyBody: { flex: 1, justifyContent: 'center', padding: 32 },
   emptyCopy: { fontFamily: FontFamily.medium, fontSize: 16, textAlign: 'center', lineHeight: 24 },
-  hero: { width: '100%', position: 'relative' },
+  hero: {
+    width: HERO_W,
+    alignSelf: 'center',
+    position: 'relative',
+    borderRadius: RADIUS,
+    overflow: 'hidden',
+  },
+  heroImageBg: {
+    width: '100%',
+    height: '100%',
+  },
+  heroImageRadius: {
+    borderRadius: RADIUS,
+  },
   heroIconCenter: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   heroIconRing: {
     width: 108,

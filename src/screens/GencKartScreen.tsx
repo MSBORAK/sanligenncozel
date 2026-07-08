@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, StatusB
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MapPin, Wifi, Heart } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
-import { Colors, DribbbleColors, Clean } from '@/constants/Colors';
+import { Colors } from '@/constants/Colors';
+import { GencKartCardTheme } from '@/theme/colors';
 import { cardOuterShadow, cardInnerClip } from '@/constants/Shadows';
 import { FontFamily } from '@/constants/Typography';
 import AnimatedListItem from '@/components/AnimatedListItem';
@@ -12,7 +13,7 @@ import { DiscountPartner } from '@/types';
 import { useNavigation } from '@react-navigation/native';
 import type { RootStackParamList } from '@/types/navigation';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { useThemeMode } from '@/context/ThemeContext';
+import { useAppTheme } from '@/theme/useAppTheme';
 import { useFavorites } from '@/context/FavoritesContext';
 import { useUser } from '@/context/UserContext';
 
@@ -25,6 +26,7 @@ const CATEGORIES: Category[] = ['Tümü', 'Favoriler', 'Kafe', 'Sinema', 'Giyim'
 /** CustomTabBar ile aynı: yüzen tab yüksekliği + alt offset (içerik tabın altında kalmaması için) */
 const TAB_BAR_HEIGHT = 72;
 const TAB_BAR_BOTTOM_MARGIN = 24;
+const SERIF = Platform.select<string>({ ios: 'Georgia', android: 'serif', default: 'serif' });
 
 /**
  * Gerçek bilet siluetini çizen path — yarım daire çentikler kartın
@@ -72,7 +74,7 @@ function VenueTicketCard({
         <Path
           d={buildTicketPath(size.width, size.height, TICKET_RADIUS, notchY, TICKET_NOTCH_RADIUS)}
           fill={cardBg}
-          stroke={isDark ? 'rgba(255,255,255,0.16)' : 'rgba(17,17,20,0.14)'}
+          stroke={isDark ? 'rgba(255,255,255,0.16)' : 'rgba(58,42,26,0.48)'}
           strokeWidth={1.5}
         />
       </Svg>
@@ -87,7 +89,6 @@ function VenueTicketCard({
 
       <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={{ width: size.width }}>
         <View style={styles.ticketCard}>
-          {/* ÜST: indirim/ikram kahraman — ortalı */}
           <View style={styles.ticketHero}>
             <View style={[styles.ticketIconWrap, { backgroundColor: chipBg }]}>
               <Icon color={txt1} size={20} strokeWidth={2} />
@@ -102,7 +103,6 @@ function VenueTicketCard({
             )}
           </View>
 
-          {/* Kesik çizgi — çentik kartın silüetinde */}
           <View style={styles.ticketTearRow} onLayout={(e) => setNotchY(e.nativeEvent.layout.y + e.nativeEvent.layout.height / 2)}>
             <View style={styles.ticketDashRow}>
               {Array.from({ length: 9 }).map((_, di) => (
@@ -111,7 +111,6 @@ function VenueTicketCard({
             </View>
           </View>
 
-          {/* ALT: marka + kategori + CTA */}
           <Text style={[styles.ticketName, { color: txt1 }]} numberOfLines={1}>{item.name}</Text>
           <Text style={[styles.ticketKat, { color: txt2 }]} numberOfLines={1}>{item.category}</Text>
           <View style={[styles.ticketCta, { backgroundColor: ctaBg }]}>
@@ -126,22 +125,12 @@ function VenueTicketCard({
 const GencKartScreen = () => {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
-  const { mode } = useThemeMode();
-  const isDark = mode === 'dark';
+  const { isDark, pageBg, cardBg, cardBdr, txt1, txt2, ctaBg, ctaTxt, chipBg, accent } = useAppTheme();
   const { isFavoritePartner, toggleFavorite, favoritePartnerIds } = useFavorites();
   const { profile } = useUser();
   const [selectedCategory, setSelectedCategory] = useState<Category>('Tümü');
-
-  // Home ekranıyla birebir aynı tema (Clean) — mavi/amber Material Design kaldırıldı
-  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
-  const cardBg  = isDark ? '#18181B' : Clean.surface;
-  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
-  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
-  const ctaBg   = isDark ? '#F5F5F7' : Clean.ctaBg;
-  const ctaTxt  = isDark ? '#111114' : Clean.ctaText;
-  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
-  const amber   = Clean.accent;
+  const cardTheme = isDark ? GencKartCardTheme.editorial : GencKartCardTheme.clean;
+  const amber = accent;
 
   const filteredPartners = useMemo(() => {
     if (selectedCategory === 'Tümü') {
@@ -164,10 +153,10 @@ const GencKartScreen = () => {
           activeOpacity={0.88}
           style={[
             styles.filterChip,
-            { backgroundColor: active ? ctaBg : chipBg, borderWidth: active ? 0 : 1, borderColor: cardBdr },
+            { backgroundColor: active ? ctaBg : chipBg, borderWidth: 1, borderColor: active ? ctaBg : cardBdr },
           ]}
         >
-          <Text style={[styles.filterChipText, { color: labelColor, fontWeight: active ? '700' : '500' }]}>
+          <Text style={[styles.filterChipText, { color: labelColor, fontWeight: active ? '900' : '700' }]}>
             {category}
           </Text>
         </TouchableOpacity>
@@ -188,7 +177,7 @@ const GencKartScreen = () => {
             <Text style={[styles.heroLabel,{color:txt2}]}>ŞANLI GENÇ KART</Text>
             <Text style={[styles.heroTitle,{color:txt1}]}>Şehrin anahtarı{'\n'}cebinde!</Text>
           </View>
-          <View style={[styles.heroIconWrap,{backgroundColor:chipBg}]}>
+          <View style={[styles.heroIconWrap,{backgroundColor:chipBg, borderColor:cardBdr}]}>
             <Wifi color={txt1} size={22} strokeWidth={1.8} />
           </View>
         </View>
@@ -199,12 +188,11 @@ const GencKartScreen = () => {
         contentContainerStyle={{ paddingBottom: scrollBottomPadding }}
       >
 
-            {/* Genç Kart — arka plan görseli ChatGPT/DALL-E ile üretildi, yazılar üstüne bindiriliyor */}
-            <View style={[cardOuterShadow, { marginHorizontal: 20, borderRadius: 25, backgroundColor: '#f59e0b' }]}>
+            <View style={[cardOuterShadow, { marginHorizontal: 18, borderRadius: 25, backgroundColor: cardTheme.shadow }]}>
             <ImageBackground
-                source={require('@/assets/images/genckart-bg.png')}
+                source={cardTheme.bgImage}
                 resizeMode="cover"
-                style={[styles.gencKart, cardInnerClip, { marginHorizontal: 0 }]}
+                style={[styles.gencKart, { marginHorizontal: 0 }]}
             >
                 <View style={styles.cardTop}>
                     <View>
@@ -216,7 +204,7 @@ const GencKartScreen = () => {
                     </View>
                     <View style={styles.contactlessContainer}>
                         <Wifi color="rgba(255,255,255,0.85)" size={20} />
-                        <View style={styles.cardYearPill}>
+                        <View style={[styles.cardYearPill, { borderColor: cardTheme.yearBorder }]}>
                           <Text style={styles.cardYear}>2026</Text>
                         </View>
                     </View>
@@ -224,7 +212,7 @@ const GencKartScreen = () => {
 
                 <View style={styles.cardBottom}>
                     <View>
-                        <Text style={styles.cardHolderLabel}>KART SAHİBİ</Text>
+                        <Text style={[styles.cardHolderLabel, { color: cardTheme.holderLabel }]}>KART SAHİBİ</Text>
                         <Text style={styles.cardHolderName}>{(profile?.name || MOCK_USER.name).toUpperCase()}</Text>
                     </View>
                 </View>
@@ -299,12 +287,13 @@ const GencKartScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: DribbbleColors.background,
+    backgroundColor: '#F6EEDD',
   },
   hero: {
-    paddingHorizontal: 20,
-    paddingBottom: 28,
+    paddingHorizontal: 18,
+    paddingBottom: 24,
     gap: 12,
+    borderBottomWidth: 0,
   },
   heroTop: {
     flexDirection: 'row',
@@ -312,16 +301,17 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   heroLabel: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: '900',
     letterSpacing: 1.4,
-    marginBottom: 6,
+    marginBottom: 5,
   },
   heroTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-    lineHeight: 32,
+    fontSize: 25,
+    fontWeight: '500',
+    fontFamily: SERIF,
+    letterSpacing: -0.35,
+    lineHeight: 30,
   },
   heroIconWrap: {
     width: 48,
@@ -329,10 +319,11 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1.2,
   },
   gencKart: {
     borderRadius: 25,
-    marginHorizontal: 20,
+    marginHorizontal: 0,
     padding: 20,
     height: 210,
     justifyContent: 'space-between',
@@ -423,8 +414,8 @@ const styles = StyleSheet.create({
       marginTop: 2
   },
   venuesSection: {
-    paddingHorizontal: 20,
-    marginTop: 28,
+    paddingHorizontal: 18,
+    marginTop: 26,
     marginBottom: 6,
   },
   venuesSectionTop: {
@@ -438,14 +429,17 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   venuesSectionTitle: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: 20,
+    fontFamily: SERIF,
+    fontSize: 24,
+    fontWeight: '500',
     letterSpacing: -0.35,
   },
   venuesCountPill: {
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(58,42,26,0.18)',
   },
   venuesCountText: {
     fontFamily: FontFamily.semiBold,
@@ -468,15 +462,15 @@ const styles = StyleSheet.create({
     height: 52,
   },
   filterScrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     alignItems: 'center',
     flexGrow: 0,
     paddingVertical: 4,
   },
   filterChip: {
-    paddingHorizontal: 18,
-    height: 44,
-    borderRadius: 22,
+    paddingHorizontal: 16,
+    height: 40,
+    borderRadius: 999,
     marginRight: 10,
     overflow: 'hidden',
     justifyContent: 'center',
@@ -484,8 +478,8 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   filterChipText: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: 13,
+    fontSize: 12.5,
+    letterSpacing: 0.1,
   },
   emptyFav: {
     alignItems: 'center',
@@ -502,7 +496,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   emptyFavTitle: {
-    fontFamily: FontFamily.semiBold,
+    fontFamily: SERIF,
+    fontWeight: '500',
     fontSize: 17,
     letterSpacing: -0.2,
     marginBottom: 6,
@@ -514,7 +509,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   venuesGrid: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingTop: 6,
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -524,11 +519,105 @@ const styles = StyleSheet.create({
     width: '48%',
     marginBottom: 16,
   },
+  venuesList: {
+    paddingHorizontal: 18,
+    paddingTop: 8,
+    gap: 12,
+  },
+  venuesListItem: {
+    width: '100%',
+  },
+  dealListCard: {
+    minHeight: 96,
+    borderRadius: 20,
+    borderWidth: 1.2,
+    paddingHorizontal: 13,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: '#3A2A1A',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  dealListHeart: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 2,
+    padding: 4,
+  },
+  dealListIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(58,42,26,0.14)',
+  },
+  dealListBody: {
+    flex: 1,
+    paddingRight: 4,
+  },
+  dealListName: {
+    fontSize: 17,
+    lineHeight: 21,
+    fontWeight: '500',
+    fontFamily: SERIF,
+    letterSpacing: -0.2,
+  },
+  dealListOffer: {
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  dealListCategory: {
+    fontSize: 10.5,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginTop: 5,
+  },
+  dealListDivider: {
+    height: 54,
+    borderLeftWidth: 1,
+    borderStyle: 'dashed',
+  },
+  dealListRight: {
+    minWidth: 54,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingRight: 2,
+  },
+  dealListPct: {
+    fontSize: 22,
+    lineHeight: 25,
+    fontWeight: '900',
+    letterSpacing: -0.7,
+  },
+  dealListPctLabel: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  dealListMore: {
+    fontSize: 12,
+    fontWeight: '900',
+  },
   // ── Bilet siluetli mekan kartı ──
   ticketWrap: {
     borderRadius: TICKET_RADIUS,
     backgroundColor: 'transparent',
-    ...cardOuterShadow,
+    shadowColor: '#3A2A1A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 14,
+    elevation: 4,
   },
   ticketHeartBtn: {
     position: 'absolute',
@@ -568,7 +657,7 @@ const styles = StyleSheet.create({
   },
   ticketBigLabel: {
     fontSize: 9,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 2,
     marginTop: -1,
   },
@@ -599,14 +688,15 @@ const styles = StyleSheet.create({
     borderRadius: 1,
   },
   ticketName: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '500',
+    fontFamily: SERIF,
     textAlign: 'center',
     letterSpacing: -0.2,
   },
   ticketKat: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: 0.3,
     marginTop: 1,
     marginBottom: 10,
@@ -615,12 +705,12 @@ const styles = StyleSheet.create({
   ticketCta: {
     alignSelf: 'stretch',
     paddingVertical: 8,
-    borderRadius: 10,
+    borderRadius: 999,
     alignItems: 'center',
   },
   ticketCtaTxt: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '900',
   },
 });
 

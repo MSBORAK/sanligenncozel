@@ -2,7 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ImageBackground } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Gradients } from '@/constants/Colors';
+import { Colors } from '@/constants/Colors';
+import { Editorial } from '@/theme/colors';
 import BackgroundImage from '@/assets/images/background.jpg';
 import { useThemeMode } from '@/context/ThemeContext';
 import type { StackScreenProps } from '@react-navigation/stack';
@@ -45,7 +46,7 @@ const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
 
         <View style={styles.content}>
           <LinearGradient
-            colors={[...Gradients.hero]}
+            colors={[Editorial.coffee, Editorial.coffeeSoft]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.cardOuter}
@@ -74,7 +75,7 @@ const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
             <View style={styles.buttons}>
               <TouchableOpacity style={styles.primaryButtonWrapper} activeOpacity={0.9} onPress={handleLogin}>
                 <LinearGradient
-                  colors={[Colors.primary.indigo, Colors.primary.violet]}
+                  colors={[Editorial.coffee, Editorial.coffeeSoft]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.primaryButton}
@@ -112,7 +113,7 @@ const styles = StyleSheet.create({
   },
   bgOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(88, 28, 135, 0.45)',
+    backgroundColor: 'rgba(47,36,24,0.48)',
   },
   container: {
     flex: 1,
@@ -155,7 +156,7 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     padding: 1.5,
     marginTop: -8,
-    shadowColor: '#4f46e5',
+    shadowColor: Editorial.coffeeSoft,
     shadowOffset: { width: 0, height: 18 },
     shadowOpacity: 0.35,
     shadowRadius: 30,
@@ -179,7 +180,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    backgroundColor: '#f3f4ff',
+    backgroundColor: Editorial.creamText,
   },
   topPillTitle: {
     fontSize: 11,
@@ -189,7 +190,7 @@ const styles = StyleSheet.create({
   topPillSubtitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.primary.indigo,
+    color: Editorial.coffee,
     marginTop: 2,
   },
   welcomeText: {

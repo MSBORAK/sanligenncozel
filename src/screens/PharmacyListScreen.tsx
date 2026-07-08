@@ -2,10 +2,9 @@ import React, { useMemo, useCallback, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Pill, MapPin, Phone, Navigation } from 'lucide-react-native';
-import { Clean } from '@/constants/Colors';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { MOCK_PHARMACIES, Pharmacy } from '@/api/mockData';
-import { useThemeMode } from '@/context/ThemeContext';
+import { useAppTheme } from '@/theme/useAppTheme';
 
 const DISTRICT_FILTERS = [
   'Tümü',
@@ -25,20 +24,10 @@ const DISTRICT_FILTERS = [
 type DistrictFilter = typeof DISTRICT_FILTERS[number];
 
 const PharmacyListScreen = () => {
-  const { mode } = useThemeMode();
-  const isDark = mode === 'dark';
+  const t = useAppTheme();
+  const { isDark, pageBg, cardBg, cardBdr, txt1, txt2, ctaBg, ctaTxt, chipBg, accent: amber } = t;
   const insets = useSafeAreaInsets();
   const [selectedDistrict, setSelectedDistrict] = useState<DistrictFilter>('Tümü');
-
-  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
-  const cardBg  = isDark ? '#18181B' : Clean.surface;
-  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
-  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
-  const ctaBg   = isDark ? '#F5F5F7' : Clean.ctaBg;
-  const ctaTxt  = isDark ? '#111114' : Clean.ctaText;
-  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
-  const amber   = Clean.accent;
   const cardBorder = isDark ? cardBorderDark : cardBorderLight;
 
   const handleDirections = useCallback((pharmacy: Pharmacy) => {

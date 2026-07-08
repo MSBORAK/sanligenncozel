@@ -8,15 +8,15 @@ import { useNavigation } from '@react-navigation/native';
 import {
   ChevronRight, Bell, ShieldCheck, User as UserIcon, X,
   HelpCircle, MessageSquare, Send, Heart, Users, LogOut, Flame,
-  Star, MapPin, FileText, ScrollText, Trash2, Mail, CreditCard,
+  Star, MapPin, FileText, ScrollText, Trash2, Mail, CreditCard, Palette,
 } from 'lucide-react-native';
 import { MOCK_USER } from '@/api/mockData';
-import { useThemeMode } from '@/context/ThemeContext';
 import { useFavorites } from '@/context/FavoritesContext';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/context/UserContext';
-import { Clean } from '@/constants/Colors';
-import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
+import { useAppTheme } from '@/theme/useAppTheme';
+import { useThemeMode } from '@/context/ThemeContext';
+import { cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList, MainTabParamList } from '@/types/navigation';
 
@@ -28,7 +28,8 @@ const APP_VERSION = '1.0.0';
 type LegalDoc = 'privacy' | 'terms' | 'kvkk' | null;
 
 const ProfileScreen = () => {
-  const { mode } = useThemeMode();
+  const t = useAppTheme();
+  const { modeLabel, toggleTheme } = useThemeMode();
   const { profile, refreshProfile } = useUser();
   const [modalVisible, setModalVisible] = useState(false);
   const [legalDoc, setLegalDoc] = useState<LegalDoc>(null);
@@ -51,20 +52,11 @@ const ProfileScreen = () => {
   const userUsername = profile?.username || '';
   const userEmail = profile?.email || '';
   const userInitial = userName.charAt(0).toUpperCase();
-  const isDark = mode === 'dark';
+  const { isDark, pageBg, cardBg, cardBdr, txt1, txt2, ctaBg, ctaTxt, chipBg, divider } = t;
 
   const { events: favEvents, partners: favPartners, heritage: favHeritage, stops: favStops } = useFavorites();
   const favoritesCount = favEvents.length + favPartners.length + favHeritage.length + favStops.length;
 
-  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
-  const cardBg  = isDark ? '#18181B' : Clean.surface;
-  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
-  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
-  const ctaBg   = isDark ? '#F5F5F7' : Clean.ctaBg;
-  const ctaTxt  = isDark ? '#111114' : Clean.ctaText;
-  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
-  const divider = isDark ? 'rgba(255,255,255,0.06)' : Clean.divider;
   const cardBorder = isDark ? cardBorderDark : cardBorderLight;
 
   const insets = useSafeAreaInsets();
@@ -320,7 +312,7 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
 
         {/* ── STATS KARTLARI ── */}
         <View style={styles.statsRow}>
-          <View style={[styles.statCard, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
+          <View style={[styles.statCard, cardBorder, { backgroundColor: cardBg }]}>
             <View style={[styles.statIcon, { backgroundColor: chipBg }]}>
               <Users size={18} color={txt1} strokeWidth={2.2} />
             </View>
@@ -329,7 +321,7 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
           </View>
 
           <TouchableOpacity
-            style={[styles.statCard, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}
+            style={[styles.statCard, cardBorder, { backgroundColor: cardBg }]}
             onPress={() => navigation.navigate('Events', { initialTab: 'Favorilerim' })}
             activeOpacity={0.8}
           >
@@ -340,7 +332,7 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
             <Text style={[styles.statLabel, { color: txt2 }]}>Favori</Text>
           </TouchableOpacity>
 
-          <View style={[styles.statCard, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
+          <View style={[styles.statCard, cardBorder, { backgroundColor: cardBg }]}>
             <View style={[styles.statIcon, { backgroundColor: chipBg }]}>
               <Star size={18} color={txt1} strokeWidth={2.2} fill={txt1} />
             </View>
@@ -348,7 +340,7 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
             <Text style={[styles.statLabel, { color: txt2 }]}>Seviye</Text>
           </View>
 
-          <View style={[styles.statCard, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
+          <View style={[styles.statCard, cardBorder, { backgroundColor: cardBg }]}>
             <View style={[styles.statIcon, { backgroundColor: chipBg }]}>
               <MapPin size={18} color={txt1} strokeWidth={2.2} />
             </View>
@@ -360,7 +352,7 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
         {/* ── GENEL ── */}
         <View style={styles.section}>
           <Text style={[styles.groupLabel, { color: txt2 }]}>Genel</Text>
-          <View style={[styles.menuCardOuter, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
+          <View style={[styles.menuCardOuter, cardBorder, { backgroundColor: cardBg }]}>
             <View style={[styles.menuCard, cardInnerClip]}>
               <MenuItem
                 label={favoritesCount > 0 ? `Favorilerim (${favoritesCount})` : 'Favorilerim'}
@@ -391,8 +383,16 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
         {/* ── TERCİHLER ── */}
         <View style={styles.section}>
           <Text style={[styles.groupLabel, { color: txt2 }]}>Tercihler</Text>
-          <View style={[styles.menuCardOuter, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
+          <View style={[styles.menuCardOuter, cardBorder, { backgroundColor: cardBg }]}>
             <View style={[styles.menuCard, cardInnerClip]}>
+              <ToggleRow
+                icon={<Palette color={txt1} size={20} strokeWidth={2.2} />}
+                iconBg={chipBg}
+                title="Görünüm"
+                subtitle={modeLabel === 'Gün Doğumu' ? 'Gün Doğumu — sade, siyah-beyaz' : 'Gün Batımı — sıcak, krem-kahve'}
+                value={modeLabel === 'Gün Batımı'}
+                onValueChange={() => toggleTheme()}
+              />
               <ToggleRow
                 icon={<Bell color={txt1} size={20} strokeWidth={2.2} />}
                 iconBg={chipBg}
@@ -425,7 +425,7 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
         {/* ── YASAL ── */}
         <View style={styles.section}>
           <Text style={[styles.groupLabel, { color: txt2 }]}>Yasal & Gizlilik</Text>
-          <View style={[styles.menuCardOuter, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
+          <View style={[styles.menuCardOuter, cardBorder, { backgroundColor: cardBg }]}>
             <View style={[styles.menuCard, cardInnerClip]}>
               <MenuItem
                 label="Gizlilik Politikası"
@@ -456,7 +456,7 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
         {/* ── YARDIM ── */}
         <View style={styles.section}>
           <Text style={[styles.groupLabel, { color: txt2 }]}>Yardım</Text>
-          <View style={[styles.menuCardOuter, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
+          <View style={[styles.menuCardOuter, cardBorder, { backgroundColor: cardBg }]}>
             <View style={[styles.menuCard, cardInnerClip]}>
               <MenuItem
                 label="Yardım & SSS"
@@ -487,7 +487,7 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
         {/* ── TEHLİKELİ BÖLGE ── */}
         <View style={styles.section}>
           <Text style={[styles.groupLabel, { color: txt2 }]}>Hesap</Text>
-          <View style={[styles.menuCardOuter, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
+          <View style={[styles.menuCardOuter, cardBorder, { backgroundColor: cardBg }]}>
             <View style={[styles.menuCard, cardInnerClip]}>
               <MenuItem
                 label="Hesabımı Sil"

@@ -11,8 +11,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
-import { Clean } from '@/constants/Colors';
 import { cardOuterShadow, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
+import { useAppTheme } from '@/theme/useAppTheme';
 import {
   ArrowLeft,
   Cloud,
@@ -38,7 +38,6 @@ import {
   RefreshCw,
   CloudFog,
 } from 'lucide-react-native';
-import { useThemeMode } from '@/context/ThemeContext';
 import { toOwmCurrent, toOwmForecast } from '@/utils/weather';
 
 const { width } = Dimensions.get('window');
@@ -52,15 +51,8 @@ const GUNLER = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
 
 const WeatherDetailScreen: React.FC<WeatherDetailScreenProps> = ({ route, navigation }) => {
   const { weatherData: initialWeather, forecastData: initialForecast } = route.params || {};
-  const { mode } = useThemeMode();
-  const isDark = mode === 'dark';
-
-  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
-  const cardBg  = isDark ? '#18181B' : Clean.surface;
-  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
-  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
-  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
+  const t = useAppTheme();
+  const { isDark, pageBg, cardBg, cardBdr, chipBg, txt1, txt2 } = t;
   const sunColor  = '#EAB308'; // güneş/şimşek — sarı, uygulamanın turuncu vurgusundan bağımsız
   const rainBlue  = '#3B82F6'; // yağış olasılığı / nem — mavi
   const cardBorder = isDark ? cardBorderDark : cardBorderLight;

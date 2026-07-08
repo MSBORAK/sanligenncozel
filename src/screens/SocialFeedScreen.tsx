@@ -17,9 +17,8 @@ import { RootStackParamList } from '@/types/navigation';
 import { supabase, processImageUrl } from '@/lib/supabase';
 import { cityFallback } from '@/lib/imageFallback';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
-import { Clean } from '@/constants/Colors';
+import { useAppTheme } from '@/theme/useAppTheme';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
-import { useThemeMode } from '@/context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2; // 2 columns with padding
@@ -49,22 +48,22 @@ interface FeedPost {
 
 const SocialFeedScreen = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
-  const { mode } = useThemeMode();
-  const isDark = mode === 'dark';
+  const t = useAppTheme();
+  const isDark = t.isDark;
   const [activeTab, setActiveTab] = useState<'feed' | 'map'>('feed');
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
-  const cardBg  = isDark ? '#18181B' : Clean.surface;
-  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
-  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
-  const ctaBg   = isDark ? '#F5F5F7' : Clean.ctaBg;
-  const ctaTxt  = isDark ? '#111114' : Clean.ctaText;
-  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
-  const amber   = Clean.accent;
+  const pageBg  = t.pageBg;
+  const cardBg  = t.cardBg;
+  const cardBdr = t.cardBdr;
+  const txt1    = t.txt1;
+  const txt2    = t.txt2;
+  const ctaBg   = t.ctaBg;
+  const ctaTxt  = t.ctaTxt;
+  const chipBg  = t.chipBg;
+  const amber   = t.accent;
   const cardBorder = isDark ? cardBorderDark : cardBorderLight;
 
   useEffect(() => {

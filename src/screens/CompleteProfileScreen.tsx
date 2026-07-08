@@ -16,11 +16,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Camera, Check } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
-import { Colors, Gradients } from '@/constants/Colors';
+import { useAppTheme } from '@/theme/useAppTheme';
 import { supabase } from '@/lib/supabase';
 
 const CompleteProfileScreen = () => {
   const navigation = useNavigation();
+  const t = useAppTheme();
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
@@ -157,15 +158,15 @@ const CompleteProfileScreen = () => {
 
   return (
     <View style={styles.root}>
-      <LinearGradient 
-        colors={Gradients.background} 
-        style={StyleSheet.absoluteFill} 
+      <LinearGradient
+        colors={[t.ctaBg, t.txt2, t.pageBg]}
+        style={StyleSheet.absoluteFill}
       />
 
       <SafeAreaView style={styles.container} edges={['top']}>
         {loadingProfile ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.primaryHex} />
+            <ActivityIndicator size="large" color={t.ctaBg} />
             <Text style={styles.loadingText}>Profil yükleniyor...</Text>
           </View>
         ) : (
@@ -190,11 +191,11 @@ const CompleteProfileScreen = () => {
               <Image source={{ uri: avatarUri }} style={styles.avatar} />
             ) : (
               <View style={styles.avatarPlaceholder}>
-                <Camera color={Colors.white} size={32} />
+                <Camera color={t.ctaTxt} size={32} />
               </View>
             )}
             <View style={styles.avatarBadge}>
-              <Camera color={Colors.white} size={16} />
+              <Camera color={t.ctaTxt} size={16} />
             </View>
           </TouchableOpacity>
 
@@ -235,14 +236,14 @@ const CompleteProfileScreen = () => {
             disabled={loading}
           >
             <LinearGradient
-              colors={Gradients.heroWarm}
+              colors={[t.ctaBg, t.txt2]}
               style={styles.completeButtonGradient}
             >
               {loading ? (
-                <ActivityIndicator color={Colors.white} />
+                <ActivityIndicator color={t.ctaTxt} />
               ) : (
                 <>
-                  <Check color={Colors.white} size={24} />
+                  <Check color={t.ctaTxt} size={24} />
                   <Text style={styles.completeButtonText}>Tamamla</Text>
                 </>
               )}
@@ -269,7 +270,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   loadingText: {
-    color: Colors.white,
+    color: '#FFFFFF',
     fontSize: 16,
   },
   content: {
@@ -284,7 +285,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: '700',
-    color: Colors.white,
+    color: '#FFFFFF',
     marginBottom: 8,
   },
   subtitle: {
@@ -302,7 +303,7 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     borderWidth: 4,
-    borderColor: Colors.primaryHex,
+    borderColor: '#2F2418',
   },
   avatarPlaceholder: {
     width: 120,
@@ -322,11 +323,11 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.primaryHex,
+    backgroundColor: '#2F2418',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: Colors.background,
+    borderColor: '#000000',
   },
   inputsContainer: {
     gap: 24,
@@ -338,7 +339,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.buff,
+    color: '#F1E3CB',
     marginLeft: 4,
   },
   input: {
@@ -348,7 +349,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.2)',
     backgroundColor: 'rgba(255,255,255,0.05)',
     paddingHorizontal: 16,
-    color: Colors.white,
+    color: '#FFFFFF',
     fontSize: 16,
   },
   inputDisabled: {
@@ -368,7 +369,7 @@ const styles = StyleSheet.create({
   completeButton: {
     borderRadius: 28,
     overflow: 'hidden',
-    shadowColor: Colors.primaryHex,
+    shadowColor: '#2F2418',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
@@ -384,7 +385,7 @@ const styles = StyleSheet.create({
   completeButtonText: {
     fontSize: 18,
     fontWeight: '700',
-    color: Colors.white,
+    color: '#FFFFFF',
   },
 });
 

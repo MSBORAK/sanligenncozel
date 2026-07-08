@@ -6,6 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
   Image,
+  ImageBackground,
   ListRenderItem,
   Dimensions,
 } from 'react-native';
@@ -13,16 +14,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Heart, Search, ArrowRight } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
-import { Clean } from '@/constants/Colors';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { FontFamily } from '@/constants/Typography';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import Skeleton from '@/components/Skeleton';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/types/navigation';
-import { useThemeMode } from '@/context/ThemeContext';
+import { useAppTheme } from '@/theme/useAppTheme';
 import { useFavorites } from '@/context/FavoritesContext';
-import { supabase, processImageUrl } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
+import { mapKesfetRow, type KesfetRow } from '@/lib/kesfet';
 import { cityFallback } from '@/lib/imageFallback';
 import { MOCK_MAGAZINES } from '@/api/mockData';
 import type { HeritageCategory } from '@/types';
@@ -47,6 +48,7 @@ interface FormattedMag {
   description?: string;
   category: Category;
   image: any;
+  featured?: boolean;
 }
 
 const COLLECTION_META: { key: Category; label: string }[] = [
@@ -57,10 +59,14 @@ const COLLECTION_META: { key: Category; label: string }[] = [
   { key: 'bazaar', label: 'Tarihi Çarşılar & Hanlar' },
 ];
 
+/** Koleksiyon kapak görseli — kategori başlığı için sabit, temsili mekân */
+const COLLECTION_COVER_ID: Partial<Record<Category, string>> = {
+  historic: 'm1', // Göbeklitepe
+};
+
 const MagazineScreen = () => {
   const navigation = useNavigation<Nav>();
-  const { mode } = useThemeMode();
-  const isDark = mode === 'dark';
+  const t = useAppTheme();
   const insets = useSafeAreaInsets();
   const { favoriteHeritageIds, isFavoriteHeritage, toggleFavorite } = useFavorites();
   const [magazines, setMagazines] = useState<MagazineData[]>([]);
@@ -68,13 +74,7 @@ const MagazineScreen = () => {
   const [heroIndex, setHeroIndex] = useState(0);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
-  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
-  const cardBg  = isDark ? '#18181B' : Clean.surface;
-  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
-  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
-  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
-  const amber   = Clean.accent;
+  const { pageBg, cardBg, cardBdr, txt1, txt2, chipBg, accent: amber, isDark } = t;
   const cardBorder = isDark ? cardBorderDark : cardBorderLight;
 
   const fetchMagazines = async () => {
@@ -96,13 +96,17 @@ const MagazineScreen = () => {
   const formattedMagazines = useMemo(() => {
     const fromSupabase: FormattedMag[] = magazines
       .filter((mag) => !!mag.baslik?.trim() && !mag.aciklama?.includes('düzenle diyerek giriniz'))
-      .map((mag) => ({
-        id: mag.id.toString(),
-        title: mag.baslik,
-        description: mag.aciklama,
-        category: (mag.kategori as Category) || 'historic',
-        image: processImageUrl(mag.resim_url, 'kesfet_resimleri') || cityFallback(mag.id),
-      }));
+      .map((mag) => {
+        const place = mapKesfetRow(mag as KesfetRow);
+        return {
+          id: place.id,
+          title: place.title,
+          description: place.description,
+          category: place.category,
+          image: place.image,
+          featured: place.featured,
+        };
+      });
     const fromMock: FormattedMag[] = MOCK_MAGAZINES.map((m) => ({
       id: m.id,
       title: m.title,
@@ -113,12 +117,11 @@ const MagazineScreen = () => {
     return [...fromSupabase, ...fromMock];
   }, [magazines]);
 
-  // Kürasyonlu, sabit öne çıkanlar: Göbeklitepe, Balıklıgöl, Urfa Kalesi, Harran, Haleplibahçe Mozaik Müzesi
   const CURATED_HERO_IDS = ['m1', 'm2', 'm3', 'm4', 'm11'];
   const heroItems = useMemo(() => {
     if (showFavoritesOnly) return [];
     const curated = CURATED_HERO_IDS
-      .map((id) => formattedMagazines.find((m) => m.id === id))
+      .map((heroId) => formattedMagazines.find((m) => m.id === heroId))
       .filter((m): m is FormattedMag => !!m);
     return curated.length > 0 ? curated : formattedMagazines.slice(0, Math.min(5, formattedMagazines.length));
   }, [formattedMagazines, showFavoritesOnly]);
@@ -131,7 +134,15 @@ const MagazineScreen = () => {
     if (showFavoritesOnly) return [];
     return COLLECTION_META.map((c) => {
       const itemsInCat = formattedMagazines.filter((m) => m.category === c.key);
-      return { ...c, count: itemsInCat.length, image: itemsInCat[0]?.image ?? cityFallback(c.key) };
+      const coverId = COLLECTION_COVER_ID[c.key];
+      const coverItem = coverId
+        ? formattedMagazines.find((m) => m.id === coverId)
+        : itemsInCat[0];
+      return {
+        ...c,
+        count: itemsInCat.length,
+        image: coverItem?.image ?? itemsInCat[0]?.image ?? cityFallback(c.key),
+      };
     }).filter((c) => c.count > 0);
   }, [formattedMagazines, showFavoritesOnly]);
 
@@ -188,26 +199,32 @@ const MagazineScreen = () => {
                   <TouchableOpacity
                     style={[styles.heroCard, cardInnerClip]}
                     activeOpacity={0.92}
-                    onPress={() => navigation.navigate('HeritageDetail', { id: item.id })}
+                    onPress={() => navigation.push('HeritageDetail', { id: item.id })}
                   >
-                    <Image source={typeof item.image === 'string' ? { uri: item.image } : item.image} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-                    <LinearGradient
-                      colors={['transparent', 'rgba(0,0,0,0.15)', 'rgba(0,0,0,0.7)']}
-                      locations={[0, 0.5, 1]}
-                      style={StyleSheet.absoluteFillObject}
-                      pointerEvents="none"
-                    />
-                    <View style={styles.heroTextRow}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.heroCardTitle} numberOfLines={1}>{item.title}</Text>
-                        {!!item.description && (
-                          <Text style={styles.heroCardDesc} numberOfLines={1}>{item.description}</Text>
-                        )}
+                    <ImageBackground
+                      source={typeof item.image === 'string' ? { uri: item.image } : item.image}
+                      style={styles.heroImageBg}
+                      imageStyle={styles.heroImageRadius}
+                      resizeMode="cover"
+                    >
+                      <LinearGradient
+                        colors={['transparent', 'rgba(0,0,0,0.15)', 'rgba(0,0,0,0.7)']}
+                        locations={[0, 0.5, 1]}
+                        style={StyleSheet.absoluteFillObject}
+                        pointerEvents="none"
+                      />
+                      <View style={styles.heroTextRow}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.heroCardTitle} numberOfLines={1}>{item.title}</Text>
+                          {!!item.description && (
+                            <Text style={styles.heroCardDesc} numberOfLines={1}>{item.description}</Text>
+                          )}
+                        </View>
+                        <View style={[styles.heroArrowBtn, { backgroundColor: cardBg }]}>
+                          <ArrowRight color={txt1} size={18} strokeWidth={2.2} />
+                        </View>
                       </View>
-                      <View style={[styles.heroArrowBtn, { backgroundColor: cardBg }]}>
-                        <ArrowRight color={txt1} size={18} strokeWidth={2.2} />
-                      </View>
-                    </View>
+                    </ImageBackground>
                   </TouchableOpacity>
                 </View>
               )}
@@ -244,7 +261,9 @@ const MagazineScreen = () => {
                     activeOpacity={0.9}
                     onPress={() => navigation.navigate('HeritageCollection', { category: item.key })}
                   >
-                    <Image source={typeof item.image === 'string' ? { uri: item.image } : item.image} style={styles.collectionImage} resizeMode="cover" />
+                    <View style={styles.collectionImageWrap}>
+                      <Image source={typeof item.image === 'string' ? { uri: item.image } : item.image} style={styles.collectionImage} resizeMode="cover" />
+                    </View>
                     <View style={styles.collectionTextWrap}>
                       <Text style={[styles.collectionLabel, { color: txt1 }]} numberOfLines={1}>{item.label}</Text>
                       <Text style={[styles.collectionCount, { color: txt2 }]}>{item.count} Mekan</Text>
@@ -274,15 +293,17 @@ const MagazineScreen = () => {
           <TouchableOpacity
             activeOpacity={0.9}
             style={[styles.rowOuter, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}
-            onPress={() => navigation.navigate('HeritageDetail', { id: item.id })}
+            onPress={() => navigation.push('HeritageDetail', { id: item.id })}
           >
             <View style={[cardInnerClip, { borderRadius: 26 }]}>
               <View style={styles.rowImageWrap}>
-                <Image
-                  source={typeof item.image === 'string' ? { uri: item.image } : item.image}
-                  style={styles.rowImage}
-                  resizeMode="cover"
-                />
+                <View style={styles.rowImageClip}>
+                  <Image
+                    source={typeof item.image === 'string' ? { uri: item.image } : item.image}
+                    style={styles.rowImage}
+                    resizeMode="cover"
+                  />
+                </View>
                 <TouchableOpacity
                   style={styles.rowHeartBtn}
                   onPress={() => toggleFavorite('heritage', item.id)}
@@ -298,8 +319,8 @@ const MagazineScreen = () => {
                     <Text style={[styles.rowDesc, { color: txt2 }]} numberOfLines={2}>{item.description}</Text>
                   )}
                 </View>
-                <View style={[styles.rowArrowBtn, { backgroundColor: '#111114' }]}>
-                  <ArrowRight color="#fff" size={17} strokeWidth={2.2} />
+                <View style={[styles.rowArrowBtn, { backgroundColor: t.ctaBg }]}>
+                  <ArrowRight color={t.ctaTxt} size={17} strokeWidth={2.2} />
                 </View>
               </View>
             </View>
@@ -401,11 +422,20 @@ const styles = StyleSheet.create({
   },
   heroCardOuter: {
     borderRadius: 22,
+    overflow: 'hidden',
   },
   heroCard: {
+    width: '100%',
     borderRadius: 22,
-    height: 200,
+    overflow: 'hidden',
+  },
+  heroImageBg: {
+    width: '100%',
+    height: 220,
     justifyContent: 'flex-end',
+  },
+  heroImageRadius: {
+    borderRadius: 22,
   },
   heroTextRow: {
     flexDirection: 'row',
@@ -465,10 +495,16 @@ const styles = StyleSheet.create({
   },
   collectionCard: {
     borderRadius: 18,
+    overflow: 'hidden',
+  },
+  collectionImageWrap: {
+    width: '100%',
+    height: 100,
+    overflow: 'hidden',
   },
   collectionImage: {
     width: '100%',
-    height: 100,
+    height: '100%',
   },
   collectionTextWrap: {
     padding: 12,
@@ -491,10 +527,15 @@ const styles = StyleSheet.create({
   rowImageWrap: {
     padding: 10,
   },
+  rowImageClip: {
+    width: '100%',
+    height: 168,
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
   rowImage: {
     width: '100%',
-    height: 150,
-    borderRadius: 18,
+    height: '100%',
   },
   rowHeartBtn: {
     position: 'absolute',

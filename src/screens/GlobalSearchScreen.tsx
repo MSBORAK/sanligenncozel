@@ -13,11 +13,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Search, X, Calendar, MapPin, BookOpen, Bus } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Gradients, DribbbleColors } from '@/constants/Colors';
-import { MOCK_PARTNERS, MOCK_EVENTS } from '@/api/mockData';
+import { MOCK_PARTNERS, MOCK_EVENTS, MOCK_MAGAZINES } from '@/api/mockData';
 import { MOCK_STOPS } from '@/data/transport';
-import { MOCK_MAGAZINES } from '@/api/mockData';
-import { useThemeMode } from '@/context/ThemeContext';
+import { useAppTheme } from '@/theme/useAppTheme';
 import { supabase, processImageUrl } from '@/lib/supabase';
 
 type SearchResult = {
@@ -29,8 +27,7 @@ type SearchResult = {
 };
 
 const GlobalSearchScreen = () => {
-  const { mode } = useThemeMode();
-  const isDark = mode === 'dark';
+  const t = useAppTheme();
   const navigation = useNavigation<any>();
   const [query, setQuery] = useState('');
   const [events, setEvents] = useState<any[]>([]);
@@ -123,16 +120,16 @@ const GlobalSearchScreen = () => {
 
   const handleSelect = (r: SearchResult) => {
     Keyboard.dismiss();
-    if (r.type === 'event') navigation.navigate('EventDetail', { eventId: r.id });
-    else if (r.type === 'partner') navigation.navigate('PartnerDetail', { partnerId: r.id });
-    else if (r.type === 'heritage') navigation.navigate('HeritageDetail', { id: r.id });
+    if (r.type === 'event') navigation.push('EventDetail', { eventId: r.id });
+    else if (r.type === 'partner') navigation.push('PartnerDetail', { partnerId: r.id });
+    else if (r.type === 'heritage') navigation.push('HeritageDetail', { id: r.id });
     else if (r.type === 'stop') {
       navigation.navigate('Main', { screen: 'Transport' });
     }
   };
 
   const getIcon = (type: SearchResult['type']) => {
-    const c = isDark ? '#94a3b8' : DribbbleColors.progressBlue;
+    const c = t.txt2;
     if (type === 'event') return <Calendar color={c} size={20} />;
     if (type === 'partner') return <MapPin color={c} size={20} />;
     if (type === 'heritage') return <BookOpen color={c} size={20} />;
@@ -147,18 +144,18 @@ const GlobalSearchScreen = () => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, isDark ? { backgroundColor: Colors.dark.background } : { backgroundColor: DribbbleColors.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: t.pageBg }]} edges={['top']}>
       <LinearGradient
-        colors={isDark ? Gradients.dark : Gradients.headerLight}
+        colors={[t.pageBg, t.cardBg]}
         style={styles.header}
       >
         <View style={styles.searchRow}>
-          <View style={[styles.searchInputWrap, isDark && { backgroundColor: 'rgba(30,41,59,0.8)' }, !isDark && { backgroundColor: DribbbleColors.cardWhite }]}>
-            <Search color={isDark ? '#94a3b8' : DribbbleColors.textSecondary} size={20} />
+          <View style={[styles.searchInputWrap, { backgroundColor: t.chipBg }]}>
+            <Search color={t.txt2} size={20} />
             <TextInput
               placeholder="Etkinlik, mekan, durak ara..."
-              placeholderTextColor={isDark ? '#64748b' : DribbbleColors.textSecondary}
-              style={[styles.searchInput, isDark && { color: '#f8fafc' }, !isDark && { color: DribbbleColors.textPrimary }]}
+              placeholderTextColor={t.txt2}
+              style={[styles.searchInput, { color: t.txt1 }]}
               value={query}
               onChangeText={setQuery}
               autoFocus
@@ -166,7 +163,7 @@ const GlobalSearchScreen = () => {
             />
           </View>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn} activeOpacity={0.8}>
-            <X color={isDark ? Colors.white : DribbbleColors.textPrimary} size={24} />
+            <X color={t.txt1} size={24} />
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -179,34 +176,36 @@ const GlobalSearchScreen = () => {
       >
         {query.trim() === '' ? (
           <View style={styles.placeholder}>
-            <Search color={isDark ? '#475569' : '#cbd5e1'} size={48} />
-            <Text style={[styles.placeholderText, isDark && { color: '#64748b' }]}>
+            <Search color={t.txt2} size={48} />
+            <Text style={[styles.placeholderText, { color: t.txt2 }]}>
               Etkinlik, mekan veya durak adı yazın
             </Text>
           </View>
         ) : list.length === 0 ? (
           <View style={styles.placeholder}>
-            <Text style={[styles.placeholderText, isDark && { color: '#64748b' }]}>Sonuç bulunamadı</Text>
+            <Text style={[styles.placeholderText, { color: t.txt2 }]}>Sonuç bulunamadı</Text>
           </View>
         ) : (
           list.map((r) => (
             <TouchableOpacity
               key={`${r.type}-${r.id}`}
-              style={[styles.resultItem, isDark && { backgroundColor: Colors.dark.card, borderColor: Colors.dark.border }, !isDark && { backgroundColor: DribbbleColors.cardWhite, borderColor: DribbbleColors.borderLight }]}
+              style={[styles.resultItem, { backgroundColor: t.cardBg, borderColor: t.border }]}
               onPress={() => handleSelect(r)}
               activeOpacity={0.8}
             >
               {r.image ? (
-                <Image source={{ uri: r.image }} style={styles.resultImage} />
+                <View style={styles.resultImageWrap}>
+                  <Image source={{ uri: r.image }} style={styles.resultImage} resizeMode="cover" />
+                </View>
               ) : (
-                <View style={[styles.resultIcon, isDark && { backgroundColor: Colors.dark.border }, !isDark && { backgroundColor: DribbbleColors.lightBlue }]}>{getIcon(r.type)}</View>
+                <View style={[styles.resultIcon, { backgroundColor: t.chipBg }]}>{getIcon(r.type)}</View>
               )}
               <View style={styles.resultText}>
-                <Text style={[styles.resultTitle, isDark && { color: '#f8fafc' }]} numberOfLines={1}>{r.title}</Text>
+                <Text style={[styles.resultTitle, { color: t.txt1 }]} numberOfLines={1}>{r.title}</Text>
                 {r.subtitle ? (
-                  <Text style={[styles.resultSub, isDark && { color: '#94a3b8' }]} numberOfLines={1}>{r.subtitle}</Text>
+                  <Text style={[styles.resultSub, { color: t.txt2 }]} numberOfLines={1}>{r.subtitle}</Text>
                 ) : null}
-                <Text style={[styles.resultType, isDark && { color: '#64748b' }]}>{getTypeLabel(r.type)}</Text>
+                <Text style={[styles.resultType, { color: t.txt2 }]}>{getTypeLabel(r.type)}</Text>
               </View>
             </TouchableOpacity>
           ))
@@ -217,14 +216,13 @@ const GlobalSearchScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: DribbbleColors.background },
+  container: { flex: 1 },
   header: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 20 },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   searchInputWrap: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: 14,
     paddingHorizontal: 14,
     gap: 10,
@@ -233,7 +231,6 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 46,
     fontSize: 16,
-    color: Colors.white,
   },
   closeBtn: { padding: 8 },
   scroll: { flex: 1 },
@@ -244,31 +241,35 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 60,
   },
-  placeholderText: { fontSize: 16, color: '#64748b', marginTop: 12 },
+  placeholderText: { fontSize: 16, marginTop: 12 },
   resultItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: DribbbleColors.cardWhite,
     borderRadius: 16,
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: DribbbleColors.borderLight,
   },
   resultIcon: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: DribbbleColors.lightBlue,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
-  resultImage: { width: 44, height: 44, borderRadius: 12, marginRight: 12 },
+  resultImageWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginRight: 12,
+  },
+  resultImage: { width: '100%', height: '100%' },
   resultText: { flex: 1 },
-  resultTitle: { fontSize: 16, fontWeight: '600', color: Colors.darkGray },
-  resultSub: { fontSize: 13, color: '#64748b', marginTop: 2 },
-  resultType: { fontSize: 11, color: '#94a3b8', marginTop: 4 },
+  resultTitle: { fontSize: 16, fontWeight: '600' },
+  resultSub: { fontSize: 13, marginTop: 2 },
+  resultType: { fontSize: 11, marginTop: 4 },
 });
 
 export default GlobalSearchScreen;

@@ -6,19 +6,19 @@ import {
   FlatList,
   TouchableOpacity,
   Image,
+  ImageBackground,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Heart } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
-import { Clean } from '@/constants/Colors';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { FontFamily } from '@/constants/Typography';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import Skeleton from '@/components/Skeleton';
 import { Event } from '@/types';
-import { useThemeMode } from '@/context/ThemeContext';
+import { useAppTheme } from '@/theme/useAppTheme';
 import { useFavorites } from '@/context/FavoritesContext';
 import { supabase, processImageUrl } from '@/lib/supabase';
 import { cityFallback } from '@/lib/imageFallback';
@@ -54,8 +54,7 @@ interface EventData {
 type EventScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Events'>;
 
 const EventsScreen = () => {
-  const { mode } = useThemeMode();
-  const isDark = mode === 'dark';
+  const t = useAppTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<EventScreenNavigationProp>();
   const route = useRoute();
@@ -66,15 +65,7 @@ const EventsScreen = () => {
   const [loading, setLoading] = useState(true);
   const { favoriteEventIds, isFavoriteEvent, toggleFavorite } = useFavorites();
 
-  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
-  const cardBg  = isDark ? '#18181B' : Clean.surface;
-  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
-  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
-  const ctaBg   = isDark ? '#F5F5F7' : Clean.ctaBg;
-  const ctaTxt  = isDark ? '#111114' : Clean.ctaText;
-  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
-  const amber   = Clean.accent;
+  const { pageBg, cardBg, cardBdr, txt1, txt2, ctaBg, ctaTxt, chipBg, accent: amber, isDark } = t;
   const cardBorder = isDark ? cardBorderDark : cardBorderLight;
 
   const fetchEvents = async () => {
@@ -179,7 +170,12 @@ const EventsScreen = () => {
                 activeOpacity={0.92}
                 onPress={() => navigation.navigate('EventDetail', { eventId: item.id })}
               >
-                <Image source={{ uri: item.image }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+                <ImageBackground
+                  source={{ uri: item.image }}
+                  style={styles.heroEventImageBg}
+                  imageStyle={styles.heroEventImageRadius}
+                  resizeMode="cover"
+                >
                 <View style={styles.heroEventOverlay} pointerEvents="none" />
 
                 {eventDate && (isToday || isTomorrow) && (
@@ -213,6 +209,7 @@ const EventsScreen = () => {
                     <Text style={styles.heroUrgentTagText}>SON {hoursLeft} SAAT</Text>
                   </View>
                 )}
+                </ImageBackground>
               </TouchableOpacity>
             </View>
           </AnimatedListItem>
@@ -243,7 +240,9 @@ const EventsScreen = () => {
               <View style={[styles.dateBadge, { backgroundColor: chipBg }]} />
             )}
 
-            <Image source={{ uri: item.image }} style={styles.rowThumb} resizeMode="cover" />
+            <View style={styles.rowThumbWrap}>
+              <Image source={{ uri: item.image }} style={styles.rowThumb} resizeMode="cover" />
+            </View>
 
             <View style={styles.rowInfo}>
               <Text style={[styles.rowTitle, { color: txt1 }]} numberOfLines={2}>
@@ -470,11 +469,22 @@ const styles = StyleSheet.create({
   heroEventOuter: {
     marginBottom: 20,
     borderRadius: 22,
+    overflow: 'hidden',
   },
   heroEventCard: {
+    width: '100%',
     borderRadius: 22,
     height: 260,
+    overflow: 'hidden',
     justifyContent: 'flex-end',
+  },
+  heroEventImageBg: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'flex-end',
+  },
+  heroEventImageRadius: {
+    borderRadius: 22,
   },
   heroEventOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -572,10 +582,15 @@ const styles = StyleSheet.create({
     fontSize: 9,
     letterSpacing: 0.4,
   },
-  rowThumb: {
+  rowThumbWrap: {
     width: 56,
     height: 56,
     borderRadius: 12,
+    overflow: 'hidden',
+  },
+  rowThumb: {
+    width: '100%',
+    height: '100%',
   },
   rowInfo: {
     flex: 1,

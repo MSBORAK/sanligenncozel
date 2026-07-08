@@ -15,11 +15,14 @@ import {
   Bell,
   Bus,
   Camera,
+  Grid3X3,
   Home,
   MessageSquare,
   QrCode,
   User,
 } from 'lucide-react-native';
+import { useAppTheme } from '@/theme/useAppTheme';
+import { Editorial } from '@/theme/colors';
 
 const ICONS = {
   Home,
@@ -27,6 +30,7 @@ const ICONS = {
   Camera,
   Transport: Bus,
   GencKart: QrCode,
+  HizliErisim: Grid3X3,
   Assistant: MessageSquare,
   Profile: User,
 };
@@ -35,6 +39,7 @@ const TAB_LABELS: Record<string, string> = {
   Home: 'Ana Sayfa',
   Transport: 'Ulaşım',
   GencKart: 'Genç Kart',
+  HizliErisim: 'Hızlı Erişim',
   Assistant: 'Asistan',
   Profile: 'Profil',
   Notifications: 'Bildirim',
@@ -47,6 +52,7 @@ type TabName =
   | 'Camera'
   | 'Transport'
   | 'GencKart'
+  | 'HizliErisim'
   | 'Assistant'
   | 'Profile';
 
@@ -84,19 +90,9 @@ const buildBarPath = (width: number, bumpCenterX: number) => {
   const T = BUMP_EXTRA;
   const B = BUMP_EXTRA + BAR_HEIGHT;
   const R = CORNER_RADIUS;
-  const nr = NOTCH_RADIUS;
-  const transition = 6;
-  const minX = R + nr + transition;
-  const maxX = width - R - nr - transition;
-  const cx = Math.min(Math.max(bumpCenterX, minX), maxX);
 
   return [
     `M ${R} ${T}`,
-    `L ${cx - nr - transition} ${T}`,
-    `Q ${cx - nr - transition * 0.3} ${T} ${cx - nr * 0.9} ${T + BUMP_EXTRA * 0.35}`,
-    `Q ${cx - nr * 0.5} ${T + BUMP_EXTRA} ${cx} ${T + BUMP_EXTRA}`,
-    `Q ${cx + nr * 0.5} ${T + BUMP_EXTRA} ${cx + nr * 0.9} ${T + BUMP_EXTRA * 0.35}`,
-    `Q ${cx + nr + transition * 0.3} ${T} ${cx + nr + transition} ${T}`,
     `L ${width - R} ${T}`,
     `Q ${width} ${T} ${width} ${T + R}`,
     `L ${width} ${B - R}`,
@@ -110,6 +106,7 @@ const buildBarPath = (width: number, bumpCenterX: number) => {
 };
 
 const CustomTabBar = (props: CustomTabBarProps) => {
+  const theme = useAppTheme();
   const isLegacy = isLegacyProps(props);
   const tabNames = isLegacy
     ? props.tabNames
@@ -184,10 +181,23 @@ const CustomTabBar = (props: CustomTabBarProps) => {
       pointerEvents="box-none"
     >
       {/* Gölgeyi taşıyan opak katman — SVG'nin kendisi gölge vermez */}
-      <View style={[styles.barShadow, { top: BUMP_EXTRA, height: BAR_HEIGHT }]} />
+      <View style={[
+        styles.barShadow,
+        { top: BUMP_EXTRA, height: BAR_HEIGHT },
+        theme.isDark && {
+          backgroundColor: Editorial.bg,
+          borderColor: Editorial.borderSoft,
+          shadowColor: Editorial.coffee,
+        },
+      ]} />
 
       <Svg width={tabBarWidth} height={BAR_HEIGHT + BUMP_EXTRA} style={StyleSheet.absoluteFill}>
-        <Path d={pathD} fill="#FFFFFF" />
+        <Path
+          d={pathD}
+          fill={theme.isDark ? Editorial.bg : '#FFFFFF'}
+          stroke={theme.isDark ? Editorial.borderSoft : 'rgba(17,17,20,0.12)'}
+          strokeWidth={1.1}
+        />
       </Svg>
 
       <View style={[styles.tabsRow, { top: BUMP_EXTRA, width: tabBarWidth }]} pointerEvents="box-none">
@@ -198,6 +208,7 @@ const CustomTabBar = (props: CustomTabBarProps) => {
             Icon={resolveIcon(name)}
             isFocused={activeIndex === index}
             onPress={() => onTabPress(index)}
+            isDark={theme.isDark}
           />
         ))}
       </View>
@@ -210,11 +221,13 @@ const TabItem = ({
   Icon,
   isFocused,
   onPress,
+  isDark,
 }: {
   name: string;
   Icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
   isFocused: boolean;
   onPress: () => void;
+  isDark: boolean;
 }) => {
   const pressScale = useSharedValue(1);
   const bump = useSharedValue(isFocused ? 1 : 0);
@@ -246,13 +259,20 @@ const TabItem = ({
     >
       {/* Pasif hâl — gri ikon + etiket */}
       <Animated.View style={[styles.tabInner, passiveStyle]} pointerEvents="none">
-        <Icon size={20} color="#A0A0A8" strokeWidth={2} />
-        <Text numberOfLines={1} style={styles.tabLabel}>{TAB_LABELS[name] || name}</Text>
+        <Icon size={20} color={isDark ? 'rgba(58,42,26,0.45)' : 'rgba(17,17,20,0.45)'} strokeWidth={2} />
+        <Text numberOfLines={1} style={[styles.tabLabel, isDark && { color: 'rgba(58,42,26,0.45)' }]}>{TAB_LABELS[name] || name}</Text>
       </Animated.View>
 
-      {/* Aktif hâl — yükselen siyah kabarcık */}
-      <Animated.View pointerEvents="none" style={[styles.bubble, bubbleStyle]}>
-        <Icon size={22} color="#fff" strokeWidth={2.25} />
+      {/* Aktif hâl — yükselen kabarcık */}
+      <Animated.View pointerEvents="none" style={[
+        styles.bubble,
+        bubbleStyle,
+        isDark && {
+          backgroundColor: Editorial.coffee,
+          shadowColor: Editorial.coffee,
+        },
+      ]}>
+        <Icon size={22} color={isDark ? '#FFF8EA' : '#FFFFFF'} strokeWidth={2.25} />
       </Animated.View>
     </Pressable>
   );
@@ -269,10 +289,12 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: '#FFFFFF',
     borderRadius: CORNER_RADIUS,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(17,17,20,0.12)',
+    shadowColor: '#111114',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
     elevation: 10,
   },
   tabsRow: {
@@ -293,8 +315,8 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontSize: 10,
-    fontWeight: '500',
-    color: '#A0A0A8',
+    fontWeight: '700',
+    color: 'rgba(17,17,20,0.45)',
   },
   bubble: {
     position: 'absolute',
@@ -304,7 +326,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#111114',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000000',
+    shadowColor: '#111114',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 12,

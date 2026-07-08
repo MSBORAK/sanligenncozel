@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   Image,
+  ImageBackground,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
@@ -18,14 +19,16 @@ import { StackScreenProps } from '@react-navigation/stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, MapPin, CalendarDays, Tag } from 'lucide-react-native';
 import { RootStackParamList } from '@/types/navigation';
-import { useThemeMode } from '@/context/ThemeContext';
-import { Colors, DribbbleColors, Gradients } from '@/constants/Colors';
+import { useAppTheme } from '@/theme/useAppTheme';
 import { FontFamily } from '@/constants/Typography';
 import { supabase, processImageUrl } from '@/lib/supabase';
 import { cityFallback } from '@/lib/imageFallback';
 
-const HERO_RATIO = 0.72;
+const HERO_RATIO = 0.62;
 const RADIUS = 22;
+const { width: SCREEN_W } = Dimensions.get('window');
+const HERO_W = SCREEN_W - 32;
+const HERO_H = HERO_W * HERO_RATIO;
 
 interface EventData {
   id: string;
@@ -42,8 +45,8 @@ type EventDetailScreenProps = StackScreenProps<RootStackParamList, 'EventDetail'
 
 const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation }) => {
   const { eventId } = route.params;
-  const { mode } = useThemeMode();
-  const isDark = mode === 'dark';
+  const t = useAppTheme();
+  const { isDark, pageBg, cardBg, cardBdr, chipBg, txt1, txt2, ctaBg, ctaTxt } = t;
   const insets = useSafeAreaInsets();
 
   const [event, setEvent] = useState<EventData | null>(null);
@@ -83,20 +86,14 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation
     fetchEventDetails(false);
   }, [fetchEventDetails]);
 
-  const heroHeight = Dimensions.get('window').width * HERO_RATIO;
-  const imageUri = event
-    ? processImageUrl(event.resim_url, 'etkinlik_resimleri') || cityFallback(event.id)
-    : '';
-
-  const backButtonTop = insets.top + 10;
 
   if (loading && !event) {
     return (
-      <View style={[styles.screen, isDark && styles.screenDark]}>
+      <View style={[styles.screen, { backgroundColor: pageBg }]}>
         <StatusBar style={isDark ? 'light' : 'dark'} />
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={Colors.primaryHex} />
-          <Text style={[styles.loadingLabel, isDark && styles.mutedDark]}>Etkinlik yükleniyor…</Text>
+          <ActivityIndicator size="large" color={txt1} />
+          <Text style={[styles.loadingLabel, { color: txt2 }]}>Etkinlik yükleniyor…</Text>
         </View>
       </View>
     );
@@ -104,16 +101,16 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation
 
   if (!event) {
     return (
-      <View style={[styles.screen, isDark && styles.screenDark]}>
+      <View style={[styles.screen, { backgroundColor: pageBg }]}>
         <StatusBar style={isDark ? 'light' : 'dark'} />
-        <View style={[styles.simpleHeader, { paddingTop: insets.top + 8 }, isDark && styles.simpleHeaderDark]}>
+        <View style={[styles.simpleHeader, { paddingTop: insets.top + 8, borderBottomColor: cardBdr }]}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backIconBtn} hitSlop={12}>
-            <ChevronLeft color={isDark ? '#f8fafc' : DribbbleColors.textPrimary} size={28} />
+            <ChevronLeft color={txt1} size={28} />
           </TouchableOpacity>
-          <Text style={[styles.simpleHeaderTitle, isDark && { color: '#f8fafc' }]}>Etkinlik bulunamadı</Text>
+          <Text style={[styles.simpleHeaderTitle, { color: txt1 }]}>Etkinlik bulunamadı</Text>
         </View>
         <View style={styles.emptyBody}>
-          <Text style={[styles.emptyCopy, isDark && styles.mutedDark]}>
+          <Text style={[styles.emptyCopy, { color: txt2 }]}>
             Bu etkinlik bulunamadı veya bir hata oluştu.
           </Text>
         </View>
@@ -121,8 +118,10 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation
     );
   }
 
+  const imageUri = processImageUrl(event.resim_url, 'etkinlik_resimleri') || cityFallback(event.id);
+
   return (
-    <View style={[styles.screen, isDark && styles.screenDark]}>
+    <View style={[styles.screen, { backgroundColor: pageBg }]}>
       <StatusBar style="light" />
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -132,15 +131,20 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => fetchEventDetails(true)}
-            tintColor={isDark ? '#f8fafc' : Colors.primaryHex}
+            tintColor={txt2}
             progressViewOffset={insets.top}
           />
         }
       >
-        <View style={[styles.hero, { height: heroHeight }]}>
-          <Image source={{ uri: imageUri }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+        <View style={[styles.hero, { height: HERO_H, marginTop: insets.top + 8, backgroundColor: chipBg }]}>
+          <ImageBackground
+            source={{ uri: imageUri }}
+            style={styles.heroImageBg}
+            imageStyle={styles.heroImageRadius}
+            resizeMode="cover"
+          >
           <LinearGradient
-            colors={isDark ? ['rgba(56,189,248,0.22)', 'transparent'] : ['rgba(245,158,11,0.28)', 'transparent']}
+            colors={isDark ? ['rgba(47,36,24,0.22)', 'transparent'] : ['rgba(47,36,24,0.18)', 'transparent']}
             start={{ x: 1, y: 0 }}
             end={{ x: 0.15, y: 0.5 }}
             style={styles.amberSheen}
@@ -154,7 +158,7 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation
 
           <TouchableOpacity
             onPress={() => navigation.goBack()}
-            style={[styles.backFab, { top: backButtonTop }]}
+            style={[styles.backFab, { top: 14 }]}
             activeOpacity={0.88}
             hitSlop={8}
           >
@@ -173,41 +177,42 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation
           <View style={styles.heroBadge}>
             <Text style={styles.heroBadgeText}>{event.kategori}</Text>
           </View>
+          </ImageBackground>
         </View>
 
-        <View style={[styles.sheet, isDark && styles.sheetDark]}>
+        <View style={[styles.sheet, { backgroundColor: cardBg, borderColor: cardBdr }]}>
           <View style={styles.sheetHandleWrap}>
-            <View style={[styles.sheetHandle, isDark && styles.sheetHandleDark]} />
+            <View style={[styles.sheetHandle, { backgroundColor: cardBdr }]} />
           </View>
 
-          <Text style={[styles.title, isDark && styles.titleDark]}>{event.baslik}</Text>
+          <Text style={[styles.title, { color: txt1 }]}>{event.baslik}</Text>
 
-          <View style={[styles.bentoRow, isDark && styles.bentoRowDark]}>
-            <CalendarDays color={isDark ? Colors.dark.accent : Colors.primaryHex} size={18} strokeWidth={2} />
-            <Text style={[styles.bentoText, isDark && styles.bentoTextDark]}>
+          <View style={[styles.bentoRow, { backgroundColor: chipBg, borderColor: t.border }]}>
+            <CalendarDays color={t.accent} size={18} strokeWidth={2} />
+            <Text style={[styles.bentoText, { color: txt1 }]}>
               {event.tarih}
               {event.saat ? ` · ${event.saat}` : ''}
             </Text>
           </View>
-          <View style={[styles.bentoRow, isDark && styles.bentoRowDark]}>
-            <MapPin color={isDark ? Colors.dark.accent : Colors.primaryHex} size={18} strokeWidth={2} />
-            <Text style={[styles.bentoText, isDark && styles.bentoTextDark]}>{event.konum}</Text>
+          <View style={[styles.bentoRow, { backgroundColor: chipBg, borderColor: t.border }]}>
+            <MapPin color={t.accent} size={18} strokeWidth={2} />
+            <Text style={[styles.bentoText, { color: txt1 }]}>{event.konum}</Text>
           </View>
-          <View style={[styles.bentoRow, isDark && styles.bentoRowDark]}>
-            <Tag color={isDark ? Colors.dark.accent : Colors.primaryHex} size={18} strokeWidth={2} />
-            <Text style={[styles.bentoText, isDark && styles.bentoTextDark]}>{event.kategori}</Text>
+          <View style={[styles.bentoRow, { backgroundColor: chipBg, borderColor: t.border }]}>
+            <Tag color={t.accent} size={18} strokeWidth={2} />
+            <Text style={[styles.bentoText, { color: txt1 }]}>{event.kategori}</Text>
           </View>
 
-          <View style={[styles.descCard, isDark && styles.descCardDark]}>
+          <View style={[styles.descCard, { backgroundColor: cardBg, borderColor: t.border }]}>
             <LinearGradient
-              colors={isDark ? ['rgba(56,189,248,0.12)', 'transparent'] : [...Gradients.meshBuff]}
+              colors={isDark ? ['rgba(56,189,248,0.12)', 'transparent'] : ['rgba(241,227,203,0.84)', 'transparent']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={StyleSheet.absoluteFill}
               pointerEvents="none"
             />
-            <Text style={[styles.descLabel, isDark && { color: Colors.dark.highlight }]}>Detay</Text>
-            <Text style={[styles.description, isDark && styles.descriptionDark]}>
+            <Text style={[styles.descLabel, { color: txt2 }]}>Detay</Text>
+            <Text style={[styles.description, { color: txt2 }]}>
               {event.aciklama?.trim() || 'Bu etkinlik için detaylı açıklama bulunmamaktadır.'}
             </Text>
           </View>
@@ -220,10 +225,6 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: DribbbleColors.background,
-  },
-  screenDark: {
-    backgroundColor: Colors.dark.background,
   },
   loadingWrap: {
     flex: 1,
@@ -235,10 +236,6 @@ const styles = StyleSheet.create({
     marginTop: 14,
     fontFamily: FontFamily.medium,
     fontSize: 15,
-    color: DribbbleColors.textSecondary,
-  },
-  mutedDark: {
-    color: '#94a3b8',
   },
   simpleHeader: {
     flexDirection: 'row',
@@ -246,10 +243,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0,0,0,0.08)',
-  },
-  simpleHeaderDark: {
-    borderBottomColor: 'rgba(255,255,255,0.1)',
   },
   backIconBtn: {
     marginRight: 4,
@@ -258,7 +251,6 @@ const styles = StyleSheet.create({
   simpleHeaderTitle: {
     fontFamily: FontFamily.semiBold,
     fontSize: 18,
-    color: DribbbleColors.textPrimary,
   },
   emptyBody: {
     flex: 1,
@@ -268,14 +260,22 @@ const styles = StyleSheet.create({
   emptyCopy: {
     fontFamily: FontFamily.medium,
     fontSize: 16,
-    color: DribbbleColors.textSecondary,
     textAlign: 'center',
     lineHeight: 24,
   },
   hero: {
-    width: '100%',
+    width: HERO_W,
+    alignSelf: 'center',
     position: 'relative',
-    backgroundColor: '#e2e8f0',
+    borderRadius: RADIUS,
+    overflow: 'hidden',
+  },
+  heroImageBg: {
+    width: '100%',
+    height: '100%',
+  },
+  heroImageRadius: {
+    borderRadius: RADIUS,
   },
   amberSheen: {
     ...StyleSheet.absoluteFillObject,
@@ -307,36 +307,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: 'rgba(255,248,234,0.92)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.98)',
+    borderColor: 'rgba(58,42,26,0.18)',
   },
   heroBadgeText: {
     fontFamily: FontFamily.semiBold,
     fontSize: 12,
-    color: DribbbleColors.textPrimary,
+    color: '#111114',
     letterSpacing: 0.4,
   },
   sheet: {
     marginTop: -RADIUS,
-    backgroundColor: '#ffffff',
     borderTopLeftRadius: RADIUS,
     borderTopRightRadius: RADIUS,
     paddingHorizontal: 22,
     paddingTop: 12,
     paddingBottom: 28,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
-    shadowColor: '#0f172a',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.06,
     shadowRadius: 16,
     elevation: 8,
-  },
-  sheetDark: {
-    backgroundColor: 'rgba(15,23,42,0.96)',
-    borderColor: 'rgba(255,255,255,0.08)',
-    shadowOpacity: 0.25,
   },
   sheetHandleWrap: {
     alignItems: 'center',
@@ -346,21 +338,13 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(0,0,0,0.12)',
-  },
-  sheetHandleDark: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
   },
   title: {
     fontFamily: FontFamily.semiBold,
     fontSize: 24,
     letterSpacing: -0.35,
     lineHeight: 30,
-    color: DribbbleColors.textPrimary,
     marginBottom: 18,
-  },
-  titleDark: {
-    color: '#f8fafc',
   },
   bentoRow: {
     flexDirection: 'row',
@@ -370,42 +354,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     marginBottom: 10,
     borderRadius: 16,
-    backgroundColor: 'rgba(248,250,252,0.95)',
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
-  },
-  bentoRowDark: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderColor: 'rgba(255,255,255,0.08)',
   },
   bentoText: {
     flex: 1,
     fontFamily: FontFamily.medium,
     fontSize: 15,
     lineHeight: 22,
-    color: DribbbleColors.textPrimary,
-  },
-  bentoTextDark: {
-    color: '#e2e8f0',
   },
   descCard: {
     marginTop: 8,
     borderRadius: 18,
     padding: 18,
     overflow: 'hidden',
-    backgroundColor: '#fafafa',
     borderWidth: 1,
-    borderColor: 'rgba(245,158,11,0.18)',
-  },
-  descCardDark: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderColor: 'rgba(251,191,36,0.2)',
   },
   descLabel: {
     fontFamily: FontFamily.semiBold,
     fontSize: 12,
     letterSpacing: 0.6,
-    color: Colors.primaryHex,
     marginBottom: 10,
     textTransform: 'uppercase',
   },
@@ -413,10 +380,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.regular,
     fontSize: 16,
     lineHeight: 26,
-    color: DribbbleColors.textSecondary,
-  },
-  descriptionDark: {
-    color: '#94a3b8',
   },
 });
 

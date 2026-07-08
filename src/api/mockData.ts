@@ -232,8 +232,8 @@ export const MOCK_MAGAZINES: Magazine[] = [
     },
     {
       id: 'm16',
-      title: 'Saklı Cennet',
-      image: require('@/assets/images/sakli_cennet.jpg'),
+      title: 'Halfeti Saklı Cennet',
+      image: require('@/assets/images/halfeti_sakli_cennet.png'),
       category: 'nature',
       description:
         'Halfeti çevresinde doğal manzaralarıyla öne çıkan sakin bir gezi noktası.',

@@ -19,12 +19,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { X, Send, Check, Users } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase, processImageUrl } from '@/lib/supabase';
+import { useAppTheme } from '@/theme/useAppTheme';
 
 const SnapColors = {
-  yellow: '#FFFC00',
+  yellow: '#F1E3CB',
   black: '#000000',
-  white: '#FFFFFF',
-  blue: '#0FADFF',
+  white: '#FFF8EA',
+  blue: '#2F2418',
   red: '#FF2D55',
 };
 
@@ -37,6 +38,7 @@ interface UserProfile {
 
 const SendSnapScreen = ({ route }: any) => {
   const navigation = useNavigation();
+  const t = useAppTheme();
   const imageUri = route?.params?.imageUri;
   const preselectedRecipientId = route?.params?.recipientId;
   

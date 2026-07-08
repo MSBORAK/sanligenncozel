@@ -19,10 +19,11 @@ import { ArrowLeft, Users, Camera, Clock, Star, UserCheck, UserPlus, Hourglass, 
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
-import { useThemeMode } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
 import { supabase, processImageUrl, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
+import { useAppTheme } from '@/theme/useAppTheme';
+import { Editorial } from '@/theme/colors';
 import { Clean } from '@/constants/Colors';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 
@@ -51,10 +52,10 @@ interface BentoCardProps {
 }
 
 const BentoCard = ({ icon, value, label, isDark, accent, flex = 1 }: BentoCardProps) => {
-  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
-  const cardBg  = isDark ? '#18181B' : Clean.surface;
-  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
+  const txt1    = isDark ? Editorial.ink : Clean.textPrimary;
+  const txt2    = isDark ? Editorial.coffeeSoft : Clean.textSecondary;
+  const cardBg  = isDark ? Editorial.surface : Clean.surface;
+  const chipBg  = isDark ? Editorial.chip : Clean.bgSoft;
   const cardBorder = isDark ? cardBorderDark : cardBorderLight;
   const valueColor = accent ?? txt1;
 
@@ -99,17 +100,17 @@ const statusConfig = {
   },
   pending_received: {
     label: 'İstek Var',
-    bg: 'rgba(37,99,235,0.15)',
-    color: '#2563eb',
-    icon: <UserPlus size={11} color="#2563eb" strokeWidth={2.5} />,
+    bg: 'rgba(47,36,24,0.15)',
+    color: Editorial.coffee,
+    icon: <UserPlus size={11} color={Editorial.coffee} strokeWidth={2.5} />,
   },
 };
 
 const FriendRow = ({ entry, isDark, onPress }: FriendRowProps) => {
-  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
-  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
-  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
+  const txt1    = isDark ? Editorial.ink : Clean.textPrimary;
+  const txt2    = isDark ? Editorial.coffeeSoft : Clean.textSecondary;
+  const cardBdr = isDark ? Editorial.border : Clean.border;
+  const chipBg  = isDark ? Editorial.chip : Clean.bgSoft;
   const cfg = statusConfig[entry.status];
   const initial = entry.other_name.charAt(0).toUpperCase();
 
@@ -152,18 +153,18 @@ const FriendRow = ({ entry, isDark, onPress }: FriendRowProps) => {
 
 const SosyalProfileScreen = ({ route }: any) => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
-  const { mode } = useThemeMode();
-  const isDark = mode === 'dark';
+  const t = useAppTheme();
+  const isDark = t.isDark;
   const { profile: currentUserProfile, refreshProfile } = useUser();
-  const pageBg  = isDark ? '#0C0C0E' : Clean.bgSoft;
-  const cardBg  = isDark ? '#18181B' : Clean.surface;
-  const cardBdr = isDark ? 'rgba(255,255,255,0.08)' : Clean.border;
-  const txt1    = isDark ? '#F5F5F7' : Clean.textPrimary;
-  const txt2    = isDark ? 'rgba(245,245,247,0.55)' : Clean.textSecondary;
-  const ctaBg   = isDark ? '#F5F5F7' : Clean.ctaBg;
-  const ctaTxt  = isDark ? '#111114' : Clean.ctaText;
-  const chipBg  = isDark ? '#1F1F23' : Clean.chipBg;
-  const amber   = Clean.accent;
+  const pageBg  = t.pageBg;
+  const cardBg  = t.cardBg;
+  const cardBdr = t.cardBdr;
+  const txt1    = t.txt1;
+  const txt2    = t.txt2;
+  const ctaBg   = t.ctaBg;
+  const ctaTxt  = t.ctaTxt;
+  const chipBg  = t.chipBg;
+  const amber   = t.accent;
   const cardBorder = isDark ? cardBorderDark : cardBorderLight;
 
   // Route'dan gelen userId varsa onu kullan, yoksa kendi profilimiz
