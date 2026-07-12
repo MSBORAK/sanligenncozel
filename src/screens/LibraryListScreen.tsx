@@ -5,9 +5,11 @@ import { Library, MapPin, Clock, Navigation } from 'lucide-react-native';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { MOCK_LIBRARIES, Library as LibraryType } from '@/api/mockData';
 import { useAppTheme } from '@/theme/useAppTheme';
+import { useTranslation } from 'react-i18next';
 
 const LibraryListScreen = () => {
   const t = useAppTheme();
+  const { t: tr } = useTranslation();
   const { isDark, pageBg, cardBg, cardBdr, txt1, txt2, chipBg, accent: amber } = t;
   const insets = useSafeAreaInsets();
   const cardBorder = isDark ? cardBorderDark : cardBorderLight;
@@ -56,9 +58,9 @@ const LibraryListScreen = () => {
   return (
     <View style={[styles.container, { backgroundColor: pageBg }]}>
       <View style={[styles.header, { backgroundColor: pageBg, paddingTop: insets.top + 18 }]}>
-        <Text style={[styles.headerLabel, { color: txt2 }]}>KEŞFET</Text>
-        <Text style={[styles.headerTitle, { color: txt1 }]}>Kütüphaneler</Text>
-        <Text style={[styles.headerSubtitle, { color: txt2 }]}>{MOCK_LIBRARIES.length} kütüphane bulundu</Text>
+        <Text style={[styles.headerLabel, { color: txt2 }]}>{tr('pharmacy.kesfet')}</Text>
+        <Text style={[styles.headerTitle, { color: txt1 }]}>{tr('library.title')}</Text>
+        <Text style={[styles.headerSubtitle, { color: txt2 }]}>{tr('library.kutuphaneBulundu', { count: MOCK_LIBRARIES.length })}</Text>
       </View>
 
       <FlatList

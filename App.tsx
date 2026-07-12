@@ -1,10 +1,12 @@
 import 'react-native-gesture-handler';
+import '@/i18n';
 import React from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts, PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold, PlusJakartaSans_800ExtraBold } from '@expo-google-fonts/plus-jakarta-sans';
 import AppNavigator from '@/navigation/AppNavigator';
 import { ThemeProvider, useThemeMode } from '@/context/ThemeContext';
+import { LanguageProvider } from '@/context/LanguageContext';
 import { FavoritesProvider } from '@/context/FavoritesContext';
 import { UserProvider } from '@/context/UserContext';
 import { Colors } from '@/constants/Colors';
@@ -37,13 +39,15 @@ export default function App() {
   }
 
   return (
-    <ThemeProvider>
-      <UserProvider>
-        <FavoritesProvider>
-          <AppInner />
-        </FavoritesProvider>
-      </UserProvider>
-    </ThemeProvider>
+    <LanguageProvider>
+      <ThemeProvider>
+        <UserProvider>
+          <FavoritesProvider>
+            <AppInner />
+          </FavoritesProvider>
+        </UserProvider>
+      </ThemeProvider>
+    </LanguageProvider>
   );
 }
 

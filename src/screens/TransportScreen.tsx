@@ -9,6 +9,7 @@ import { Colors } from '@/constants/Colors';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { MOCK_STOPS } from '@/data/transport';
 import { estimateTime, calculateDistance } from '@/utils/estimateTime';
+import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { useFavorites } from '@/context/FavoritesContext';
 
@@ -21,6 +22,7 @@ const FAVORITE_STOPS = [
 ];
 
 const TransportScreen = () => {
+  const { t: tr } = useTranslation();
   const { isDark, pageBg, cardBg, cardBdr, txt1, txt2, ctaBg, ctaTxt, chipBg, accent } = useAppTheme();
   const [selectedArea, setSelectedArea] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -101,7 +103,7 @@ const TransportScreen = () => {
       try {
         let { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert('İzin Gerekli', 'Konum izni olmadan en yakın durağı bulamayız.');
+          Alert.alert(tr('transport.izinGerekli'), tr('transport.izinMesaji'));
           // Varsayılan olarak Abide durağını seç
           setNearestStop(MOCK_STOPS[0]);
           setFromStop(MOCK_STOPS[0]);
@@ -287,7 +289,7 @@ const TransportScreen = () => {
                 key={stop.id}
                 coordinate={{ latitude: stop.lat, longitude: stop.lng }}
                 title={stop.name}
-                description={nearestStop?.id === stop.id ? "En yakın durak" : "Durak"}
+                description={nearestStop?.id === stop.id ? tr('transport.enYakinDurak') : tr('transport.durak')}
                 pinColor={nearestStop?.id === stop.id ? TRANSPORT_ACCENT : "#ef4444"}
                 onPress={() => setNearestStop(stop)}
               />
@@ -298,12 +300,12 @@ const TransportScreen = () => {
             {location && (
               <View style={[styles.mapLocationPill, isDark && { backgroundColor: Colors.dark.card }]}>
                 <MapPin color={txt1} size={16} />
-                <Text style={[styles.mapLocationText, isDark && { color: '#f8fafc' }]}>Konumunuz Alındı</Text>
+                <Text style={[styles.mapLocationText, isDark && { color: '#f8fafc' }]}>{tr('transport.konumunuzAlindi')}</Text>
               </View>
             )}
             {nearestStop && (
               <View style={[styles.mapStopPill, isDark && { backgroundColor: '#059669', opacity: 0.2 }]}>
-                <Text style={[styles.mapStopLabel, { color: txt1 }]}>En yakın durak</Text>
+                <Text style={[styles.mapStopLabel, { color: txt1 }]}>{tr('transport.enYakinDurak')}</Text>
                 <Text style={[styles.mapStopValue, { color: txt1 }]}>{nearestStop.name}</Text>
               </View>
             )}
@@ -315,7 +317,7 @@ const TransportScreen = () => {
               <View style={[styles.expandedSearchContainer, isDark && { backgroundColor: Colors.dark.card, borderColor: Colors.dark.border, borderWidth: 1 }]}>
                 <Search color={isDark ? '#94a3b8' : '#9ca3af'} size={20} />
                 <TextInput
-                  placeholder="Haritada durak ara..."
+                  placeholder={tr('transport.haritadaDurakAra')}
                   style={[styles.searchInput, isDark && { color: '#f8fafc' }]}
                   placeholderTextColor={isDark ? '#64748b' : '#9ca3af'}
                   value={searchQuery}
@@ -375,7 +377,7 @@ const TransportScreen = () => {
                     ))
                   ) : (
                     <View style={styles.searchResultItem}>
-                      <Text style={[styles.noResultText, isDark && { color: '#94a3b8' }]}>Sonuç bulunamadı</Text>
+                      <Text style={[styles.noResultText, isDark && { color: '#94a3b8' }]}>{tr('transport.sonucBulunamadi')}</Text>
                     </View>
                   )}
                 </ScrollView>
@@ -392,7 +394,7 @@ const TransportScreen = () => {
           <View style={[styles.hero, { paddingTop: insets.top + 18, backgroundColor: pageBg, borderBottomColor: cardBdr }]}>
             <View style={styles.heroTop}>
               <View>
-                <Text style={[styles.heroLabel,{color:txt2}]}>ULAŞIM REHBERİ</Text>
+                <Text style={[styles.heroLabel,{color:txt2}]}>{tr('transport.ulasimRehberi')}</Text>
                 <Text style={[styles.heroTitle,{color:txt1}]}>Durağını bul,{'\n'}yolunu planla</Text>
               </View>
               <View style={[styles.heroIconWrap,{backgroundColor:chipBg, borderColor:cardBdr}]}>
@@ -426,7 +428,7 @@ const TransportScreen = () => {
                   <View style={styles.routeButtonContent}>
                     <Navigation color={txt1} size={20} />
                     <View style={styles.routeButtonTextContainer}>
-                      <Text style={[styles.routeButtonLabel, { color: txt2 }]}>Nereden</Text>
+                      <Text style={[styles.routeButtonLabel, { color: txt2 }]}>{tr('transport.nereden')}</Text>
                       <Text style={[styles.routeButtonValue, { color: txt1 }]} numberOfLines={1}>
                         {fromStop ? fromStop.name : 'Durak seçin'}
                       </Text>
@@ -451,7 +453,7 @@ const TransportScreen = () => {
                   <View style={styles.routeButtonContent}>
                     <MapPin color={txt1} size={20} />
                     <View style={styles.routeButtonTextContainer}>
-                      <Text style={[styles.routeButtonLabel, { color: txt2 }]}>Nereye</Text>
+                      <Text style={[styles.routeButtonLabel, { color: txt2 }]}>{tr('transport.nereye')}</Text>
                       <Text style={[styles.routeButtonValue, { color: txt1 }]} numberOfLines={1}>
                         {toStop ? toStop.name : 'Durak seçin'}
                       </Text>
@@ -485,7 +487,7 @@ const TransportScreen = () => {
                       key={stop.id}
                       coordinate={{ latitude: stop.lat, longitude: stop.lng }}
                       title={stop.name}
-                      description={nearestStop?.id === stop.id ? "En yakın durak" : "Durak"}
+                      description={nearestStop?.id === stop.id ? tr('transport.enYakinDurak') : tr('transport.durak')}
                       pinColor={nearestStop?.id === stop.id ? TRANSPORT_ACCENT : "#6B7280"}
                       onPress={() => setNearestStop(stop)}
                     />
@@ -496,12 +498,12 @@ const TransportScreen = () => {
                   {location && (
                     <View style={styles.mapLocationPill}>
                       <MapPin color={txt1} size={16} />
-                      <Text style={styles.mapLocationText}>Konumunuz Alındı</Text>
+                      <Text style={styles.mapLocationText}>{tr('transport.konumunuzAlindi')}</Text>
                     </View>
                   )}
                   {nearestStop && (
                     <View style={styles.mapStopPill}>
-                      <Text style={[styles.mapStopLabel, { color: txt1 }]}>En yakın durak</Text>
+                      <Text style={[styles.mapStopLabel, { color: txt1 }]}>{tr('transport.enYakinDurak')}</Text>
                       <Text style={[styles.mapStopValue, { color: txt1 }]}>{nearestStop.name}</Text>
                     </View>
                   )}
@@ -522,7 +524,7 @@ const TransportScreen = () => {
             <View style={[styles.searchContainer, { backgroundColor: cardBg, borderColor: cardBdr, borderWidth: 1.2 }]}>
               <Search color={txt1} size={19} />
               <TextInput
-                placeholder="Hat no veya durak adı ara..."
+                placeholder={tr('transport.hatVeyaDurakAra')}
                 style={[styles.searchInput, { color: txt1 }]}
                 placeholderTextColor={txt2}
                 value={searchQuery}
@@ -567,7 +569,7 @@ const TransportScreen = () => {
                     ))
                   ) : (
                     <View style={styles.searchResultItem}>
-                      <Text style={styles.noResultText}>Sonuç bulunamadı</Text>
+                      <Text style={styles.noResultText}>{tr('transport.sonucBulunamadi')}</Text>
                     </View>
                   )}
                 </ScrollView>
@@ -595,9 +597,9 @@ const TransportScreen = () => {
 
           {/* Favorite Stops */}
           <View style={styles.sectionHeaderRow}>
-            <Text style={[styles.sectionTitle, { color: txt2 }]}>FAVORİ DURAKLAR</Text>
+            <Text style={[styles.sectionTitle, { color: txt2 }]}>{tr('transport.favoriDuraklar')}</Text>
             <TouchableOpacity onPress={() => setEditingFavorites(v => !v)}>
-              <Text style={[styles.editText, { color: txt1 }]}>{editingFavorites ? 'Tamam' : 'Düzenle'}</Text>
+              <Text style={[styles.editText, { color: txt1 }]}>{editingFavorites ? tr('common.ok') : tr('sosyalMain.duzenle')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -656,7 +658,7 @@ const TransportScreen = () => {
           {fromStop && toStop && fromStop.id !== toStop.id && (
             <View style={{ marginTop: 24 }}>
               <View style={styles.sectionHeaderRow}>
-                <Text style={[styles.sectionTitle, { color: txt2 }]}>ALTERNATİF ROTALAR</Text>
+                <Text style={[styles.sectionTitle, { color: txt2 }]}>{tr('transport.alternatifRotalar')}</Text>
               </View>
 
               <View style={[styles.routeInfoCard, cardOuterShadow, isDark ? cardBorderDark : cardBorderLight, { backgroundColor: cardBg }]}>
@@ -727,7 +729,7 @@ const TransportScreen = () => {
                               </Text>
                               <View style={styles.routeTypeInline}>
                                 <View style={[styles.routeTypeBadgeSmall, { backgroundColor: '#dcfce7' }]}>
-                                  <Text style={[styles.routeTypeTextSmall, { color: '#16a34a' }]}>Direkt</Text>
+                                  <Text style={[styles.routeTypeTextSmall, { color: '#16a34a' }]}>{tr('transport.direkt')}</Text>
                                 </View>
                               </View>
                             </View>
@@ -866,7 +868,7 @@ const TransportScreen = () => {
           <View style={[styles.modalSearchContainer, { backgroundColor: cardBg, borderColor: cardBdr, borderWidth: 1 }]}>
             <Search color={isDark ? '#94a3b8' : txt1} size={20} />
             <TextInput
-              placeholder="Durak ara..."
+              placeholder={tr('transport.durakAra')}
               style={[styles.modalSearchInput, { color: txt1 }]}
               placeholderTextColor={isDark ? '#64748b' : '#9ca3af'}
               value={searchQuery}

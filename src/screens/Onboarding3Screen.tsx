@@ -18,6 +18,7 @@ import { DotIndicator } from '@/components/DotIndicator';
 import type { RootStackParamList } from '@/types/navigation';
 import { markOnboardingCompleted } from '@/utils/onboarding';
 import { Editorial } from '@/theme/colors';
+import { useTranslation } from 'react-i18next';
 
 const friendsLottie = require('@/assets/images/friends.json');
 
@@ -27,13 +28,14 @@ const ACCENT = Editorial.coffee;
 const ACCENT2 = Editorial.chip;
 
 const COMMUNITY_STATS = [
-  { value: '🗺️', label: 'ŞanlıSosyal' },
-  { value: '🤖', label: 'Yapay Zeka' },
-  { value: '🚌', label: 'Ulaşım' },
+  { value: '🗺️', labelKey: 'onboarding3.sanliSosyal' },
+  { value: '🤖', labelKey: 'onboarding3.yapayZeka' },
+  { value: '🚌', labelKey: 'onboarding3.ulasim' },
 ];
 
 export const Onboarding3Screen: React.FC = () => {
   const navigation = useNavigation<NavProp>();
+  const { t: tr } = useTranslation();
   const insets = useSafeAreaInsets();
 
   const glowAnim = useRef(new Animated.Value(0)).current;
@@ -110,7 +112,7 @@ export const Onboarding3Screen: React.FC = () => {
         {...panResponder.panHandlers}
       >
         <Pressable style={styles.skipButton} onPress={handleGoToLogin}>
-          <Text style={styles.skipText}>Geç</Text>
+          <Text style={styles.skipText}>{tr('onboarding2.gec')}</Text>
         </Pressable>
 
         {/* Lottie + glow */}
@@ -151,7 +153,7 @@ export const Onboarding3Screen: React.FC = () => {
           }]}>
             <LinearGradient colors={['rgba(139,92,246,0.22)', 'rgba(109,40,217,0.1)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.badgeGradient}>
               <View style={styles.badgeDot} />
-              <Text style={styles.badgeText}>TOPLULUK · ŞANLIURFA GENÇLİĞİ</Text>
+              <Text style={styles.badgeText}>{tr('onboarding3.badge')}</Text>
             </LinearGradient>
           </Animated.View>
 
@@ -159,14 +161,14 @@ export const Onboarding3Screen: React.FC = () => {
             opacity: titleAnim,
             transform: [{ translateY: titleAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
           }]}>
-            Kıvılcım At,{'\n'}Bağlantıda Kal
+            {tr('onboarding3.title')}
           </Animated.Text>
 
           <Animated.Text style={[styles.subtitle, {
             opacity: subtitleAnim,
             transform: [{ translateY: subtitleAnim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }],
           }]}>
-            Kıvılcım'da anlarını paylaş,{'\n'}yapay zeka asistanın her soruya hazır.
+            {tr('onboarding3.subtitle')}
           </Animated.Text>
 
           <Animated.View style={[styles.statsRow, {
@@ -174,10 +176,10 @@ export const Onboarding3Screen: React.FC = () => {
             transform: [{ translateY: statsAnim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
           }]}>
             {COMMUNITY_STATS.map((s, i) => (
-              <React.Fragment key={s.label}>
+              <React.Fragment key={s.labelKey}>
                 <View style={styles.statItem}>
                   <Text style={[styles.statValue, { fontSize: 24 }]}>{s.value}</Text>
-                  <Text style={styles.statLabel}>{s.label}</Text>
+                  <Text style={styles.statLabel}>{tr(s.labelKey)}</Text>
                 </View>
                 {i < COMMUNITY_STATS.length - 1 && <View style={styles.statDivider} />}
               </React.Fragment>
@@ -207,7 +209,7 @@ export const Onboarding3Screen: React.FC = () => {
                 end={{ x: 1, y: 0 }}
                 style={styles.pillGradient}
               >
-                <Text style={styles.pillText}>Hemen Katıl</Text>
+                <Text style={styles.pillText}>{tr('onboarding3.hemenKatil')}</Text>
                 <View style={styles.arrowCircle}>
                   <Text style={styles.arrowText}>🎉</Text>
                 </View>
@@ -216,9 +218,9 @@ export const Onboarding3Screen: React.FC = () => {
           </Animated.View>
 
           <View style={styles.linkRow}>
-            <Text style={styles.linkBase}>Zaten hesabın var mı? </Text>
+            <Text style={styles.linkBase}>{tr('onboarding1.zatenHesabinVarMi')} </Text>
             <Pressable onPress={handleGoToLogin}>
-              <Text style={styles.linkAccent}>Giriş yap</Text>
+              <Text style={styles.linkAccent}>{tr('onboarding1.girisYapKucuk')}</Text>
             </Pressable>
           </View>
         </Animated.View>

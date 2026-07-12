@@ -18,10 +18,12 @@ import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
 import { useAppTheme } from '@/theme/useAppTheme';
+import { useTranslation } from 'react-i18next';
 
 const CreatePostScreen = ({ route }: any) => {
   const navigation = useNavigation();
   const t = useAppTheme();
+  const { t: tr } = useTranslation();
 
   // Theme-derived colors for this screen (dark camera overlay)
   const SnapColors = {
@@ -39,7 +41,7 @@ const CreatePostScreen = ({ route }: any) => {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (status !== 'granted') {
-        Alert.alert('İzin Gerekli', 'Galeri erişimi için izin vermeniz gerekiyor.');
+        Alert.alert(tr('completeProfile.izinGerekli'), tr('completeProfile.izinMesaji'));
         return;
       }
 
@@ -54,7 +56,7 @@ const CreatePostScreen = ({ route }: any) => {
         setImageUri(result.assets[0].uri);
       }
     } catch (e) {
-      Alert.alert('Hata', 'Fotoğraf seçilirken bir sorun oluştu.');
+      Alert.alert(tr('common.error'), tr('completeProfile.fotoSecmeHatasi'));
     }
   };
 
@@ -63,7 +65,7 @@ const CreatePostScreen = ({ route }: any) => {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
 
       if (status !== 'granted') {
-        Alert.alert('İzin Gerekli', 'Kamera erişimi için izin vermeniz gerekiyor.');
+        Alert.alert(tr('completeProfile.izinGerekli'), tr('createPost.kameraIzinMesaji'));
         return;
       }
 
@@ -77,7 +79,7 @@ const CreatePostScreen = ({ route }: any) => {
         setImageUri(result.assets[0].uri);
       }
     } catch (e) {
-      Alert.alert('Hata', 'Fotoğraf çekilirken bir sorun oluştu.');
+      Alert.alert(tr('common.error'), tr('createPost.fotoCekmeHatasi'));
     }
   };
 
@@ -121,7 +123,7 @@ const CreatePostScreen = ({ route }: any) => {
 
   const handlePost = async () => {
     if (!imageUri) {
-      Alert.alert('Hata', 'Lütfen bir resim ekleyin.');
+      Alert.alert(tr('common.error'), tr('createPost.resimEkleyin'));
       return;
     }
 
@@ -130,14 +132,14 @@ const CreatePostScreen = ({ route }: any) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        Alert.alert('Hata', 'Giriş yapmanız gerekiyor.');
+        Alert.alert(tr('common.error'), tr('createPost.girisGerekiyor'));
         return;
       }
 
       // Resmi yükle
       const imageUrl = await uploadImage(imageUri);
       if (!imageUrl) {
-        Alert.alert('Hata', 'Resim yüklenirken bir hata oluştu.');
+        Alert.alert(tr('common.error'), tr('createPost.resimYuklemeHatasi'));
         setUploading(false);
         return;
       }
@@ -158,13 +160,13 @@ const CreatePostScreen = ({ route }: any) => {
       if (error) throw error;
 
       Alert.alert(
-        'Başarılı', 
-        'Hikayeniz paylaşıldı! 24 saat sonra silinecek.',
-        [{ text: 'Tamam', onPress: () => navigation.goBack() }]
+        tr('createPost.basarili'),
+        tr('createPost.hikayePaylasildi'),
+        [{ text: tr('common.ok'), onPress: () => navigation.goBack() }]
       );
     } catch (error) {
       console.error('Story creation error:', error);
-      Alert.alert('Hata', 'Hikaye oluşturulurken bir hata oluştu.');
+      Alert.alert(tr('common.error'), tr('createPost.hikayeOlusturmaHatasi'));
     } finally {
       setUploading(false);
     }
@@ -183,7 +185,7 @@ const CreatePostScreen = ({ route }: any) => {
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <X color={SnapColors.white} size={28} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Hikaye Ekle</Text>
+          <Text style={styles.headerTitle}>{tr('createPost.title')}</Text>
           <View style={{ width: 28 }} />
         </View>
 
@@ -212,7 +214,7 @@ const CreatePostScreen = ({ route }: any) => {
                   <View style={styles.cameraIconContainer}>
                     <CameraIcon color={SnapColors.white} size={40} />
                   </View>
-                  <Text style={styles.cameraOptionText}>Fotoğraf Çek</Text>
+                  <Text style={styles.cameraOptionText}>{tr('createPost.fotografCek')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -222,17 +224,17 @@ const CreatePostScreen = ({ route }: any) => {
                   <View style={styles.galleryIconContainer}>
                     <ImageIcon color={SnapColors.white} size={40} />
                   </View>
-                  <Text style={styles.cameraOptionText}>Galeriden Seç</Text>
+                  <Text style={styles.cameraOptionText}>{tr('createPost.galeridenSec')}</Text>
                 </TouchableOpacity>
               </View>
             )}
 
             <View style={styles.infoBox}>
               <Text style={styles.infoText}>
-                📸 Hikayeniz tüm arkadaşlarınız tarafından görülebilir
+                {tr('createPost.hikayeGorulur')}
               </Text>
               <Text style={styles.infoText}>
-                ⏰ 24 saat sonra otomatik olarak silinir
+                {tr('createPost.otomatikSilinir')}
               </Text>
             </View>
           </ScrollView>
@@ -251,7 +253,7 @@ const CreatePostScreen = ({ route }: any) => {
             ) : (
               <>
                 <Send color={SnapColors.white} size={20} />
-                <Text style={styles.sendButtonText}>Hikaye Olarak Paylaş</Text>
+                <Text style={styles.sendButtonText}>{tr('createPost.hikayeOlarakPaylas')}</Text>
               </>
             )}
           </TouchableOpacity>

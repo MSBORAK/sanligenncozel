@@ -8,12 +8,14 @@ import BackgroundImage from '@/assets/images/background.jpg';
 import { useThemeMode } from '@/context/ThemeContext';
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/types/navigation';
+import { useTranslation } from 'react-i18next';
 
 type Props = StackScreenProps<RootStackParamList, 'Welcome'>;
 
 const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
+  const { t: tr } = useTranslation();
   const { mode } = useThemeMode();
-  const isDark = mode === 'dark';
+  const isDark = mode !== 'light';
   const handleEnterApp = () => {
     navigation.replace('Main', { screen: 'Home' });
   };
@@ -41,7 +43,7 @@ const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.logoText}>ŞG</Text>
           </View>
           <Text style={styles.title}>ŞanlıGenç</Text>
-          <Text style={styles.subtitle}>Etkinlik, ulaşım ve genç kart tek uygulamada.</Text>
+          <Text style={styles.subtitle}>{tr('welcome.subtitle')}</Text>
         </View>
 
         <View style={styles.content}>
@@ -60,17 +62,17 @@ const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
             {/* Üst mini modüller */}
             <View style={styles.topRow}>
               <View style={styles.topPill}>
-                <Text style={styles.topPillTitle}>Şehrin Kalbi</Text>
-                <Text style={styles.topPillSubtitle}>Etkinlikler</Text>
+                <Text style={styles.topPillTitle}>{tr('welcome.sehrinKalbi')}</Text>
+                <Text style={styles.topPillSubtitle}>{tr('welcome.etkinlikler')}</Text>
               </View>
               <View style={styles.topPill}>
-                <Text style={styles.topPillTitle}>Genç Kart</Text>
-                <Text style={styles.topPillSubtitle}>Avantajlar</Text>
+                <Text style={styles.topPillTitle}>{tr('welcome.gencKart')}</Text>
+                <Text style={styles.topPillSubtitle}>{tr('welcome.avantajlar')}</Text>
               </View>
             </View>
 
-            <Text style={styles.welcomeText}>Şanlıurfa hazır.</Text>
-            <Text style={styles.subtitleText}>"Sen de hazır mısın?"</Text>
+            <Text style={styles.welcomeText}>{tr('welcome.sanliurfaHazir')}</Text>
+            <Text style={styles.subtitleText}>{tr('welcome.senDeHazirMisin')}</Text>
 
             <View style={styles.buttons}>
               <TouchableOpacity style={styles.primaryButtonWrapper} activeOpacity={0.9} onPress={handleLogin}>
@@ -80,7 +82,7 @@ const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
                   end={{ x: 1, y: 1 }}
                   style={styles.primaryButton}
                 >
-                  <Text style={styles.primaryButtonText}>Giriş Yap</Text>
+                  <Text style={styles.primaryButtonText}>{tr('login.girisYap')}</Text>
                 </LinearGradient>
               </TouchableOpacity>
 
@@ -89,12 +91,12 @@ const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
                 activeOpacity={0.9}
                 onPress={handleEnterApp}
               >
-                <Text style={styles.secondaryButtonText}>Misafir Olarak Devam Et</Text>
+                <Text style={styles.secondaryButtonText}>{tr('login.misafirOlarakDevam')}</Text>
               </TouchableOpacity>
             </View>
 
             <Text style={styles.footerText}>
-              Devam ederek uygulamanın kullanım koşullarını ve KVKK metnini kabul etmiş olursun.
+              {tr('welcome.footerText')}
             </Text>
           </LinearGradient>
           </LinearGradient>

@@ -38,10 +38,17 @@ export const GencKartCardTheme = {
   },
   clean: {
     label: 'Mono',
-    bgImage: require('@/assets/images/sanli-clean-genc-kart-bg.png'),
+    bgImage: require('@/assets/images/sanli-dark-genc-kart-bg.png'),
     shadow: '#111114',
     holderLabel: 'rgba(255,255,255,0.55)',
     yearBorder: 'rgba(255,255,255,0.45)',
+  },
+  inverse: {
+    label: 'Noir',
+    bgImage: require('@/assets/images/sanli-dark-genc-kart-bg.png'),
+    shadow: '#000000',
+    holderLabel: 'rgba(255,255,255,0.78)',
+    yearBorder: 'rgba(255,255,255,0.65)',
   },
 } as const;
 

@@ -1,5 +1,7 @@
 import { supabase, processImageUrl } from '@/lib/supabase';
 import { cityFallback } from '@/lib/imageFallback';
+import { pickLocalized } from '@/lib/localizeContent';
+import i18n from '@/i18n';
 import type { HeritageCategory } from '@/types';
 
 export interface KesfetRow {
@@ -12,6 +14,7 @@ export interface KesfetRow {
   sira?: number | null;
   one_cikan?: boolean | null;
   aktif?: boolean | null;
+  [key: string]: any;
 }
 
 export interface KesfetPlace {
@@ -35,8 +38,8 @@ export function mapKesfetRow(row: KesfetRow): KesfetPlace {
   return {
     id: row.id.toString(),
     slug: row.slug ?? undefined,
-    title: row.baslik,
-    description: row.aciklama ?? undefined,
+    title: pickLocalized(row, 'baslik', i18n.language),
+    description: pickLocalized(row, 'aciklama', i18n.language) || undefined,
     category,
     image: processImageUrl(row.resim_url, 'kesfet_resimleri') || cityFallback(row.id),
     featured: Boolean(row.one_cikan),

@@ -8,19 +8,23 @@ import { useNavigation } from '@react-navigation/native';
 import {
   ChevronRight, Bell, ShieldCheck, User as UserIcon, X,
   HelpCircle, MessageSquare, Send, Heart, Users, LogOut, Flame,
-  Star, MapPin, FileText, ScrollText, Trash2, Mail, CreditCard, Palette,
+  Star, MapPin, FileText, ScrollText, Trash2, Mail, CreditCard, Palette, Languages,
 } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { MOCK_USER } from '@/api/mockData';
 import { useFavorites } from '@/context/FavoritesContext';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/context/UserContext';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { useThemeMode } from '@/context/ThemeContext';
+import { useLanguage } from '@/context/LanguageContext';
+import { LanguageCode } from '@/i18n';
 import { cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList, MainTabParamList } from '@/types/navigation';
 
 type Nav = StackNavigationProp<RootStackParamList>;
+type ThemeMode = 'light' | 'dark' | 'inverse';
 
 const SUPPORT_EMAIL = 'destek@sanligenc.app';
 const APP_VERSION = '1.0.0';
@@ -29,7 +33,9 @@ type LegalDoc = 'privacy' | 'terms' | 'kvkk' | null;
 
 const ProfileScreen = () => {
   const t = useAppTheme();
-  const { modeLabel, toggleTheme } = useThemeMode();
+  const { mode, setMode } = useThemeMode();
+  const { t: tr, i18n } = useTranslation();
+  const { language, setLanguage, supportedLanguages } = useLanguage();
   const { profile, refreshProfile } = useUser();
   const [modalVisible, setModalVisible] = useState(false);
   const [legalDoc, setLegalDoc] = useState<LegalDoc>(null);
@@ -42,6 +48,8 @@ const ProfileScreen = () => {
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
   const [personalizationEnabled, setPersonalizationEnabled] = useState(true);
   const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
+  const [themeModalVisible, setThemeModalVisible] = useState(false);
+  const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const [feedbackType, setFeedbackType] = useState<'complaint' | 'bug' | 'feature'>('complaint');
   const [feedbackTitle, setFeedbackTitle] = useState('');
   const [feedbackDescription, setFeedbackDescription] = useState('');
@@ -53,11 +61,18 @@ const ProfileScreen = () => {
   const userEmail = profile?.email || '';
   const userInitial = userName.charAt(0).toUpperCase();
   const { isDark, pageBg, cardBg, cardBdr, txt1, txt2, ctaBg, ctaTxt, chipBg, divider } = t;
+  const isInverse = mode === 'inverse';
+  const logoutColor = isInverse ? '#D1D5DB' : '#ef4444';
 
   const { events: favEvents, partners: favPartners, heritage: favHeritage, stops: favStops } = useFavorites();
   const favoritesCount = favEvents.length + favPartners.length + favHeritage.length + favStops.length;
 
-  const cardBorder = isDark ? cardBorderDark : cardBorderLight;
+  const cardBorder =
+    mode === 'inverse'
+      ? { borderWidth: 1.2, borderColor: cardBdr }
+      : isDark
+        ? cardBorderDark
+        : cardBorderLight;
 
   const insets = useSafeAreaInsets();
 
@@ -78,10 +93,10 @@ const ProfileScreen = () => {
   }, [profile?.userId]);
 
   const handleLogout = async () => {
-    Alert.alert('Çıkış Yap', 'Oturumunu kapatmak istiyor musun?', [
-      { text: 'İptal', style: 'cancel' },
+    Alert.alert(tr('profile.cikisYap'), tr('profileScreen.oturumuKapatmakIstiyorMusun'), [
+      { text: tr('common.cancel'), style: 'cancel' },
       {
-        text: 'Çıkış Yap', style: 'destructive',
+        text: tr('profile.cikisYap'), style: 'destructive',
         onPress: async () => {
           try {
             await supabase.auth.signOut();
@@ -112,12 +127,12 @@ const ProfileScreen = () => {
       }
       setDeleteAccountVisible(false);
       Alert.alert(
-        'Talebin Alındı',
-        'Hesabını silme talebin ekibimize iletildi. Hesabın ve verilerin KVKK kapsamında en geç 30 gün içinde kalıcı olarak silinecek.',
-        [{ text: 'Tamam', onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Login' }] }) }]
+        tr('profileScreen.talebinAlindi'),
+        tr('profileScreen.hesapSilmeTalebiAciklama'),
+        [{ text: tr('sendSnap.tamam'), onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Login' }] }) }]
       );
     } catch (e) {
-      Alert.alert('Hata', 'Talebin gönderilemedi, lütfen tekrar dene veya bizimle ' + SUPPORT_EMAIL + ' üzerinden iletişime geç.');
+      Alert.alert(tr('common.error'), tr('profileScreen.talebinGonderilemedi') + ' ' + SUPPORT_EMAIL + ' ' + tr('profileScreen.uzerindenIletisimeGec'));
     } finally {
       setDeleting(false);
     }
@@ -290,7 +305,7 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
               onPress={() => navigation.navigate('Main', { screen: 'GencKart' as keyof MainTabParamList })}
             >
               <CreditCard color={txt1} size={13} strokeWidth={2.2} />
-              <Text style={[styles.gencKartBadgeText, { color: txt1 }]}>Genç Kart</Text>
+              <Text style={[styles.gencKartBadgeText, { color: txt1 }]}>{tr('welcome.gencKart')}</Text>
             </TouchableOpacity>
           </View>
           <View style={[styles.avatarOuterRing, { borderColor: cardBdr }]}>
@@ -317,7 +332,7 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
               <Users size={18} color={txt1} strokeWidth={2.2} />
             </View>
             <Text style={[styles.statValue, { color: txt1 }]}>{friendCount}</Text>
-            <Text style={[styles.statLabel, { color: txt2 }]}>Arkadaş</Text>
+            <Text style={[styles.statLabel, { color: txt2 }]}>{tr('profile.arkadas')}</Text>
           </View>
 
           <TouchableOpacity
@@ -329,48 +344,48 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
               <Heart size={18} color={txt1} strokeWidth={2.2} fill={favoritesCount > 0 ? txt1 : 'transparent'} />
             </View>
             <Text style={[styles.statValue, { color: txt1 }]}>{favoritesCount}</Text>
-            <Text style={[styles.statLabel, { color: txt2 }]}>Favori</Text>
+            <Text style={[styles.statLabel, { color: txt2 }]}>{tr('profileScreen.favori')}</Text>
           </TouchableOpacity>
 
           <View style={[styles.statCard, cardBorder, { backgroundColor: cardBg }]}>
             <View style={[styles.statIcon, { backgroundColor: chipBg }]}>
               <Star size={18} color={txt1} strokeWidth={2.2} fill={txt1} />
             </View>
-            <Text style={[styles.statValue, { color: txt1 }]}>Genç</Text>
-            <Text style={[styles.statLabel, { color: txt2 }]}>Seviye</Text>
+            <Text style={[styles.statValue, { color: txt1 }]}>{tr('profile.genc')}</Text>
+            <Text style={[styles.statLabel, { color: txt2 }]}>{tr('profile.seviye')}</Text>
           </View>
 
           <View style={[styles.statCard, cardBorder, { backgroundColor: cardBg }]}>
             <View style={[styles.statIcon, { backgroundColor: chipBg }]}>
               <MapPin size={18} color={txt1} strokeWidth={2.2} />
             </View>
-            <Text style={[styles.statValue, { color: txt1 }]}>Urfa</Text>
-            <Text style={[styles.statLabel, { color: txt2 }]}>Şehir</Text>
+            <Text style={[styles.statValue, { color: txt1 }]}>{tr('profile.urfa')}</Text>
+            <Text style={[styles.statLabel, { color: txt2 }]}>{tr('profile.sehir')}</Text>
           </View>
         </View>
 
         {/* ── GENEL ── */}
         <View style={styles.section}>
-          <Text style={[styles.groupLabel, { color: txt2 }]}>Genel</Text>
+          <Text style={[styles.groupLabel, { color: txt2 }]}>{tr('profile.genel')}</Text>
           <View style={[styles.menuCardOuter, cardBorder, { backgroundColor: cardBg }]}>
             <View style={[styles.menuCard, cardInnerClip]}>
               <MenuItem
-                label={favoritesCount > 0 ? `Favorilerim (${favoritesCount})` : 'Favorilerim'}
-                subtitle="Etkinlikler, mekânlar ve duraklar"
+                label={favoritesCount > 0 ? `${tr('profile.favorilerim')} (${favoritesCount})` : tr('profile.favorilerim')}
+                subtitle={tr('profileScreen.favorilerimSub')}
                 icon={<Heart color={txt1} size={20} strokeWidth={2.2} fill={favoritesCount > 0 ? txt1 : 'transparent'} />}
                 iconBg={chipBg}
                 onPress={() => navigation.navigate('Events', { initialTab: 'Favorilerim' })}
               />
               <MenuItem
-                label="Hesap Ayarları"
-                subtitle="Ad ve iletişim bilgileri"
+                label={tr('profile.hesapAyarlari')}
+                subtitle={tr('profile.hesapAyarlariSub')}
                 icon={<UserIcon color={txt1} size={20} strokeWidth={2.2} />}
                 iconBg={chipBg}
                 onPress={() => { setEditName(userName); setEditEmail(userEmail); setAccountSettingsVisible(true); }}
               />
               <MenuItem
-                label="Geri Bildirim"
-                subtitle="Şikâyet, hata veya özellik isteği"
+                label={tr('profile.geriBildirim')}
+                subtitle={tr('profile.geriBildirimSub')}
                 icon={<MessageSquare color={txt1} size={20} strokeWidth={2.2} />}
                 iconBg={chipBg}
                 onPress={() => setFeedbackModalVisible(true)}
@@ -382,38 +397,50 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
 
         {/* ── TERCİHLER ── */}
         <View style={styles.section}>
-          <Text style={[styles.groupLabel, { color: txt2 }]}>Tercihler</Text>
+          <Text style={[styles.groupLabel, { color: txt2 }]}>{tr('profile.tercihler')}</Text>
           <View style={[styles.menuCardOuter, cardBorder, { backgroundColor: cardBg }]}>
             <View style={[styles.menuCard, cardInnerClip]}>
-              <ToggleRow
+              <MenuItem
+                label={tr('profile.gorunum')}
+                subtitle={
+                  mode === 'light'
+                    ? tr('profileScreen.gunDogumu')
+                    : mode === 'dark'
+                      ? tr('profileScreen.gunBatimi')
+                      : tr('profileScreen.gecePariltisi')
+                }
                 icon={<Palette color={txt1} size={20} strokeWidth={2.2} />}
                 iconBg={chipBg}
-                title="Görünüm"
-                subtitle={modeLabel === 'Gün Doğumu' ? 'Gün Doğumu — sade, siyah-beyaz' : 'Gün Batımı — sıcak, krem-kahve'}
-                value={modeLabel === 'Gün Batımı'}
-                onValueChange={() => toggleTheme()}
+                onPress={() => setThemeModalVisible(true)}
+              />
+              <MenuItem
+                label={tr('profile.dil')}
+                subtitle={tr(`languages.${language}`)}
+                icon={<Languages color={txt1} size={20} strokeWidth={2.2} />}
+                iconBg={chipBg}
+                onPress={() => setLanguageModalVisible(true)}
               />
               <ToggleRow
                 icon={<Bell color={txt1} size={20} strokeWidth={2.2} />}
                 iconBg={chipBg}
-                title="Bildirimler"
-                subtitle="Etkinlik ve duyuru bildirimleri"
+                title={tr('hizliErisim.bildirimler')}
+                subtitle={tr('profileScreen.bildirimlerSub')}
                 value={eventNotificationsEnabled}
                 onValueChange={setEventNotificationsEnabled}
               />
               <ToggleRow
                 icon={<ShieldCheck color={txt1} size={20} strokeWidth={2.2} />}
                 iconBg={chipBg}
-                title="Kullanım Analitiği"
-                subtitle="Uygulamayı iyileştirmemize yardımcı ol"
+                title={tr('profileScreen.kullanimAnalitigi')}
+                subtitle={tr('profileScreen.kullanimAnalitigiSub')}
                 value={analyticsEnabled}
                 onValueChange={setAnalyticsEnabled}
               />
               <ToggleRow
                 icon={<UserIcon color={txt1} size={20} strokeWidth={2.2} />}
                 iconBg={chipBg}
-                title="Kişiselleştirme"
-                subtitle="Sana özel öneri ve fırsatlar"
+                title={tr('profileScreen.kisisellestirme')}
+                subtitle={tr('profileScreen.kisisellestirmeSub')}
                 value={personalizationEnabled}
                 onValueChange={setPersonalizationEnabled}
                 isLast
@@ -424,26 +451,26 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
 
         {/* ── YASAL ── */}
         <View style={styles.section}>
-          <Text style={[styles.groupLabel, { color: txt2 }]}>Yasal & Gizlilik</Text>
+          <Text style={[styles.groupLabel, { color: txt2 }]}>{tr('profile.yasalGizlilik')}</Text>
           <View style={[styles.menuCardOuter, cardBorder, { backgroundColor: cardBg }]}>
             <View style={[styles.menuCard, cardInnerClip]}>
               <MenuItem
-                label="Gizlilik Politikası"
-                subtitle="Verilerini nasıl işliyoruz"
+                label={tr('profileScreen.gizlilikPolitikasi')}
+                subtitle={tr('profileScreen.verileriniNasilIsliyoruz')}
                 icon={<ShieldCheck color={txt1} size={20} strokeWidth={2.2} />}
                 iconBg={chipBg}
                 onPress={() => setLegalDoc('privacy')}
               />
               <MenuItem
-                label="Kullanım Şartları"
-                subtitle="Uygulamayı kullanma kuralları"
+                label={tr('profileScreen.kullanimSartlari')}
+                subtitle={tr('profileScreen.uygulamayiKullanmaKurallari')}
                 icon={<FileText color={txt1} size={20} strokeWidth={2.2} />}
                 iconBg={chipBg}
                 onPress={() => setLegalDoc('terms')}
               />
               <MenuItem
-                label="KVKK Aydınlatma Metni"
-                subtitle="6698 sayılı Kanun kapsamında haklarım"
+                label={tr('profileScreen.kvkkAydinlatmaMetni')}
+                subtitle={tr('profileScreen.kvkkHaklarim')}
                 icon={<ScrollText color={txt1} size={20} strokeWidth={2.2} />}
                 iconBg={chipBg}
                 onPress={() => setLegalDoc('kvkk')}
@@ -455,29 +482,29 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
 
         {/* ── YARDIM ── */}
         <View style={styles.section}>
-          <Text style={[styles.groupLabel, { color: txt2 }]}>Yardım</Text>
+          <Text style={[styles.groupLabel, { color: txt2 }]}>{tr('profileScreen.yardim')}</Text>
           <View style={[styles.menuCardOuter, cardBorder, { backgroundColor: cardBg }]}>
             <View style={[styles.menuCard, cardInnerClip]}>
               <MenuItem
-                label="Yardım & SSS"
-                subtitle="Sık sorulanlar ve ipuçları"
+                label={tr('profileScreen.yardimVeSss')}
+                subtitle={tr('profileScreen.sikSorulanlar')}
                 icon={<HelpCircle color={txt1} size={20} strokeWidth={2.2} />}
                 iconBg={chipBg}
-                onPress={() => Alert.alert('Yardım', 'Yakında SSS ve destek bağlantıları eklenecek.\nGeri bildirimden bize ulaşabilirsin.', [{ text: 'Tamam' }])}
+                onPress={() => Alert.alert(tr('profileScreen.yardim'), tr('profileScreen.yakindaSssEklenecek'), [{ text: tr('sendSnap.tamam') }])}
               />
               <MenuItem
-                label="İletişim"
+                label={tr('profileScreen.iletisim')}
                 subtitle={SUPPORT_EMAIL}
                 icon={<Mail color={txt1} size={20} strokeWidth={2.2} />}
                 iconBg={chipBg}
-                onPress={() => Alert.alert('İletişim', `Bize ${SUPPORT_EMAIL} adresinden ulaşabilirsin.`, [{ text: 'Tamam' }])}
+                onPress={() => Alert.alert(tr('profileScreen.iletisim'), tr('profileScreen.bizeUlasabilirsin', { email: SUPPORT_EMAIL }), [{ text: tr('sendSnap.tamam') }])}
               />
               <MenuItem
-                label="Hakkında"
-                subtitle={`ŞanlıGenç · Sürüm ${APP_VERSION}`}
+                label={tr('profileScreen.hakkinda')}
+                subtitle={`ŞanlıGenç · ${tr('profileScreen.surum')} ${APP_VERSION}`}
                 icon={<Flame color={txt1} size={20} strokeWidth={2.2} />}
                 iconBg={chipBg}
-                onPress={() => Alert.alert('ŞanlıGenç', `Şanlıurfa gençlik platformu\nSürüm: ${APP_VERSION}\n\nŞehri keşfet, bağlantı kur, büyü.`, [{ text: 'Tamam' }])}
+                onPress={() => Alert.alert('ŞanlıGenç', tr('profileScreen.hakkindaMetni', { version: APP_VERSION }), [{ text: tr('sendSnap.tamam') }])}
                 isLast
               />
             </View>
@@ -486,12 +513,12 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
 
         {/* ── TEHLİKELİ BÖLGE ── */}
         <View style={styles.section}>
-          <Text style={[styles.groupLabel, { color: txt2 }]}>Hesap</Text>
+          <Text style={[styles.groupLabel, { color: txt2 }]}>{tr('profileScreen.hesap')}</Text>
           <View style={[styles.menuCardOuter, cardBorder, { backgroundColor: cardBg }]}>
             <View style={[styles.menuCard, cardInnerClip]}>
               <MenuItem
-                label="Hesabımı Sil"
-                subtitle="Hesabın ve tüm verilerin kalıcı olarak silinir"
+                label={tr('profile.hesabiniSil')}
+                subtitle={tr('profileScreen.hesabinSilinirSub')}
                 icon={<Trash2 color="#ef4444" size={20} strokeWidth={2.2} />}
                 iconBg={isDark ? 'rgba(239,68,68,0.12)' : '#FEF2F2'}
                 onPress={() => setDeleteAccountVisible(true)}
@@ -505,15 +532,29 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
         {/* ── ÇIKIŞ ── */}
         <View style={styles.section}>
           <TouchableOpacity
-            style={[styles.logoutBtn, { borderColor: isDark ? 'rgba(239,68,68,0.28)' : 'rgba(239,68,68,0.18)', backgroundColor: isDark ? 'rgba(239,68,68,0.08)' : '#FEF2F2' }]}
+            style={[
+              styles.logoutBtn,
+              {
+                borderColor: isInverse
+                  ? 'rgba(255,255,255,0.42)'
+                  : isDark
+                    ? 'rgba(239,68,68,0.28)'
+                    : 'rgba(239,68,68,0.18)',
+                backgroundColor: isInverse
+                  ? 'rgba(255,255,255,0.05)'
+                  : isDark
+                    ? 'rgba(239,68,68,0.08)'
+                    : '#FEF2F2',
+              },
+            ]}
             onPress={handleLogout}
             activeOpacity={0.8}
           >
-            <LogOut color="#ef4444" size={20} strokeWidth={2.2} />
-            <Text style={styles.logoutText}>Çıkış Yap</Text>
+            <LogOut color={logoutColor} size={20} strokeWidth={2.2} />
+            <Text style={[styles.logoutText, { color: logoutColor }]}>{tr('profile.cikisYap')}</Text>
           </TouchableOpacity>
 
-          <Text style={[styles.versionText, { color: txt2 }]}>ŞanlıGenç · Sürüm {APP_VERSION}</Text>
+          <Text style={[styles.versionText, { color: txt2 }]}>ŞanlıGenç · {tr('profileScreen.surum')} {APP_VERSION}</Text>
         </View>
 
         {/* ── MODALlar ── */}
@@ -528,12 +569,12 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
               <View style={[styles.modalIconWrap, { backgroundColor: chipBg }]}>
                 <ShieldCheck color={txt1} size={28} strokeWidth={2} />
               </View>
-              <Text style={[styles.modalTitle, { color: txt1 }]}>Hesabını Doğrula</Text>
+              <Text style={[styles.modalTitle, { color: txt1 }]}>{tr('profileScreen.hesabiniDogrula')}</Text>
               <Text style={[styles.modalSubtitle, { color: txt2 }]}>
-                Tüm avantajlardan faydalanmak için telefon numaranı doğrula.
+                {tr('profileScreen.telefonDogrulaAciklama')}
               </Text>
               <TextInput
-                placeholder="Telefon numaranız"
+                placeholder={tr('profileScreen.telefonNumaraniz')}
                 placeholderTextColor={txt2}
                 style={modalInputStyle}
                 keyboardType="phone-pad"
@@ -542,7 +583,7 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
               />
               <TouchableOpacity style={styles.modalBtn} onPress={() => setModalVisible(false)}>
                 <View style={[styles.modalBtnGrad, { backgroundColor: ctaBg }]}>
-                  <Text style={[styles.modalBtnText, { color: ctaTxt }]}>Doğrula ve Devam Et</Text>
+                  <Text style={[styles.modalBtnText, { color: ctaTxt }]}>{tr('profileScreen.dogrulaVeDevamEt')}</Text>
                 </View>
               </TouchableOpacity>
             </View>
@@ -569,7 +610,7 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
               )}
               <TouchableOpacity style={styles.modalBtn} onPress={() => setLegalDoc(null)}>
                 <View style={[styles.modalBtnGrad, { backgroundColor: ctaBg }]}>
-                  <Text style={[styles.modalBtnText, { color: ctaTxt }]}>Kapat</Text>
+                  <Text style={[styles.modalBtnText, { color: ctaTxt }]}>{tr('common.close')}</Text>
                 </View>
               </TouchableOpacity>
             </View>
@@ -586,18 +627,18 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
               <View style={[styles.modalIconWrap, { backgroundColor: chipBg }]}>
                 <UserIcon color={txt1} size={28} strokeWidth={2} />
               </View>
-              <Text style={[styles.modalTitle, { color: txt1 }]}>Hesap Ayarları</Text>
+              <Text style={[styles.modalTitle, { color: txt1 }]}>{tr('profile.hesapAyarlari')}</Text>
               <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 300, width: '100%' }}>
-                <Text style={[styles.inputLabel, { color: txt2 }]}>Kullanıcı Adı</Text>
+                <Text style={[styles.inputLabel, { color: txt2 }]}>{tr('profileScreen.kullaniciAdi')}</Text>
                 <TextInput
-                  placeholder="Adınız"
+                  placeholder={tr('profileScreen.adiniz')}
                   placeholderTextColor={txt2}
                   style={modalInputStyle}
                   value={editName}
                   onChangeText={setEditName}
                   autoCapitalize="words"
                 />
-                <Text style={[styles.inputLabel, { color: txt2 }]}>E-posta</Text>
+                <Text style={[styles.inputLabel, { color: txt2 }]}>{tr('profileScreen.eposta')}</Text>
                 <TextInput
                   placeholder="ornek@email.com"
                   placeholderTextColor={txt2}
@@ -618,18 +659,18 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
                       if (editEmail.trim() && editEmail.trim() !== userEmail) {
                         const { error: emailError } = await supabase.auth.updateUser({ email: editEmail.trim() });
                         if (emailError) throw emailError;
-                        Alert.alert('Onay Gerekiyor', 'Yeni e-posta adresine bir doğrulama bağlantısı gönderildi.');
+                        Alert.alert(tr('profileScreen.onayGerekiyor'), tr('profileScreen.dogrulamaBaglantisiGonderildi'));
                       }
                       await refreshProfile();
                     }
                     setAccountSettingsVisible(false);
                   } catch (e: any) {
-                    Alert.alert('Hata', e?.message || 'Bilgiler kaydedilemedi, lütfen tekrar dene.');
+                    Alert.alert(tr('common.error'), e?.message || tr('profileScreen.bilgilerKaydedilemedi'));
                   }
                 }}
               >
                 <View style={[styles.modalBtnGrad, { backgroundColor: ctaBg }]}>
-                  <Text style={[styles.modalBtnText, { color: ctaTxt }]}>Kaydet</Text>
+                  <Text style={[styles.modalBtnText, { color: ctaTxt }]}>{tr('common.save')}</Text>
                 </View>
               </TouchableOpacity>
             </View>
@@ -646,13 +687,9 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
               <View style={[styles.modalIconWrap, { backgroundColor: isDark ? 'rgba(239,68,68,0.12)' : '#FEF2F2' }]}>
                 <Trash2 color="#ef4444" size={28} strokeWidth={2} />
               </View>
-              <Text style={[styles.modalTitle, { color: txt1 }]}>Hesabını Sil</Text>
+              <Text style={[styles.modalTitle, { color: txt1 }]}>{tr('profileScreen.hesabiniSilBaslik')}</Text>
               <Text style={[styles.modalSubtitle, { color: txt2, textAlign: 'left', lineHeight: 22 }]}>
-                Bu işlem geri alınamaz. Hesabın silinme talebini gönderdiğinde:{'\n\n'}
-                • Profilin, yorumların ve favorilerin kalıcı olarak silinir{'\n'}
-                • ŞanlıSosyal'deki bağlantıların kaldırılır{'\n'}
-                • Verilerin KVKK kapsamında en geç 30 gün içinde tamamen silinir{'\n\n'}
-                Emin misin?
+                {tr('profileScreen.hesabiniSilAciklama')}
               </Text>
               <TouchableOpacity
                 style={[styles.modalBtn, deleting && { opacity: 0.6 }]}
@@ -661,11 +698,11 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
               >
                 <View style={[styles.modalBtnGrad, { backgroundColor: '#ef4444' }]}>
                   <Trash2 color="#fff" size={16} />
-                  <Text style={[styles.modalBtnText, { color: '#fff' }]}>{deleting ? 'Gönderiliyor…' : 'Evet, Hesabımı Sil'}</Text>
+                  <Text style={[styles.modalBtnText, { color: '#fff' }]}>{deleting ? tr('heritageDetail.gonderiliyor') : tr('profileScreen.evetHesabimiSil')}</Text>
                 </View>
               </TouchableOpacity>
               <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setDeleteAccountVisible(false)} disabled={deleting}>
-                <Text style={[styles.modalCancelText, { color: txt2 }]}>Vazgeç</Text>
+                <Text style={[styles.modalCancelText, { color: txt2 }]}>{tr('profileScreen.vazgec')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -681,12 +718,12 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
               <View style={[styles.modalIconWrap, { backgroundColor: chipBg }]}>
                 <MessageSquare color={txt1} size={28} strokeWidth={2} />
               </View>
-              <Text style={[styles.modalTitle, { color: txt1 }]}>Geri Bildirim</Text>
+              <Text style={[styles.modalTitle, { color: txt1 }]}>{tr('profileScreen.geriBildirimBaslik')}</Text>
 
               {/* Tip seçimi */}
               <View style={styles.feedbackTypes}>
                 {(['complaint', 'bug', 'feature'] as const).map((t) => {
-                  const labels = { complaint: 'Öneri', bug: 'Hata', feature: 'Özellik' };
+                  const labels = { complaint: tr('profileScreen.oneri'), bug: tr('common.error'), feature: tr('profileScreen.ozellik') };
                   const active = feedbackType === t;
                   return (
                     <TouchableOpacity
@@ -705,17 +742,17 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
               </View>
 
               <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 260, width: '100%' }}>
-                <Text style={[styles.inputLabel, { color: txt2 }]}>Başlık</Text>
+                <Text style={[styles.inputLabel, { color: txt2 }]}>{tr('profileScreen.baslik')}</Text>
                 <TextInput
-                  placeholder="Kısa bir başlık..."
+                  placeholder={tr('profileScreen.kisaBaslik')}
                   placeholderTextColor={txt2}
                   style={modalInputStyle}
                   value={feedbackTitle}
                   onChangeText={setFeedbackTitle}
                 />
-                <Text style={[styles.inputLabel, { color: txt2 }]}>Açıklama</Text>
+                <Text style={[styles.inputLabel, { color: txt2 }]}>{tr('profileScreen.aciklama')}</Text>
                 <TextInput
-                  placeholder="Detayları buraya yaz..."
+                  placeholder={tr('profileScreen.detaylariBurayaYaz')}
                   placeholderTextColor={txt2}
                   style={[modalInputStyle, { minHeight: 100, textAlignVertical: 'top', paddingTop: 12 }]}
                   value={feedbackDescription}
@@ -738,19 +775,118 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
                       durum: 'beklemede',
                       olusturma_tarihi: new Date().toISOString(),
                     });
-                    Alert.alert('Gönderildi', 'Geri bildiriminiz için teşekkürler!', [{ text: 'Tamam', onPress: () => { setFeedbackModalVisible(false); setFeedbackTitle(''); setFeedbackDescription(''); setFeedbackType('complaint'); } }]);
+                    Alert.alert(tr('profileScreen.gonderildi'), tr('profileScreen.geriBildirimTesekkur'), [{ text: tr('sendSnap.tamam'), onPress: () => { setFeedbackModalVisible(false); setFeedbackTitle(''); setFeedbackDescription(''); setFeedbackType('complaint'); } }]);
                   } catch {
-                    Alert.alert('Hata', 'Gönderilirken sorun oluştu.', [{ text: 'Tamam' }]);
+                    Alert.alert(tr('common.error'), tr('profileScreen.gonderilirkenSorun'), [{ text: tr('sendSnap.tamam') }]);
                   }
                 }}
               >
                 <View style={[styles.modalBtnGrad, { backgroundColor: ctaBg }]}>
                   <Send color={ctaTxt} size={16} />
-                  <Text style={[styles.modalBtnText, { color: ctaTxt }]}>Gönder</Text>
+                  <Text style={[styles.modalBtnText, { color: ctaTxt }]}>{tr('common.send')}</Text>
                 </View>
               </TouchableOpacity>
             </View>
           </KeyboardAvoidingView>
+        </Modal>
+
+        {/* Tema Seçimi */}
+        <Modal animationType="slide" transparent visible={themeModalVisible} onRequestClose={() => setThemeModalVisible(false)}>
+          <View style={styles.modalBackdrop}>
+            <View style={modalCardStyle}>
+              <TouchableOpacity style={styles.modalClose} onPress={() => setThemeModalVisible(false)}>
+                <X color={txt2} size={22} />
+              </TouchableOpacity>
+              <View style={[styles.modalIconWrap, { backgroundColor: chipBg }]}>
+                <Palette color={txt1} size={28} strokeWidth={2} />
+              </View>
+              <Text style={[styles.modalTitle, { color: txt1 }]}>{tr('profileScreen.temaSecimi')}</Text>
+              <Text style={[styles.modalSubtitle, { color: txt2 }]}>{tr('profileScreen.uygulamaGorunumunuSecebilirsin')}</Text>
+
+              <View style={styles.themeList}>
+                {([
+                  { key: 'light', label: tr('profileScreen.gunDogumu'), desc: tr('profileScreen.acikVeSade') },
+                  { key: 'dark', label: tr('profileScreen.gunBatimi'), desc: tr('profileScreen.sicakKoyu') },
+                  { key: 'inverse', label: tr('profileScreen.gecePariltisi'), desc: tr('profileScreen.siyahAgirlikli') },
+                ] as { key: ThemeMode; label: string; desc: string }[]).map((opt) => {
+                  const active = mode === opt.key;
+                  return (
+                    <TouchableOpacity
+                      key={opt.key}
+                      activeOpacity={0.86}
+                      onPress={() => setMode(opt.key)}
+                      style={[
+                        styles.themeListItem,
+                        {
+                          backgroundColor: active ? chipBg : 'transparent',
+                          borderColor: active ? ctaBg : cardBdr,
+                        },
+                      ]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.themeListTitle, { color: txt1 }]}>{opt.label}</Text>
+                        <Text style={[styles.themeListDesc, { color: txt2 }]}>{opt.desc}</Text>
+                      </View>
+                      {active && <Text style={[styles.themeSelected, { color: ctaBg }]}>{tr('profileScreen.secili')}</Text>}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <TouchableOpacity style={styles.modalBtn} onPress={() => setThemeModalVisible(false)}>
+                <View style={[styles.modalBtnGrad, { backgroundColor: ctaBg }]}>
+                  <Text style={[styles.modalBtnText, { color: ctaTxt }]}>{tr('common.ok')}</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Dil Seçimi */}
+        <Modal animationType="slide" transparent visible={languageModalVisible} onRequestClose={() => setLanguageModalVisible(false)}>
+          <View style={styles.modalBackdrop}>
+            <View style={modalCardStyle}>
+              <TouchableOpacity style={styles.modalClose} onPress={() => setLanguageModalVisible(false)}>
+                <X color={txt2} size={22} />
+              </TouchableOpacity>
+              <View style={[styles.modalIconWrap, { backgroundColor: chipBg }]}>
+                <Languages color={txt1} size={28} strokeWidth={2} />
+              </View>
+              <Text style={[styles.modalTitle, { color: txt1 }]}>{tr('languagePicker.title')}</Text>
+              <Text style={[styles.modalSubtitle, { color: txt2 }]}>{tr('languagePicker.subtitle')}</Text>
+
+              <View style={styles.themeList}>
+                {supportedLanguages.map((code) => {
+                  const active = language === code;
+                  return (
+                    <TouchableOpacity
+                      key={code}
+                      activeOpacity={0.86}
+                      onPress={() => setLanguage(code as LanguageCode)}
+                      style={[
+                        styles.themeListItem,
+                        {
+                          backgroundColor: active ? chipBg : 'transparent',
+                          borderColor: active ? ctaBg : cardBdr,
+                        },
+                      ]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.themeListTitle, { color: txt1 }]}>{tr(`languages.${code}`)}</Text>
+                      </View>
+                      {active && <Text style={[styles.themeSelected, { color: ctaBg }]}>{tr('common.ok')}</Text>}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <TouchableOpacity style={styles.modalBtn} onPress={() => setLanguageModalVisible(false)}>
+                <View style={[styles.modalBtnGrad, { backgroundColor: ctaBg }]}>
+                  <Text style={[styles.modalBtnText, { color: ctaTxt }]}>{tr('common.ok')}</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
         </Modal>
 
       </ScrollView>
@@ -905,6 +1041,34 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   toggleTextCol: { flex: 1, gap: 2, paddingRight: 4 },
+  themeList: {
+    width: '100%',
+    gap: 10,
+    marginTop: 6,
+  },
+  themeListItem: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  themeListTitle: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    letterSpacing: -0.1,
+  },
+  themeListDesc: {
+    marginTop: 2,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  themeSelected: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
 
   // Logout
   logoutBtn: {

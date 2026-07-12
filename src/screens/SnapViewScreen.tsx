@@ -20,6 +20,7 @@ import { X, Send } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme } from '@/theme/useAppTheme';
+import { useTranslation } from 'react-i18next';
 
 const { width, height } = Dimensions.get('window');
 
@@ -50,6 +51,7 @@ const SnapViewScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const t = useAppTheme();
+  const { t: tr } = useTranslation();
   const params = route.params as RouteParams;
   
   const [loading, setLoading] = useState(true);
@@ -197,12 +199,12 @@ const SnapViewScreen = () => {
   if (!currentSnap.canView) {
     return (
       <View style={[styles.root, styles.errorContainer]}>
-        <Text style={styles.errorText}>Bu snap görüntülenemiyor</Text>
+        <Text style={styles.errorText}>{tr('snapView.goruntulenemiyor')}</Text>
         <TouchableOpacity
           style={styles.closeButton}
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.closeButtonText}>Kapat</Text>
+          <Text style={styles.closeButtonText}>{tr('common.close')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -340,7 +342,7 @@ const SnapViewScreen = () => {
               <View style={styles.replyRow}>
                 <TextInput
                   style={styles.replyInput}
-                  placeholder="Mesaj gönder..."
+                  placeholder={tr('snapView.mesajGonder')}
                   placeholderTextColor="rgba(255,255,255,0.45)"
                   value={replyText}
                   onChangeText={setReplyText}

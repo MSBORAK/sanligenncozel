@@ -18,6 +18,7 @@ import { DotIndicator } from '@/components/DotIndicator';
 import type { RootStackParamList } from '@/types/navigation';
 import { markOnboardingCompleted } from '@/utils/onboarding';
 import { Editorial } from '@/theme/colors';
+import { useTranslation } from 'react-i18next';
 
 const jumpingLottie = require('@/assets/images/Jumping Lottie Animation.json');
 
@@ -28,6 +29,7 @@ const ACCENT2 = Editorial.chip;
 
 export const Onboarding2Screen: React.FC = () => {
   const navigation = useNavigation<NavProp>();
+  const { t: tr } = useTranslation();
   const insets = useSafeAreaInsets();
 
   const glowAnim = useRef(new Animated.Value(0)).current;
@@ -104,7 +106,7 @@ export const Onboarding2Screen: React.FC = () => {
         {...panResponder.panHandlers}
       >
         <Pressable style={styles.skipButton} onPress={handleSkip}>
-          <Text style={styles.skipText}>Geç</Text>
+          <Text style={styles.skipText}>{tr('onboarding2.gec')}</Text>
         </Pressable>
 
         {/* Lottie + glow */}
@@ -124,7 +126,7 @@ export const Onboarding2Screen: React.FC = () => {
           />
           <View style={styles.liveChip}>
             <View style={styles.liveDot} />
-            <Text style={styles.liveText}>CANLI</Text>
+            <Text style={styles.liveText}>{tr('socialFeed.canli')}</Text>
           </View>
         </Animated.View>
 
@@ -136,7 +138,7 @@ export const Onboarding2Screen: React.FC = () => {
           }]}>
             <LinearGradient colors={['rgba(249,115,22,0.22)', 'rgba(234,88,12,0.1)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.badgeGradient}>
               <View style={styles.badgeDot} />
-              <Text style={styles.badgeText}>ETKİNLİKLER · FIRSATLAR</Text>
+              <Text style={styles.badgeText}>{tr('onboarding2.badge')}</Text>
             </LinearGradient>
           </Animated.View>
 
@@ -144,14 +146,14 @@ export const Onboarding2Screen: React.FC = () => {
             opacity: titleAnim,
             transform: [{ translateY: titleAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
           }]}>
-            İndirim mi?{'\n'}Haber Sende
+            {tr('onboarding2.title')}
           </Animated.Text>
 
           <Animated.Text style={[styles.subtitle, {
             opacity: subtitleAnim,
             transform: [{ translateY: subtitleAnim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }],
           }]}>
-            Genç Kart ile anlaşmalı yerlerde indir,{'\n'}yakındaki etkinlikleri anında keşfet.
+            {tr('onboarding2.subtitle')}
           </Animated.Text>
 
           <View style={styles.cardsStack}>
@@ -171,11 +173,11 @@ export const Onboarding2Screen: React.FC = () => {
                 <Text style={{ fontSize: 18 }}>🎵</Text>
               </LinearGradient>
               <View style={styles.eventBody}>
-                <Text style={styles.eventTitle}>Açık Hava Konseri</Text>
-                <Text style={styles.eventMeta}>📍 Balıklıgöl · Bugün 20:00</Text>
+                <Text style={styles.eventTitle}>{tr('onboarding2.acikHavaKonseri')}</Text>
+                <Text style={styles.eventMeta}>📍 Balıklıgöl · {tr('weather.bugun')} 20:00</Text>
               </View>
               <View style={styles.newBadge}>
-                <Text style={styles.newBadgeText}>YENİ</Text>
+                <Text style={styles.newBadgeText}>{tr('onboarding2.yeni')}</Text>
               </View>
             </Animated.View>
 
@@ -187,11 +189,11 @@ export const Onboarding2Screen: React.FC = () => {
                 <Text style={{ fontSize: 18 }}>🎪</Text>
               </LinearGradient>
               <View style={styles.eventBody}>
-                <Text style={styles.eventTitle}>Gençlik Festivali</Text>
-                <Text style={styles.eventMeta}>📍 Harran · Yarın 15:00</Text>
+                <Text style={styles.eventTitle}>{tr('onboarding2.genclikFestivali')}</Text>
+                <Text style={styles.eventMeta}>📍 Harran · {tr('weather.yarin')} 15:00</Text>
               </View>
               <View style={[styles.newBadge, { backgroundColor: 'rgba(139,92,246,0.22)' }]}>
-                <Text style={[styles.newBadgeText, { color: '#C4B5FD' }]}>3 GÜN</Text>
+                <Text style={[styles.newBadgeText, { color: '#C4B5FD' }]}>{tr('onboarding2.ucGun')}</Text>
               </View>
             </Animated.View>
           </View>
@@ -219,7 +221,7 @@ export const Onboarding2Screen: React.FC = () => {
                 end={{ x: 1, y: 0 }}
                 style={styles.pillGradient}
               >
-                <Text style={styles.pillText}>Devam Et</Text>
+                <Text style={styles.pillText}>{tr('onboarding2.devamEt')}</Text>
                 <View style={styles.arrowCircle}>
                   <Text style={styles.arrowText}>→</Text>
                 </View>

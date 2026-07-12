@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, StatusBar, ImageBackground } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, ImageBackground } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MapPin, Wifi, Heart } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
@@ -16,6 +16,8 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { useFavorites } from '@/context/FavoritesContext';
 import { useUser } from '@/context/UserContext';
+import { useThemeMode } from '@/context/ThemeContext';
+import { useTranslation } from 'react-i18next';
 
 type Nav = StackNavigationProp<RootStackParamList>;
 
@@ -23,10 +25,24 @@ type Category = 'Tümü' | 'Favoriler' | 'Kafe' | 'Sinema' | 'Giyim';
 
 const CATEGORIES: Category[] = ['Tümü', 'Favoriler', 'Kafe', 'Sinema', 'Giyim'];
 
+const CATEGORY_KEYS: Record<Category, string> = {
+  'Tümü': 'gencKart.catAll',
+  'Favoriler': 'gencKart.catFavorites',
+  'Kafe': 'gencKart.catCafe',
+  'Sinema': 'gencKart.catCinema',
+  'Giyim': 'gencKart.catClothing',
+};
+
+const categoryLabel = (category: Category, tr: (key: string) => string) => tr(CATEGORY_KEYS[category]);
+
 /** CustomTabBar ile aynı: yüzen tab yüksekliği + alt offset (içerik tabın altında kalmaması için) */
 const TAB_BAR_HEIGHT = 72;
 const TAB_BAR_BOTTOM_MARGIN = 24;
-const SERIF = Platform.select<string>({ ios: 'Georgia', android: 'serif', default: 'serif' });
+const SERIF = Platform.select<string>({
+  ios: 'Georgia',
+  android: FontFamily.semiBold, // Android "serif" iOS Georgia'dan fazla sapıyor
+  default: 'serif',
+});
 
 /**
  * Gerçek bilet siluetini çizen path — yarım daire çentikler kartın
@@ -52,18 +68,25 @@ const buildTicketPath = (w: number, h: number, r: number, notchY: number, nr: nu
 const TICKET_RADIUS = 20;
 const TICKET_NOTCH_RADIUS = 8;
 
+/** Keşfet paletinin soft pastelleri — ticket gövdesi */
+const DEAL_ACCENTS = ['#F6E4EA', '#ECF3D8', '#F8F0D0', '#D8F0F0'] as const;
+
 /** Anlaşmalı mekan — bilet siluetli kart (ikili grid) */
 function VenueTicketCard({
-  item, isFav, onPress, onToggleFav, cardBg, chipBg, amber, txt1, txt2, ctaBg, ctaTxt, isDark,
+  item, isFav, onPress, onToggleFav, amber, ctaBg, ctaTxt, isDark, accent,
 }: {
   item: DiscountPartner; isFav: boolean; onPress: () => void; onToggleFav: () => void;
-  cardBg: string; chipBg: string; amber: string; txt1: string; txt2: string; ctaBg: string; ctaTxt: string; isDark: boolean;
+  amber: string; ctaBg: string; ctaTxt: string; isDark: boolean;
+  accent: string;
 }) {
+  const { t: tr } = useTranslation();
   const [size, setSize] = useState({ width: 160, height: 210 });
   const [notchY, setNotchY] = useState(96);
   const Icon = item.icon;
   const pctMatch = item.offer.match(/%\s*(\d+)/);
   const discountNum = pctMatch ? pctMatch[1] : null;
+  const ink = '#111114';
+  const inkMuted = 'rgba(17,17,20,0.62)';
 
   return (
     <View
@@ -73,9 +96,9 @@ function VenueTicketCard({
       <Svg width={size.width} height={size.height} style={StyleSheet.absoluteFill}>
         <Path
           d={buildTicketPath(size.width, size.height, TICKET_RADIUS, notchY, TICKET_NOTCH_RADIUS)}
-          fill={cardBg}
-          stroke={isDark ? 'rgba(255,255,255,0.16)' : 'rgba(58,42,26,0.48)'}
-          strokeWidth={1.5}
+          fill={accent}
+          stroke={isDark ? 'rgba(255,255,255,0.14)' : 'rgba(58,42,26,0.28)'}
+          strokeWidth={1}
         />
       </Svg>
 
@@ -84,37 +107,37 @@ function VenueTicketCard({
         onPress={onToggleFav}
         hitSlop={10}
       >
-        <Heart color={isFav ? amber : txt2} size={17} strokeWidth={2} fill={isFav ? amber : 'transparent'} />
+        <Heart color={isFav ? amber : inkMuted} size={17} strokeWidth={2} fill={isFav ? amber : 'transparent'} />
       </TouchableOpacity>
 
       <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={{ width: size.width }}>
         <View style={styles.ticketCard}>
           <View style={styles.ticketHero}>
-            <View style={[styles.ticketIconWrap, { backgroundColor: chipBg }]}>
-              <Icon color={txt1} size={20} strokeWidth={2} />
+            <View style={[styles.ticketIconWrap, { backgroundColor: 'rgba(255,255,255,0.45)', borderWidth: 1, borderColor: 'rgba(17,17,20,0.18)' }]}>
+              <Icon color={ink} size={20} strokeWidth={2} />
             </View>
             {discountNum ? (
               <>
-                <Text style={[styles.ticketBigPct, { color: txt1 }]}>%{discountNum}</Text>
-                <Text style={[styles.ticketBigLabel, { color: txt2 }]}>İNDİRİM</Text>
+                <Text style={[styles.ticketBigPct, { color: ink }]}>%{discountNum}</Text>
+                <Text style={[styles.ticketBigLabel, { color: inkMuted }]}>{tr('home.indirim')}</Text>
               </>
             ) : (
-              <Text style={[styles.ticketOfferText, { color: txt1 }]} numberOfLines={2}>{item.offer}</Text>
+              <Text style={[styles.ticketOfferText, { color: ink }]} numberOfLines={2}>{item.offer}</Text>
             )}
           </View>
 
           <View style={styles.ticketTearRow} onLayout={(e) => setNotchY(e.nativeEvent.layout.y + e.nativeEvent.layout.height / 2)}>
             <View style={styles.ticketDashRow}>
               {Array.from({ length: 9 }).map((_, di) => (
-                <View key={di} style={[styles.ticketDashSeg, { backgroundColor: isDark ? 'rgba(255,255,255,0.25)' : 'rgba(17,17,20,0.22)' }]} />
+                <View key={di} style={[styles.ticketDashSeg, { backgroundColor: 'rgba(17,17,20,0.28)' }]} />
               ))}
             </View>
           </View>
 
-          <Text style={[styles.ticketName, { color: txt1 }]} numberOfLines={1}>{item.name}</Text>
-          <Text style={[styles.ticketKat, { color: txt2 }]} numberOfLines={1}>{item.category}</Text>
+          <Text style={[styles.ticketName, { color: ink }]} numberOfLines={1}>{item.name}</Text>
+          <Text style={[styles.ticketKat, { color: inkMuted }]} numberOfLines={1}>{item.category}</Text>
           <View style={[styles.ticketCta, { backgroundColor: ctaBg }]}>
-            <Text style={[styles.ticketCtaTxt, { color: ctaTxt }]}>Kuponu Kullan →</Text>
+            <Text style={[styles.ticketCtaTxt, { color: ctaTxt }]}>{tr('home.kuponuKullan')}</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -124,12 +147,20 @@ function VenueTicketCard({
 
 const GencKartScreen = () => {
   const navigation = useNavigation<Nav>();
+  const { t: tr } = useTranslation();
   const insets = useSafeAreaInsets();
   const { isDark, pageBg, cardBg, cardBdr, txt1, txt2, ctaBg, ctaTxt, chipBg, accent } = useAppTheme();
+  const { mode } = useThemeMode();
   const { isFavoritePartner, toggleFavorite, favoritePartnerIds } = useFavorites();
   const { profile } = useUser();
   const [selectedCategory, setSelectedCategory] = useState<Category>('Tümü');
-  const cardTheme = isDark ? GencKartCardTheme.editorial : GencKartCardTheme.clean;
+  const isInverse = mode === 'inverse';
+  const cardTheme =
+    mode === 'light'
+      ? GencKartCardTheme.editorial
+      : mode === 'inverse'
+        ? GencKartCardTheme.inverse
+        : GencKartCardTheme.clean;
   const amber = accent;
 
   const filteredPartners = useMemo(() => {
@@ -157,12 +188,12 @@ const GencKartScreen = () => {
           ]}
         >
           <Text style={[styles.filterChipText, { color: labelColor, fontWeight: active ? '900' : '700' }]}>
-            {category}
+            {categoryLabel(category, tr)}
           </Text>
         </TouchableOpacity>
       );
     },
-    [isDark, selectedCategory]
+    [isDark, selectedCategory, tr]
   );
 
   const tabBarLift = Math.max(TAB_BAR_BOTTOM_MARGIN, insets.bottom + 8);
@@ -174,8 +205,8 @@ const GencKartScreen = () => {
       <View style={[styles.hero, { paddingTop: insets.top + 18, backgroundColor: pageBg }]}>
         <View style={styles.heroTop}>
           <View>
-            <Text style={[styles.heroLabel,{color:txt2}]}>ŞANLI GENÇ KART</Text>
-            <Text style={[styles.heroTitle,{color:txt1}]}>Şehrin anahtarı{'\n'}cebinde!</Text>
+            <Text style={[styles.heroLabel,{color:txt2}]}>{tr('gencKart.heroLabel')}</Text>
+            <Text style={[styles.heroTitle,{color:txt1}]}>{tr('gencKart.heroTitle')}</Text>
           </View>
           <View style={[styles.heroIconWrap,{backgroundColor:chipBg, borderColor:cardBdr}]}>
             <Wifi color={txt1} size={22} strokeWidth={1.8} />
@@ -198,7 +229,7 @@ const GencKartScreen = () => {
                     <View>
                         <View style={styles.cardLogoContainer}>
                            <MapPin color={Colors.white} size={16}/>
-                           <Text style={styles.cardLogoText}>ŞANLIGENÇ</Text>
+                           <Text style={styles.cardLogoText}>{tr('hizliErisim.eyebrow')}</Text>
                         </View>
                         <Text style={styles.cardAgeText}>16-30 YAŞ</Text>
                     </View>
@@ -212,7 +243,7 @@ const GencKartScreen = () => {
 
                 <View style={styles.cardBottom}>
                     <View>
-                        <Text style={[styles.cardHolderLabel, { color: cardTheme.holderLabel }]}>KART SAHİBİ</Text>
+                        <Text style={[styles.cardHolderLabel, { color: cardTheme.holderLabel }]}>{tr('gencKart.cardHolder')}</Text>
                         <Text style={styles.cardHolderName}>{(profile?.name || MOCK_USER.name).toUpperCase()}</Text>
                     </View>
                 </View>
@@ -223,7 +254,7 @@ const GencKartScreen = () => {
             <View style={styles.venuesSection}>
               <View style={styles.venuesSectionTop}>
                 <View style={styles.venuesTitleRow}>
-                  <Text style={[styles.venuesSectionTitle, {color:txt1}]}>Anlaşmalı Mekanlar</Text>
+                  <Text style={[styles.venuesSectionTitle, {color:txt1}]}>{tr('gencKart.anlasmaliMekanlar')}</Text>
                 </View>
                 <View style={[styles.venuesCountPill, {backgroundColor:chipBg}]}>
                   <Text style={[styles.venuesCountText, {color:txt1}]}>
@@ -252,7 +283,7 @@ const GencKartScreen = () => {
                 <View style={[styles.emptyFavIcon, { backgroundColor: chipBg }]}>
                   <Heart color={txt2} size={26} strokeWidth={2} />
                 </View>
-                <Text style={[styles.emptyFavTitle, { color: txt1 }]}>Henüz favorin yok</Text>
+                <Text style={[styles.emptyFavTitle, { color: txt1 }]}>{tr('gencKart.henuzFavorinYok')}</Text>
                 <Text style={[styles.emptyFavDesc, { color: txt2 }]}>
                   Beğendiğin mekanların kalbine dokun, buradan kolayca ulaş.
                 </Text>
@@ -266,14 +297,11 @@ const GencKartScreen = () => {
                           isFav={isFavoritePartner(item.id)}
                           onPress={() => navigation.navigate('PartnerDetail', { partnerId: item.id })}
                           onToggleFav={() => toggleFavorite('partner', item.id)}
-                          cardBg={cardBg}
-                          chipBg={chipBg}
                           amber={amber}
-                          txt1={txt1}
-                          txt2={txt2}
                           ctaBg={ctaBg}
                           ctaTxt={ctaTxt}
                           isDark={isDark}
+                          accent={DEAL_ACCENTS[index % DEAL_ACCENTS.length]}
                         />
                     </AnimatedListItem>
                 ))}
@@ -613,11 +641,11 @@ const styles = StyleSheet.create({
   ticketWrap: {
     borderRadius: TICKET_RADIUS,
     backgroundColor: 'transparent',
-    shadowColor: '#3A2A1A',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 14,
-    elevation: 4,
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
   ticketHeartBtn: {
     position: 'absolute',
@@ -644,7 +672,7 @@ const styles = StyleSheet.create({
   ticketIconWrap: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,

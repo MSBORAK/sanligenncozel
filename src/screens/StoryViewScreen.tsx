@@ -16,6 +16,8 @@ import { supabase, processImageUrl } from '@/lib/supabase';
 import { cityFallback } from '@/lib/imageFallback';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme } from '@/theme/useAppTheme';
+import i18n from '@/i18n';
+import { useTranslation } from 'react-i18next';
 
 const { width, height } = Dimensions.get('window');
 
@@ -36,6 +38,7 @@ const StoryViewScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const t = useAppTheme();
+  const { t: tr } = useTranslation();
   const params = route.params as { userId: string };
   
   const [stories, setStories] = useState<Story[]>([]);
@@ -98,7 +101,7 @@ const StoryViewScreen = () => {
       const storiesWithProfile = storiesData.map((story: any) => ({
         ...story,
         user_profiles: profileData || {
-          name: 'Kullanıcı',
+          name: tr('common.kullanici'),
           username: 'user',
           avatar_url: null,
         },
@@ -253,10 +256,10 @@ const getTimeAgo = (timestamp: string): string => {
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMs / 3600000);
 
-  if (diffMins < 1) return 'Şimdi';
-  if (diffMins < 60) return `${diffMins}d önce`;
-  if (diffHours < 24) return `${diffHours}s önce`;
-  return `${Math.floor(diffHours / 24)}g önce`;
+  if (diffMins < 1) return i18n.t('weather.simdi');
+  if (diffMins < 60) return i18n.t('common.dakikaOnce', { count: diffMins });
+  if (diffHours < 24) return i18n.t('common.saatOnce', { count: diffHours });
+  return i18n.t('common.gunOnce', { count: Math.floor(diffHours / 24) });
 };
 
 const styles = StyleSheet.create({

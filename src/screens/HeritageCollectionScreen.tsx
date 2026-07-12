@@ -11,18 +11,19 @@ import { mapKesfetRow, type KesfetRow } from '@/lib/kesfet';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { MOCK_MAGAZINES } from '@/api/mockData';
 import type { HeritageCategory } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const GRID_PAD = 20;
 const GRID_GAP = 14;
 const CARD_W = (SCREEN_W - GRID_PAD * 2 - GRID_GAP) / 2;
 
-const CATEGORY_META: Record<HeritageCategory, { title: string; subtitle: string }> = {
-  historic: { title: 'Tarihi Yerler', subtitle: "Şanlıurfa'nın binlerce yıllık mirasını keşfetmeye hazır mısın?" },
-  faith: { title: 'İnanç ve Kültür', subtitle: 'Şehrin manevi dokusunu ve kutsal mekanlarını keşfet.' },
-  nature: { title: 'Doğa & Manzara', subtitle: 'Şanlıurfa çevresindeki doğal güzellikleri keşfet.' },
-  museum: { title: 'Müzeler', subtitle: 'Şehrin müzeleri ve kültürel dokusunu keşfet.' },
-  bazaar: { title: 'Tarihi Çarşılar & Hanlar', subtitle: 'Geleneksel çarşılar ve tarihi hanları keşfet.' },
+const CATEGORY_META_KEYS: Record<HeritageCategory, { titleKey: string; subtitleKey: string }> = {
+  historic: { titleKey: 'heritageCollection.historicTitle', subtitleKey: 'heritageCollection.historicSubtitle' },
+  faith: { titleKey: 'heritageCollection.faithTitle', subtitleKey: 'heritageCollection.faithSubtitle' },
+  nature: { titleKey: 'heritageCollection.natureTitle', subtitleKey: 'heritageCollection.natureSubtitle' },
+  museum: { titleKey: 'heritageCollection.museumTitle', subtitleKey: 'heritageCollection.museumSubtitle' },
+  bazaar: { titleKey: 'heritageCollection.bazaarTitle', subtitleKey: 'heritageCollection.bazaarSubtitle' },
 };
 
 interface MagazineData {
@@ -40,6 +41,7 @@ const HeritageCollectionScreen = () => {
   const route = useRoute();
   const { category } = route.params as { category: HeritageCategory };
   const t = useAppTheme();
+  const { t: tr } = useTranslation();
   const insets = useSafeAreaInsets();
   const [items, setItems] = useState<MagazineData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,7 +83,10 @@ const HeritageCollectionScreen = () => {
     return [...fromSupabase, ...fromMock];
   }, [items, category]);
 
-  const meta = CATEGORY_META[category] ?? { title: 'Koleksiyon', subtitle: '' };
+  const metaKeys = CATEGORY_META_KEYS[category];
+  const meta = metaKeys
+    ? { title: tr(metaKeys.titleKey), subtitle: tr(metaKeys.subtitleKey) }
+    : { title: tr('heritageCollection.defaultTitle'), subtitle: '' };
 
   return (
     <View style={[styles.container, { backgroundColor: t.pageBg }]}>
@@ -93,10 +98,10 @@ const HeritageCollectionScreen = () => {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 24) + 20 }}>
         <View style={styles.titleBlock}>
-          <Text style={[styles.eyebrow, { color: t.txt2 }]}>KOLEKSİYON</Text>
+          <Text style={[styles.eyebrow, { color: t.txt2 }]}>{tr('heritageCollection.eyebrow')}</Text>
           <Text style={[styles.title, { color: t.txt1 }]}>{meta.title}</Text>
           {!!meta.subtitle && <Text style={[styles.subtitle, { color: t.txt2 }]}>{meta.subtitle}</Text>}
-          <Text style={[styles.count, { color: t.txt2 }]}>{formatted.length} Mekan</Text>
+          <Text style={[styles.count, { color: t.txt2 }]}>{tr('heritageCollection.mekanSayisi', { count: formatted.length })}</Text>
         </View>
 
         {loading ? (

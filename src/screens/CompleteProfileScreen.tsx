@@ -18,10 +18,12 @@ import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { supabase } from '@/lib/supabase';
+import { useTranslation } from 'react-i18next';
 
 const CompleteProfileScreen = () => {
   const navigation = useNavigation();
   const t = useAppTheme();
+  const { t: tr } = useTranslation();
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
@@ -63,7 +65,7 @@ const CompleteProfileScreen = () => {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (status !== 'granted') {
-        Alert.alert('İzin Gerekli', 'Galeri erişimi için izin vermeniz gerekiyor.');
+        Alert.alert(tr('completeProfile.izinGerekli'), tr('completeProfile.izinMesaji'));
         return;
       }
 
@@ -78,7 +80,7 @@ const CompleteProfileScreen = () => {
         setAvatarUri(result.assets[0].uri);
       }
     } catch (e) {
-      Alert.alert('Hata', 'Fotoğraf seçilirken bir sorun oluştu.');
+      Alert.alert(tr('common.error'), tr('completeProfile.fotoSecmeHatasi'));
     }
   };
 
@@ -116,7 +118,7 @@ const CompleteProfileScreen = () => {
 
   const handleComplete = async () => {
     if (!name.trim()) {
-      Alert.alert('Hata', 'Lütfen adınızı girin');
+      Alert.alert(tr('common.error'), tr('completeProfile.adGirin'));
       return;
     }
 
@@ -150,7 +152,7 @@ const CompleteProfileScreen = () => {
       });
     } catch (error: any) {
       console.error('Profile completion error:', error);
-      Alert.alert('Hata', error.message || 'Profil güncellenemedi');
+      Alert.alert(tr('common.error'), error.message || tr('completeProfile.guncellemeHatasi'));
     } finally {
       setLoading(false);
     }
@@ -167,7 +169,7 @@ const CompleteProfileScreen = () => {
         {loadingProfile ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={t.ctaBg} />
-            <Text style={styles.loadingText}>Profil yükleniyor...</Text>
+            <Text style={styles.loadingText}>{tr('completeProfile.profilYukleniyor')}</Text>
           </View>
         ) : (
           <KeyboardAvoidingView
@@ -176,9 +178,9 @@ const CompleteProfileScreen = () => {
           >
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Profilini Tamamla</Text>
+            <Text style={styles.title}>{tr('completeProfile.title')}</Text>
             <Text style={styles.subtitle}>
-              Aramıza hoş geldin! Urfa'nın gençleri seni bekliyordu.
+              {tr('completeProfile.hosGeldin')}
             </Text>
           </View>
 
@@ -203,20 +205,20 @@ const CompleteProfileScreen = () => {
           <View style={styles.inputsContainer}>
             {/* Kullanıcı Adı (Sadece Gösterim) */}
             <View style={styles.inputWrapper}>
-              <Text style={styles.inputLabel}>Kullanıcı Adın</Text>
+              <Text style={styles.inputLabel}>{tr('completeProfile.kullaniciAdin')}</Text>
               <View style={[styles.input, styles.inputDisabled]}>
                 <Text style={styles.inputDisabledText}>@{username}</Text>
               </View>
               <Text style={styles.inputHint}>
-                Kullanıcı adın değiştirilemez
+                {tr('completeProfile.kullaniciAdiDegismez')}
               </Text>
             </View>
 
             {/* İsim */}
             <View style={styles.inputWrapper}>
-              <Text style={styles.inputLabel}>Adın Soyadın</Text>
+              <Text style={styles.inputLabel}>{tr('completeProfile.adinSoyadin')}</Text>
               <TextInput
-                placeholder="Örn: Ahmet Yılmaz"
+                placeholder={tr('completeProfile.adPlaceholder')}
                 placeholderTextColor="rgba(255,255,255,0.4)"
                 style={styles.input}
                 value={name}
@@ -224,7 +226,7 @@ const CompleteProfileScreen = () => {
                 autoCapitalize="words"
               />
               <Text style={styles.inputHint}>
-                Gerçek adını kullanmanı öneririz
+                {tr('completeProfile.gercekAdOneri')}
               </Text>
             </View>
           </View>
@@ -244,7 +246,7 @@ const CompleteProfileScreen = () => {
               ) : (
                 <>
                   <Check color={t.ctaTxt} size={24} />
-                  <Text style={styles.completeButtonText}>Tamamla</Text>
+                  <Text style={styles.completeButtonText}>{tr('completeProfile.tamamla')}</Text>
                 </>
               )}
             </LinearGradient>

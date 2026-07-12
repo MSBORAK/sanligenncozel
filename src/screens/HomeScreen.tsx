@@ -12,19 +12,22 @@ import {
   Scissors, Dumbbell, Film, UtensilsCrossed, ShoppingBag, Stethoscope, Cake, Glasses,
 } from 'lucide-react-native';
 import { CommonActions, useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import Skeleton from '@/components/Skeleton';
 import { MOCK_BUSES, MOCK_MAGAZINES } from '@/api/mockData';
 import { HomeScreenProps, MainTabParamList } from '@/types/navigation';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabase';
+import { pickLocalized } from '@/lib/localizeContent';
 import { Clean } from '@/constants/Colors';
 import { Editorial } from '@/theme/colors';
 import { cardOuterShadow } from '@/constants/Shadows';
 import * as Haptics from 'expo-haptics';
 import LottieView from 'lottie-react-native';
 import Svg, { Path } from 'react-native-svg';
-import { toOwmCurrent, toOwmForecast } from '@/utils/weather';
+import { buildWeatherUrl, toOwmCurrent, toOwmForecast } from '@/utils/weather';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface FirsatData { id:number; baslik:string; aciklama:string; tarih?:string; kategori:string; resim_url?:string; }
@@ -36,7 +39,6 @@ const QUICK_ACCESS = [
   { name:'Keşfet',      screen:'Magazine',     lottie:require('@/assets/images/Map pin location.json'),   grad:['#1D4ED8','#3B82F6'] as const },
   { name:'Eczane',      screen:'PharmacyList', lottie:require('@/assets/images/AR Tablet.json'),          grad:['#9D174D','#EC4899'] as const },
   { name:'Kütüphane',   screen:'LibraryList',  lottie:require('@/assets/images/Books.json'),              grad:['#065F46','#10B981'] as const },
-  { name:'Gezi Rotası', screen:'CulturalRoute',lottie:require('@/assets/images/Travel is fun.json'),      grad:['#92400E','#F59E0B'] as const },
 ];
 
 // Elle düzenlenmiş, daha zengin metinli 4 öne çıkan yer
@@ -120,16 +122,25 @@ const buildTicketPath = (w: number, h: number, r: number, notchY: number, nr: nu
 
 const TICKET_RADIUS = 16;
 const TICKET_NOTCH_RADIUS = 8;
+const PROMO_LAST_SEEN_OFFER_ID_KEY = 'home_promo_last_seen_offer_id_v1';
+
+/** Keşfet paletinin soft pastelleri — ticket gövdesi */
+const DEAL_ACCENTS = ['#F6E4EA', '#ECF3D8', '#F8F0D0', '#D8F0F0'] as const;
 
 /** Genç Kart fırsat kartı — gerçek bilet siluetiyle (SVG kesik) */
 function FirsatTicketCard({
-  p, th, Icon, discountNum, onPress, cardBg, chipBg, amber, txt1, txt2, ctaBg, ctaTxt, pageBg, isDark,
+  p, th, Icon, discountNum, onPress, ctaBg, ctaTxt, isDark, accent,
 }: {
   p: FirsatData; th: any; Icon: any; discountNum: string | null; onPress: () => void;
-  cardBg: string; chipBg: string; amber: string; txt1: string; txt2: string; ctaBg: string; ctaTxt: string; pageBg: string; isDark: boolean;
+  ctaBg: string; ctaTxt: string; isDark: boolean;
+  accent: string;
 }) {
   const [size, setSize] = useState({ width: 128, height: 148 });
   const [notchY, setNotchY] = useState(74);
+  const { t: tr } = useTranslation();
+  // Pastel gövde üzerinde koyu ink; dark mode'da da okunabilir kalsın
+  const ink = '#111114';
+  const inkMuted = 'rgba(17,17,20,0.62)';
 
   return (
     <View
@@ -139,25 +150,25 @@ function FirsatTicketCard({
       <Svg width={size.width} height={size.height} style={StyleSheet.absoluteFill}>
         <Path
           d={buildTicketPath(size.width, size.height, TICKET_RADIUS, notchY, TICKET_NOTCH_RADIUS)}
-          fill={cardBg}
-          stroke={isDark ? 'rgba(255,255,255,0.16)' : 'rgba(17,17,20,1)'}
-          strokeWidth={1.5}
+          fill={accent}
+          stroke={isDark ? 'rgba(255,255,255,0.14)' : 'rgba(17,17,20,0.35)'}
+          strokeWidth={1}
         />
       </Svg>
       <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={{ width: size.width }}>
         <View style={[s.pCard, { backgroundColor: 'transparent', marginRight: 0, borderRadius: TICKET_RADIUS }]}>
           {/* ÜST: indirim kahraman — ortalı */}
           <View style={s.pHero}>
-            <View style={[s.pIconWrap,{backgroundColor:chipBg}]}>
-              <Icon color={txt1} size={20} strokeWidth={2} />
+            <View style={[s.pIconWrap,{backgroundColor: 'rgba(255,255,255,0.45)', borderWidth: 1, borderColor: 'rgba(17,17,20,0.18)'}]}>
+              <Icon color={ink} size={20} strokeWidth={2} />
             </View>
             {discountNum ? (
               <>
-                <Text style={[s.pBigPct,{color:txt1}]}>%{discountNum}</Text>
-                <Text style={[s.pBigLabel,{color:txt2}]}>İNDİRİM</Text>
+                <Text style={[s.pBigPct,{color:ink}]}>%{discountNum}</Text>
+                <Text style={[s.pBigLabel,{color:inkMuted}]}>{tr('home.indirim')}</Text>
               </>
             ):(
-              <Text style={[s.pOfferText,{color:txt1}]} numberOfLines={2}>{p.aciklama || 'Fırsat'}</Text>
+              <Text style={[s.pOfferText,{color:ink}]} numberOfLines={2}>{p.aciklama || 'Fırsat'}</Text>
             )}
           </View>
 
@@ -165,16 +176,16 @@ function FirsatTicketCard({
           <View style={s.pTearRow} onLayout={(e) => setNotchY(e.nativeEvent.layout.y + e.nativeEvent.layout.height / 2)}>
             <View style={s.pDashRow}>
               {Array.from({length:10}).map((_,di)=>(
-                <View key={di} style={[s.pDashSeg,{backgroundColor: isDark ? 'rgba(255,255,255,0.25)' : 'rgba(17,17,20,0.22)'}]}/>
+                <View key={di} style={[s.pDashSeg,{backgroundColor: 'rgba(17,17,20,0.28)'}]}/>
               ))}
             </View>
           </View>
 
           {/* ALT: marka + kategori + CTA — ortalı */}
-          <Text style={[s.pName,{color:txt1}]} numberOfLines={1}>{p.baslik}</Text>
-          <Text style={[s.pKat,{color:txt2}]} numberOfLines={1}>{p.kategori}</Text>
+          <Text style={[s.pName,{color:ink}]} numberOfLines={1}>{p.baslik}</Text>
+          <Text style={[s.pKat,{color:inkMuted}]} numberOfLines={1}>{p.kategori}</Text>
           <View style={[s.pCta,{backgroundColor:ctaBg}]}>
-            <Text style={[s.pCtaTxt,{color:ctaTxt}]}>Kuponu Kullan →</Text>
+            <Text style={[s.pCtaTxt,{color:ctaTxt}]}>{tr('home.kuponuKullan')}</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -193,11 +204,13 @@ const cardShadowForTicket = {
 // ─── Screen ────────────────────────────────────────────────────────────────────
 export default function HomeScreen() {
   const navigation = useNavigation<HomeScreenProps['navigation']>();
+  const { t: tr, i18n } = useTranslation();
   const { profile, isGuest } = useUser();
   const homeTheme = useAppTheme();
   const isDark = homeTheme.isDark;
 
-  const [promoModalVisible,setPromoModalVisible]           = useState(true);
+  const [promoModalVisible,setPromoModalVisible]           = useState(false);
+  const [newOfferToastVisible, setNewOfferToastVisible]    = useState(false);
   const [promoSize,setPromoSize]                           = useState({width:300,height:220});
   const [promoNotchY,setPromoNotchY]                       = useState(110);
   const [calendarVisible,setCalendarVisible]               = useState(false);
@@ -216,11 +229,19 @@ export default function HomeScreen() {
 
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const KOORDINAT       = { lat:37.1674, lon:38.7955 };
+  useEffect(() => {
+    fetchAllWeatherData(); fetchCalendarEvents();
+  }, []);
 
   useEffect(() => {
-    fetchAllWeatherData(); fetchFirsatlar(); fetchCalendarEvents();
-  }, []);
+    fetchFirsatlar();
+  }, [i18n.language]);
+
+  useEffect(() => {
+    if (!newOfferToastVisible) return;
+    const timer = setTimeout(() => setNewOfferToastVisible(false), 3200);
+    return () => clearTimeout(timer);
+  }, [newOfferToastVisible]);
 
   // Zil ikonundaki rozet — ŞanlıSosyal'den gelen okunmamış mesajlar + bekleyen arkadaşlık istekleri.
   // Ana sayfaya her dönüldüğünde (örn. mesaj gönderip geri gelince) tazelenir.
@@ -265,7 +286,27 @@ export default function HomeScreen() {
   const fetchFirsatlar = async () => {
     try {
       const {data} = await supabase.from('firsatlar').select('*').order('created_at',{ascending:false});
-      if (data) setFirsatlar(data);
+      if (data) {
+        const localized = data.map((row: any) => ({
+          ...row,
+          baslik: pickLocalized(row, 'baslik', i18n.language),
+          aciklama: pickLocalized(row, 'aciklama', i18n.language),
+        }));
+        setFirsatlar(localized);
+        const latestOffer = data[0];
+        if (latestOffer?.id != null) {
+          const latestId = String(latestOffer.id);
+          const lastSeenId = await AsyncStorage.getItem(PROMO_LAST_SEEN_OFFER_ID_KEY);
+          if (lastSeenId == null) {
+            // İlk kurulumda mevcut fırsatı "görülmüş" kabul et; sadece yeni girilende göster.
+            await AsyncStorage.setItem(PROMO_LAST_SEEN_OFFER_ID_KEY, latestId);
+          } else if (lastSeenId !== latestId) {
+            setPromoModalVisible(true);
+            setNewOfferToastVisible(true);
+            await AsyncStorage.setItem(PROMO_LAST_SEEN_OFFER_ID_KEY, latestId);
+          }
+        }
+      }
     } catch(e){if (__DEV__) console.log(e);} finally {setLoadingFirsatlar(false);}
   };
   const fetchCalendarEvents = async () => {
@@ -276,12 +317,7 @@ export default function HomeScreen() {
   };
   const fetchAllWeatherData = async () => {
     try {
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${KOORDINAT.lat}&longitude=${KOORDINAT.lon}` +
-        `&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,surface_pressure` +
-        `&hourly=temperature_2m,weather_code,precipitation_probability` +
-        `&daily=sunrise,sunset,temperature_2m_max,temperature_2m_min` +
-        `&timezone=auto&forecast_days=8`;
-      const res = await fetch(url);
+      const res = await fetch(buildWeatherUrl());
       const om = await res.json();
       if (om?.current) {
         setWeatherData(toOwmCurrent(om, 'Şanlıurfa'));
@@ -417,17 +453,9 @@ export default function HomeScreen() {
         <View style={[s.lunchTopBar,{borderColor:cardBdr}]}>
           <View style={{flex:1}}>
             <Text style={[s.lunchDate,{color:txt2}]}>ŞANLIGENÇ · {DAYS[(today.getDay()+6)%7].toUpperCase()} · {todayStr.toUpperCase()}</Text>
-            <Text style={[s.lunchHello,{color:txt1}]} numberOfLines={1}>Selam, {profile?.name||'Şanlı Genç'} 👋</Text>
+            <Text style={[s.lunchHello,{color:txt1}]} numberOfLines={1}>{tr('home.hello', { name: profile?.name || tr('home.defaultName') })}</Text>
           </View>
           <View style={s.lunchTopActions}>
-            <TouchableOpacity style={[s.lunchIconBtn,{backgroundColor:cardBg,borderColor:cardBdr}]} onPress={()=>navigation.navigate('Notifications')} activeOpacity={0.8}>
-              <Bell color={txt1} size={18} strokeWidth={1.8}/>
-              {unreadCount > 0 && (
-                <View style={s.notifBadge}>
-                  <Text style={s.notifBadgeTxt}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
             <TouchableOpacity style={[s.lunchAvatar,{backgroundColor:ctaBg}]} onPress={()=>navigation.navigate('Main',{screen:'Profile' as keyof MainTabParamList})} activeOpacity={0.8}>
               {profile?.avatarUrl ? (
                 <Image source={{uri:profile.avatarUrl}} style={{width:38,height:38,borderRadius:19}}/>
@@ -455,33 +483,25 @@ export default function HomeScreen() {
             <Calendar color={txt1} size={15} strokeWidth={2}/>
             <Text style={[s.lunchInfoText,{color:txt1}]}>{todayStr}</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={s.lunchInfoPill}
-            onPress={()=>navigation.navigate('Main',{screen:'GencKart' as keyof MainTabParamList})}
-            activeOpacity={0.82}
-          >
-            <Gift color={txt1} size={15} strokeWidth={2}/>
-            <Text style={[s.lunchInfoText,{color:txt1}]}>{firsatlar.length} fırsat</Text>
-          </TouchableOpacity>
         </View>
 
         <TouchableOpacity activeOpacity={0.88} onPress={handleSosyalPress} style={[s.lunchSocialCard,{backgroundColor:ctaBg, borderColor:cardBdr}]}>
           <View style={s.sosyalLeft}>
             <View style={s.sosyalLiveBadge}>
               <View style={[s.sosyalLiveDot,{backgroundColor:'#22C55E'}]}/>
-              <Text style={[s.sosyalLiveTxt,{color:ctaTxt}]}>CANLI</Text>
+              <Text style={[s.sosyalLiveTxt,{color:ctaTxt}]}>{tr('home.live')}</Text>
             </View>
-            <Text style={[s.sosyalTitle,{color:ctaTxt}]}>ŞanlıSosyal</Text>
-            <Text style={[s.sosyalSub,{color:ctaTxt, opacity:0.62}]}>Şehir radarı, akış ve kıvılcımlar</Text>
+            <Text style={[s.sosyalTitle,{color:ctaTxt}]}>{tr('home.sanliSosyal')}</Text>
+            <Text style={[s.sosyalSub,{color:ctaTxt, opacity:0.62}]}>{tr('home.sanliSosyalSub')}</Text>
           </View>
           <LottieView source={require('@/assets/images/friends.json')} autoPlay loop resizeMode="contain" style={s.sosyalLottie}/>
         </TouchableOpacity>
 
         <View style={s.lunchSection}>
           <View style={s.lunchSectionHead}>
-            <Text style={[s.lunchSectionTitle,{color:txt1}]}>Keşfet</Text>
+            <Text style={[s.lunchSectionTitle,{color:txt1}]}>{tr('home.discover')}</Text>
             <TouchableOpacity onPress={()=>navigation.navigate('Magazine')} activeOpacity={0.7}>
-              <Text style={[s.secMore,{color:txt1}]}>Tümü →</Text>
+              <Text style={[s.secMore,{color:txt1}]}>{tr('common.seeAll')}</Text>
             </TouchableOpacity>
           </View>
           <View style={[s.lunchMealCard,{backgroundColor:cardBg,borderColor:cardBdr}]}>
@@ -508,8 +528,8 @@ export default function HomeScreen() {
             <View style={s.assistantBannerLeft}>
               <Sparkles color={ctaTxt} size={20} strokeWidth={2}/>
               <View style={{flex:1}}>
-                <Text style={[s.assistantBannerTitle,{color:ctaTxt}]}>Şanlı Asistan</Text>
-                <Text style={[s.assistantBannerSub,{color:ctaTxt,opacity:0.6}]}>Şehir hakkında her şeyi sor</Text>
+                <Text style={[s.assistantBannerTitle,{color:ctaTxt}]}>{tr('home.sanliAsistan')}</Text>
+                <Text style={[s.assistantBannerSub,{color:ctaTxt,opacity:0.6}]}>{tr('home.sanliAsistanSub')}</Text>
               </View>
             </View>
             <Text style={{color:ctaTxt,fontSize:16}}>→</Text>
@@ -518,11 +538,20 @@ export default function HomeScreen() {
 
         <View style={s.lunchSection}>
           <View style={s.lunchSectionHead}>
-            <Text style={[s.lunchSectionTitle,{color:txt1}]}>Genç Kart Fırsatları</Text>
-            <TouchableOpacity onPress={()=>setGencDealsVisible(true)} activeOpacity={0.7}>
-              <Text style={[s.secMore,{color:txt1}]}>Fırsatları Keşfet →</Text>
+            <Text style={[s.lunchSectionTitle,{color:txt1}]}>{tr('home.gencKartFirsatlari')}</Text>
+            <TouchableOpacity
+              onPress={()=>navigation.navigate('Main',{screen:'GencKart' as keyof MainTabParamList})}
+              activeOpacity={0.7}
+            >
+              <Text style={[s.secMore,{color:txt1}]}>{tr('home.firsatlariKesfet')}</Text>
             </TouchableOpacity>
           </View>
+          {newOfferToastVisible && (
+            <View style={[s.newOfferToast, { backgroundColor: chipBg, borderColor: cardBdr }]}>
+              <Sparkles color={txt1} size={14} strokeWidth={2} />
+              <Text style={[s.newOfferToastText, { color: txt1 }]}>Yeni Genç Kart fırsatı eklendi</Text>
+            </View>
+          )}
           {loadingFirsatlar ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.dealScroll}>
               {[1,2,3].map(i=>(
@@ -533,7 +562,7 @@ export default function HomeScreen() {
             </ScrollView>
           ) : firsatlar.length > 0 ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.dealScroll} snapToInterval={140} decelerationRate="fast">
-              {firsatlar.map((p)=>{
+              {firsatlar.map((p, idx)=>{
                 const th=getCategoryTheme(p.kategori,p.baslik);const Icon=th.icon;
                 const discountRaw = p.aciklama?.match(/%([\d]+)/)?.[1] ?? null;
                 return (
@@ -544,15 +573,10 @@ export default function HomeScreen() {
                     Icon={Icon}
                     discountNum={discountRaw}
                     onPress={()=>navigation.navigate('PartnerDetail',{partnerId:p.id.toString()})}
-                    cardBg={cardBg}
-                    chipBg={chipBg}
-                    amber={amber}
-                    txt1={txt1}
-                    txt2={txt2}
                     ctaBg={ctaBg}
                     ctaTxt={ctaTxt}
-                    pageBg={pageBg}
                     isDark={isDark}
+                    accent={DEAL_ACCENTS[idx % DEAL_ACCENTS.length]}
                   />
                 );
               })}
@@ -560,7 +584,7 @@ export default function HomeScreen() {
           ) : (
             <TouchableOpacity activeOpacity={0.86} onPress={()=>navigation.navigate('Main',{screen:'GencKart' as keyof MainTabParamList})} style={[s.gencDealEmpty,{backgroundColor:cardBg,borderColor:cardBdr}]}>
               <Gift color={amber} size={20}/>
-              <Text style={[s.emptyTitle,{color:txt1}]}>Genç Kart fırsatları yakında</Text>
+              <Text style={[s.emptyTitle,{color:txt1}]}>{tr('home.gencKartFirsatlariYakinda')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -568,9 +592,9 @@ export default function HomeScreen() {
         {todaysEvents.length > 0 && (
           <View style={s.lunchSection}>
             <View style={s.lunchSectionHead}>
-              <Text style={[s.lunchSectionTitle,{color:txt1}]}>Bugün Neler Var</Text>
+              <Text style={[s.lunchSectionTitle,{color:txt1}]}>{tr('home.bugunNelerVar')}</Text>
               <TouchableOpacity onPress={()=>setCalendarVisible(true)} activeOpacity={0.7}>
-                <Text style={[s.secMore,{color:txt1}]}>Takvim →</Text>
+                <Text style={[s.secMore,{color:txt1}]}>{tr('home.takvim')}</Text>
               </TouchableOpacity>
             </View>
             <View style={[s.lunchMealCard,{backgroundColor:cardBg,borderColor:cardBdr}]}>
@@ -602,16 +626,16 @@ export default function HomeScreen() {
           <View style={[s.mCard,isDark&&{backgroundColor:'#0f172a',borderColor:'rgba(148,163,184,0.2)'}]}>
             <View style={[s.mBadge,isDark?{backgroundColor:'rgba(14,165,233,0.18)',borderColor:'rgba(125,211,252,0.35)'}:{backgroundColor:'rgba(37,99,235,0.1)',borderColor:'rgba(37,99,235,0.18)'}]}>
               <Radio color={isDark?'#7dd3fc':'#2563eb'} size={15}/>
-              <Text style={[s.mBadgeTxt,{color:isDark?'#bae6fd':'#1d4ed8'}]}>ŞanlıSosyal</Text>
+              <Text style={[s.mBadgeTxt,{color:isDark?'#bae6fd':'#1d4ed8'}]}>{tr('home.sanliSosyal')}</Text>
             </View>
-            <Text style={[s.mTitle,isDark&&{color:'#f8fafc'}]}>Giriş Yapman Gerekiyor</Text>
+            <Text style={[s.mTitle,isDark&&{color:'#f8fafc'}]}>{tr('home.girisYapmanGerekiyor')}</Text>
             <Text style={[s.mSub,isDark&&{color:'#cbd5e1'}]}>ŞanlıSosyal'e erişmek için hesabınla giriş yapman gerekiyor.</Text>
             <View style={s.mRow}>
               <TouchableOpacity style={[s.mSec,isDark&&{backgroundColor:'#1e293b'}]} onPress={()=>setGuestModalVisible(false)}>
-                <Text style={[s.mSecTxt,isDark&&{color:'#cbd5e1'}]}>Vazgeç</Text>
+                <Text style={[s.mSecTxt,isDark&&{color:'#cbd5e1'}]}>{tr('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[s.mPri,isDark&&{backgroundColor:'#0ea5e9'}]} onPress={handleGuestLogin}>
-                <Text style={s.mPriTxt}>Giriş Yap</Text>
+                <Text style={s.mPriTxt}>{tr('home.girisYap')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -626,8 +650,8 @@ export default function HomeScreen() {
             <View style={s.gencSheetHandle}/>
             <View style={s.gencSheetHead}>
               <View>
-                <Text style={[s.gencSheetEyebrow,{color:txt2}]}>GENÇ KART</Text>
-                <Text style={[s.gencSheetTitle,{color:txt1}]}>Fırsatları Keşfet</Text>
+                <Text style={[s.gencSheetEyebrow,{color:txt2}]}>{tr('welcome.gencKart').toUpperCase()}</Text>
+                <Text style={[s.gencSheetTitle,{color:txt1}]}>{tr('home.firsatlariKesfetBaslik')}</Text>
               </View>
               <TouchableOpacity style={[s.gencSheetClose,{backgroundColor:chipBg}]} onPress={()=>setGencDealsVisible(false)} activeOpacity={0.8}>
                 <X color={txt1} size={18}/>
@@ -676,8 +700,8 @@ export default function HomeScreen() {
             ) : (
               <View style={[s.gencSheetEmpty,{borderColor:cardBdr}]}>
                 <Gift color={amber} size={22}/>
-                <Text style={[s.emptyTitle,{color:txt1}]}>Fırsat bulunamadı</Text>
-                <Text style={[s.emptySub,{color:txt2}]}>Yeni Genç Kart fırsatları yakında burada görünecek.</Text>
+                <Text style={[s.emptyTitle,{color:txt1}]}>{tr('home.firsatBulunamadi')}</Text>
+                <Text style={[s.emptySub,{color:txt2}]}>{tr('home.yeniFirsatYakinda')}</Text>
               </View>
             )}
           </View>
@@ -708,12 +732,12 @@ export default function HomeScreen() {
                 <View style={[s.promoAccentBlock,{backgroundColor: isDark?'rgba(242,96,12,0.12)':'rgba(242,96,12,0.07)', borderTopLeftRadius:TICKET_RADIUS, borderTopRightRadius:TICKET_RADIUS}]}>
                   <View style={s.promoTopRow}>
                     <View style={[s.promoIconCircle,{backgroundColor:isDark?'rgba(242,96,12,0.18)':'#fff'}]}><Tag color={amber} size={20}/></View>
-                    <Text style={[s.promoEyebrow,{color:txt2}]}>GENÇ KART İNDİRİMİ</Text>
+                    <Text style={[s.promoEyebrow,{color:txt2}]}>{tr('home.gencKartIndirim')}</Text>
                   </View>
 
                   <View style={s.promoHero}>
                     <Text style={[s.promoBigPct,{color:txt1}]}>%20</Text>
-                    <Text style={[s.pBigLabel,{color:txt1}]}>İNDİRİM</Text>
+                    <Text style={[s.pBigLabel,{color:txt1}]}>{tr('home.indirim')}</Text>
                   </View>
                 </View>
 
@@ -726,10 +750,10 @@ export default function HomeScreen() {
                 </View>
 
                 <View style={{paddingHorizontal:22, paddingTop:16, paddingBottom:20}}>
-                  <Text style={[s.promoBigName,{color:txt1}]} numberOfLines={1}>Bugüne Özel İndirim</Text>
-                  <Text style={[s.promoBigKat,{color:txt2}]} numberOfLines={2}>Seçili kafelerde %20'ye varan öğrenci indirimi</Text>
+                  <Text style={[s.promoBigName,{color:txt1}]} numberOfLines={1}>{tr('home.bugunOzelIndirim')}</Text>
+                  <Text style={[s.promoBigKat,{color:txt2}]} numberOfLines={2}>{tr('home.ogrenciIndirimi')}</Text>
                   <View style={[s.pCta,{backgroundColor:amber, paddingVertical:13}]}>
-                    <Text style={[s.pCtaTxt,{color:'#fff', fontSize:13.5}]}>Genç Kart'ta Görüntüle →</Text>
+                    <Text style={[s.pCtaTxt,{color:'#fff', fontSize:13.5}]}>{tr('home.gencKarttaGoruntule')}</Text>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -822,10 +846,10 @@ export default function HomeScreen() {
                     </View>
                   )}
                   <View style={{marginTop:20}}>
-                    <Text style={{fontSize:14,fontWeight:'700',color:txt1,marginBottom:12}}>Bu Aydaki Özel Günler</Text>
+                    <Text style={{fontSize:14,fontWeight:'700',color:txt1,marginBottom:12}}>{tr('home.ozelGunler')}</Text>
                     {(()=>{
                       const list=Object.entries(SPECIAL_DAYS).filter(([k])=>Number(k.split('-')[0])===selectedDate.getMonth()+1).sort((a,b)=>Number(a[0].split('-')[1])-Number(b[0].split('-')[1]));
-                      if(!list.length)return<Text style={{fontSize:13,color:txt2,fontStyle:'italic'}}>Bu ayda özel gün bulunmuyor</Text>;
+                      if(!list.length)return<Text style={{fontSize:13,color:txt2,fontStyle:'italic'}}>{tr('home.ozelGunYok')}</Text>;
                       return list.map(([k,v])=>(
                         <View key={k} style={[s.spRow,{backgroundColor:chipBg}]}>
                           <View style={[s.spDot,{backgroundColor:v.color}]}/>
@@ -861,7 +885,7 @@ export default function HomeScreen() {
               )}
 
               <TouchableOpacity style={[s.calEvBtn,{backgroundColor:ctaBg}]} onPress={()=>{setCalendarVisible(false);navigation.navigate('Events');}}>
-                <Text style={[s.calEvBtnTxt,{color:ctaTxt}]}>Etkinliklere Git</Text>
+                <Text style={[s.calEvBtnTxt,{color:ctaTxt}]}>{tr('home.etkinliklereGit')}</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -908,6 +932,18 @@ const s = StyleSheet.create({
   lunchSection:{marginTop:24},
   lunchSectionHead:{flexDirection:'row', alignItems:'center', justifyContent:'space-between', marginBottom:12},
   lunchSectionTitle:{fontSize:11.5, fontWeight:'900', letterSpacing:1.35, textTransform:'uppercase'},
+  newOfferToast:{
+    marginHorizontal:20,
+    marginBottom:10,
+    borderRadius:12,
+    borderWidth:1,
+    paddingHorizontal:12,
+    paddingVertical:9,
+    flexDirection:'row',
+    alignItems:'center',
+    gap:8,
+  },
+  newOfferToastText:{fontSize:12.5, fontWeight:'800', letterSpacing:-0.1},
   lunchFeatureScroll:{paddingRight:18, gap:10},
   lunchFeatureCard:{width:172, height:148, borderRadius:18, borderWidth:1.2, padding:6, overflow:'hidden'},
   lunchFeatureImage:{width:'100%', height:'100%', borderRadius:13},
@@ -1129,7 +1165,7 @@ const s = StyleSheet.create({
   pScroll:   {paddingHorizontal:20, paddingVertical:14},
   pCard:     {width:128, borderRadius:16, paddingHorizontal:10, paddingTop:10, paddingBottom:10, marginRight:10, height:158, overflow:'hidden'},
   pHero:     {flex:1, alignItems:'center', justifyContent:'center', paddingTop:2},
-  pIconWrap: {width:34, height:34, borderRadius:10, justifyContent:'center', alignItems:'center', marginBottom:6},
+  pIconWrap: {width:34, height:34, borderRadius:17, justifyContent:'center', alignItems:'center', marginBottom:6},
   pBigPct:   {fontSize:28, lineHeight:30, fontWeight:'900', color:'#fff', letterSpacing:-1},
   pBigLabel: {fontSize:9, fontWeight:'800', color:'rgba(255,255,255,0.9)', letterSpacing:2, marginTop:-2},
   pBigFirsat:{fontSize:22, fontWeight:'900', color:'#fff', letterSpacing:0.5, paddingVertical:6},

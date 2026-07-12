@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Animated, StyleProp, StyleSheet, Text, TextInput, TextInputProps, View, ViewStyle } from 'react-native';
+import { Clean } from '@/constants/Colors';
 
 type Props = TextInputProps & {
   icon: string | React.ReactNode;
@@ -7,7 +8,7 @@ type Props = TextInputProps & {
 };
 
 /**
- * Glass-style input with left icon, focus glow, and subtle scale feedback.
+ * Bordered light input with left icon and focus accent border.
  */
 export const InputField: React.FC<Props> = ({ icon, containerStyle, ...inputProps }) => {
   const [focused, setFocused] = useState(false);
@@ -37,7 +38,7 @@ export const InputField: React.FC<Props> = ({ icon, containerStyle, ...inputProp
       <TextInput
         {...inputProps}
         style={styles.input}
-        placeholderTextColor="rgba(255,255,255,0.55)"
+        placeholderTextColor={Clean.textMuted}
         onFocus={(event) => {
           setFocused(true);
           animateScale(1.015);
@@ -50,7 +51,6 @@ export const InputField: React.FC<Props> = ({ icon, containerStyle, ...inputProp
         }}
         autoCapitalize={inputProps.autoCapitalize ?? 'none'}
       />
-      {focused ? <View style={styles.focusGlow} /> : null}
     </Animated.View>
   );
 };
@@ -60,19 +60,14 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderColor: Clean.border,
+    backgroundColor: Clean.surface,
     paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#6366F1',
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 5 },
-    overflow: 'hidden',
   },
   wrapperFocused: {
-    borderColor: '#6366F1',
-    shadowOpacity: 0.4,
+    borderColor: Clean.accent,
   },
   iconSlot: {
     width: 20,
@@ -84,15 +79,9 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    color: '#FFFFFF',
+    color: Clean.textPrimary,
     fontSize: 14,
     fontWeight: '500',
     paddingVertical: 0,
-  },
-  focusGlow: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(99,102,241,0.4)',
   },
 });

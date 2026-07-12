@@ -20,6 +20,7 @@ import { X, Send, Check, Users } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase, processImageUrl } from '@/lib/supabase';
 import { useAppTheme } from '@/theme/useAppTheme';
+import { useTranslation } from 'react-i18next';
 
 const SnapColors = {
   yellow: '#F1E3CB',
@@ -39,6 +40,7 @@ interface UserProfile {
 const SendSnapScreen = ({ route }: any) => {
   const navigation = useNavigation();
   const t = useAppTheme();
+  const { t: tr } = useTranslation();
   const imageUri = route?.params?.imageUri;
   const preselectedRecipientId = route?.params?.recipientId;
   
@@ -140,12 +142,12 @@ const SendSnapScreen = ({ route }: any) => {
 
   const handleSendSnap = async () => {
     if (!imageUri) {
-      Alert.alert('Hata', 'Resim bulunamadı.');
+      Alert.alert(tr('common.error'), tr('sendSnap.resimBulunamadi'));
       return;
     }
 
     if (selectedRecipients.length === 0) {
-      Alert.alert('Hata', 'Lütfen en az bir kişi seçin.');
+      Alert.alert(tr('common.error'), tr('sendSnap.enAzBirKisi'));
       return;
     }
 
@@ -154,14 +156,14 @@ const SendSnapScreen = ({ route }: any) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        Alert.alert('Hata', 'Giriş yapmanız gerekiyor.');
+        Alert.alert(tr('common.error'), tr('sendSnap.girisGerekiyor'));
         return;
       }
 
       // Resmi yükle
       const imageUrl = await uploadImage(imageUri);
       if (!imageUrl) {
-        Alert.alert('Hata', 'Resim yüklenirken bir hata oluştu.');
+        Alert.alert(tr('common.error'), tr('sendSnap.resimYuklemeHatasi'));
         setUploading(false);
         return;
       }
@@ -173,7 +175,7 @@ const SendSnapScreen = ({ route }: any) => {
         if (!conversationId) return null;
 
         // Snap mesajı gönder
-        const messageContent = content.trim() || '📷 Snap';
+        const messageContent = content.trim() || `📷 ${tr('sendSnap.snap')}`;
         
         const { error } = await supabase
           .from('messages')
@@ -194,13 +196,13 @@ const SendSnapScreen = ({ route }: any) => {
       await Promise.all(messagePromises);
 
       Alert.alert(
-        'Başarılı', 
-        `Snap ${selectedRecipients.length} kişiye gönderildi!`,
-        [{ text: 'Tamam', onPress: () => navigation.goBack() }]
+        tr('sendSnap.basarili'),
+        tr('sendSnap.gonderildi', { count: selectedRecipients.length }),
+        [{ text: tr('sendSnap.tamam'), onPress: () => navigation.goBack() }]
       );
     } catch (error) {
       console.error('Send snap error:', error);
-      Alert.alert('Hata', 'Snap gönderilirken bir hata oluştu.');
+      Alert.alert(tr('common.error'), tr('sendSnap.gonderilirkenHata'));
     } finally {
       setUploading(false);
     }
@@ -219,7 +221,7 @@ const SendSnapScreen = ({ route }: any) => {
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <X color={SnapColors.white} size={28} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Snap Gönder</Text>
+          <Text style={styles.headerTitle}>{tr('sendSnap.title')}</Text>
           <TouchableOpacity
             onPress={() => setShowRecipientSelector(true)}
             style={styles.recipientsButton}
@@ -242,7 +244,7 @@ const SendSnapScreen = ({ route }: any) => {
           <View style={styles.modalBackdrop}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Kime Gönderilsin?</Text>
+                <Text style={styles.modalTitle}>{tr('sendSnap.kimeGonderilsin')}</Text>
                 <TouchableOpacity onPress={() => setShowRecipientSelector(false)}>
                   <X color={SnapColors.black} size={24} />
                 </TouchableOpacity>
@@ -253,13 +255,13 @@ const SendSnapScreen = ({ route }: any) => {
                   style={styles.actionButton}
                   onPress={selectAllUsers}
                 >
-                  <Text style={styles.actionButtonText}>Hepsini Seç</Text>
+                  <Text style={styles.actionButtonText}>{tr('sendSnap.hepsiniSec')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.actionButton}
                   onPress={clearAllUsers}
                 >
-                  <Text style={styles.actionButtonText}>Temizle</Text>
+                  <Text style={styles.actionButtonText}>{tr('sendSnap.temizle')}</Text>
                 </TouchableOpacity>
               </View>
 
@@ -289,7 +291,7 @@ const SendSnapScreen = ({ route }: any) => {
                 }}
                 ListEmptyComponent={
                   <View style={styles.emptyState}>
-                    <Text style={styles.emptyStateText}>Kullanıcı bulunamadı</Text>
+                    <Text style={styles.emptyStateText}>{tr('sendSnap.kullaniciBulunamadi')}</Text>
                   </View>
                 }
               />
@@ -300,7 +302,7 @@ const SendSnapScreen = ({ route }: any) => {
                 disabled={selectedRecipients.length === 0}
               >
                 <Text style={styles.doneButtonText}>
-                  Tamam ({selectedRecipients.length} kişi)
+                  {tr('sendSnap.tamamKisi', { count: selectedRecipients.length })}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -322,7 +324,7 @@ const SendSnapScreen = ({ route }: any) => {
             {/* Text Input */}
             <View style={styles.textInputContainer}>
               <TextInput
-                placeholder="Snap'ine bir şeyler ekle..."
+                placeholder={tr('sendSnap.birSeylerEkle')}
                 placeholderTextColor="rgba(255,255,255,0.5)"
                 multiline
                 value={content}
@@ -349,9 +351,9 @@ const SendSnapScreen = ({ route }: any) => {
               <>
                 <Send color={SnapColors.white} size={20} />
                 <Text style={styles.sendButtonText}>
-                  {selectedRecipients.length > 0 
-                    ? `${selectedRecipients.length} Kişiye Gönder` 
-                    : 'Kişi Seç'}
+                  {selectedRecipients.length > 0
+                    ? tr('sendSnap.kisiyeGonder', { count: selectedRecipients.length })
+                    : tr('sendSnap.kisiSec')}
                 </Text>
               </>
             )}

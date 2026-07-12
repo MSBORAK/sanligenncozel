@@ -70,6 +70,8 @@ import { useAppTheme } from '@/theme/useAppTheme';
 import { Clean } from '@/constants/Colors';
 import { Editorial } from '@/theme/colors';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
+import { useTranslation } from 'react-i18next';
+import i18n from '@/i18n';
 
 // ─────────────────────────────────────────────
 // TYPES
@@ -274,7 +276,7 @@ function getExpiryProgress(snap: SnapPost, referenceTime: Date = new Date()): nu
 /** Kalan süreyi "3sa 42dk" formatında gösterir */
 function formatTimeLeft(snap: SnapPost, referenceTime: Date = new Date()): string {
   const msLeft = snap.expires_at.getTime() - referenceTime.getTime();
-  if (msLeft <= 0) return 'Süre doldu';
+  if (msLeft <= 0) return i18n.t('chat.sureDoldu');
   const h = Math.floor(msLeft / 3600000);
   const m = Math.floor((msLeft % 3600000) / 60000);
   if (h > 0) return `${h}sa ${m}dk`;
@@ -900,7 +902,7 @@ function FeedView({
           {loading && (
             <View style={{ alignItems: 'center', paddingVertical: 12 }}>
               <ActivityIndicator size="small" color={accentColor} />
-              <Text style={{ color: theme.textSub, fontSize: 12, marginTop: 6 }}>Yükleniyor...</Text>
+              <Text style={{ color: theme.textSub, fontSize: 12, marginTop: 6 }}>{i18n.t('common.loading')}</Text>
             </View>
           )}
         </>
@@ -925,6 +927,7 @@ function FeedHeader({
   feedFilter: 'everyone' | 'friends';
   onFilterChange: (filter: 'everyone' | 'friends') => void;
 }) {
+  const { t: tr } = useTranslation();
   const txt1   = isDark ? Editorial.ink : Clean.textPrimary;
   const txt2   = isDark ? Editorial.coffeeSoft : Clean.textSecondary;
   const ctaBg  = isDark ? Editorial.coffee : Clean.ctaBg;
@@ -934,9 +937,9 @@ function FeedHeader({
 
   return (
     <View style={styles.feedHeaderContainer}>
-      <Text style={[styles.feedHeaderTitle, { color: txt1 }]}>Akış</Text>
+      <Text style={[styles.feedHeaderTitle, { color: txt1 }]}>{tr('socialFeed.akis')}</Text>
       <Text style={[styles.feedHeaderSub, { color: txt2 }]}>
-        {feedFilter === 'friends' ? 'Arkadaşlarının son 4 saati' : 'Herkesten son 4 saat'}
+        {feedFilter === 'friends' ? tr('socialFeed.arkadaslarinSonSaati') : tr('sosyalMain.herkesdenSonSaat')}
       </Text>
 
       <ScrollView
@@ -965,7 +968,7 @@ function FeedHeader({
                 fontSize: 14,
                 fontWeight: '600',
               }}>
-                {f === 'everyone' ? 'Herkes' : 'Arkadaşlar'}
+                {f === 'everyone' ? tr('sosyalMain.herkes') : tr('sosyalMain.arkadaslar')}
               </Text>
             </TouchableOpacity>
           );
@@ -992,6 +995,7 @@ function StreakStrip({
   onPressBuddy: () => void;
   loggedIn: boolean;
 }) {
+  const { t: tr } = useTranslation();
   const txt1    = isDark ? Editorial.ink : Clean.textPrimary;
   const txt2    = isDark ? Editorial.coffeeSoft : Clean.textSecondary;
   const chipBg  = isDark ? Editorial.chip : Clean.bgSoft;
@@ -1027,35 +1031,36 @@ function StreakStrip({
           </View>
           <View style={{ flex: 1 }}>
             <Text style={{ color: txt1, fontSize: 15, fontWeight: '800' }}>
-              {personal} gün zincir · en iyi {best}
+              {tr('sosyalMain.gunZincirEnIyi', { personal, best })}
             </Text>
             <Text style={{ color: txt2, fontSize: 12, marginTop: 2 }} numberOfLines={2}>
               {buddyLabel
-                ? `İkili: ${mutual} gün · ${buddyLabel}`
-                : 'İkili zincir için dokunup arkadaş seç'}
+                ? tr('sosyalMain.ikiliGun', { mutual, buddyLabel })
+                : tr('sosyalMain.ikiliZincirSec')}
             </Text>
           </View>
         </View>
-        <Text style={{ color: txt1, fontSize: 12, fontWeight: '700' }}>Düzenle</Text>
+        <Text style={{ color: txt1, fontSize: 12, fontWeight: '700' }}>{tr('sosyalMain.duzenle')}</Text>
       </View>
     </TouchableOpacity>
   );
 }
 
 function FeedEmpty({ isDark, onAddFriendPress }: { isDark: boolean; onAddFriendPress: () => void }) {
+  const { t: tr } = useTranslation();
   const txt1   = isDark ? Editorial.ink : Clean.textPrimary;
   const txt2   = isDark ? Editorial.coffeeSoft : Clean.textSecondary;
   const chipBg = isDark ? Editorial.chip : Clean.bgSoft;
   return (
     <View style={styles.emptyContainer}>
       <Users color={txt1} size={40} strokeWidth={1.5} />
-      <Text style={[styles.emptyTitle, { color: txt1 }]}>Henüz kıvılcım yok</Text>
+      <Text style={[styles.emptyTitle, { color: txt1 }]}>{tr('sosyalMain.henuzKivilcimYok')}</Text>
       <Text style={[styles.emptySub, { color: txt2 }]}>
-        Arkadaşlarını ekle ve anlık paylaşımlarını gör.
+        {tr('sosyalMain.arkadasEkleAciklama')}
       </Text>
       <TouchableOpacity style={[styles.emptyAddBtn, styles.emptyAddBlur, { backgroundColor: chipBg, borderWidth: 0 }]} activeOpacity={0.85} onPress={onAddFriendPress}>
         <UserPlus color={txt1} size={16} strokeWidth={2} />
-        <Text style={[styles.emptyAddText, { color: txt1 }]}>Arkadaş Ekle</Text>
+        <Text style={[styles.emptyAddText, { color: txt1 }]}>{tr('sosyalMain.arkadasEkle')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -1091,6 +1096,7 @@ function MessagesView({
   isSearching, searchResults, loading, currentUserId, formatMsgTime, onNavigateChat,
   onDeleteConversation, incomingRequests, onShowRequests,
 }: MessagesViewProps) {
+  const { t: tr } = useTranslation();
   const txt1    = isDark ? Editorial.ink : Clean.textPrimary;
   const txt2    = isDark ? Editorial.coffeeSoft : Clean.textSecondary;
   const cardBg  = isDark ? Editorial.surface : Clean.surface;
@@ -1105,10 +1111,10 @@ function MessagesView({
       activeOpacity={0.75}
       onPress={() => Alert.alert(
         user.name,
-        `@${user.username} ile mesajlaşmak için önce arkadaşlık isteği göndermelisin.`,
+        tr('sosyalMain.oncelikleArkadaslikIstegi', { username: user.username }),
         [
-          { text: 'İptal', style: 'cancel' },
-          { text: 'İstek Gönder', onPress: () => onNavigateChat(user.user_id, user.name, '', user.username) },
+          { text: tr('common.cancel'), style: 'cancel' },
+          { text: tr('sosyalMain.istekGonder'), onPress: () => onNavigateChat(user.user_id, user.name, '', user.username) },
         ]
       )}
     >
@@ -1141,12 +1147,12 @@ function MessagesView({
       )}
       onLongPress={() => {
         Alert.alert(
-          'Sohbeti Sil',
-          `${conv.other_user.name} ile olan tüm mesajlaşmayı silmek istediğine emin misin?`,
+          tr('sosyalMain.sohbetiSil'),
+          tr('sosyalMain.sohbetiSilOnay', { name: conv.other_user.name }),
           [
-            { text: 'İptal', style: 'cancel' },
+            { text: tr('common.cancel'), style: 'cancel' },
             {
-              text: 'Sil',
+              text: tr('chat.sil'),
               style: 'destructive',
               onPress: () => onDeleteConversation(conv.conversation_id),
             },
@@ -1167,8 +1173,8 @@ function MessagesView({
       <View style={styles.msgInfo}>
         <Text style={[styles.msgName, { color: txt1 }]}>{conv.other_user.name}</Text>
         <Text style={[styles.msgSub, { color: txt2 }]} numberOfLines={1}>
-          {conv.last_message?.sender_id === currentUserId ? 'Sen: ' : ''}
-          {conv.last_message?.content || 'Henüz mesaj yok'}
+          {conv.last_message?.sender_id === currentUserId ? `${tr('sosyalMain.sen')}: ` : ''}
+          {conv.last_message?.content || tr('sosyalMain.henuzMesajYok')}
         </Text>
       </View>
       <View style={styles.msgMeta}>
@@ -1199,10 +1205,10 @@ function MessagesView({
             <Text style={styles.requestsBadgeText}>{incomingRequests.length}</Text>
           </View>
           <Text style={[styles.requestsBannerText, { color: txt1 }]}>
-            Arkadaşlık İsteği
+            {tr('sosyalMain.arkadaslikIstegi')}
           </Text>
           <Text style={[styles.requestsBannerSub, { color: txt2 }]}>
-            {incomingRequests[0]?.sender_profile?.name} {incomingRequests.length > 1 ? `ve ${incomingRequests.length - 1} kişi daha` : ''} seni eklemek istiyor
+            {incomingRequests[0]?.sender_profile?.name} {incomingRequests.length > 1 ? tr('sosyalMain.veKisiDaha', { count: incomingRequests.length - 1 }) : ''} {tr('sosyalMain.seniEklemekIstiyor')}
           </Text>
         </TouchableOpacity>
       )}
@@ -1212,7 +1218,7 @@ function MessagesView({
         <Search color={txt2} size={16} strokeWidth={2} />
         <TextInput
           style={[styles.msgsSearchInput, { color: txt1 }]}
-          placeholder="Kullanıcı ara..."
+          placeholder={tr('sosyalMain.kullaniciAra')}
           placeholderTextColor={txt2}
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -1232,29 +1238,29 @@ function MessagesView({
         ) : isSearching ? (
           <>
             <Text style={[styles.msgsSectionTitle, { color: txt2 }]}>
-              {searchResults.length} kullanıcı
+              {tr('sosyalMain.kullaniciSayisi', { count: searchResults.length })}
             </Text>
             {searchResults.length > 0
               ? searchResults.map(renderUserItem)
               : (
                 <View style={styles.msgsEmpty}>
                   <Search color={txt2} size={36} strokeWidth={1.5} />
-                  <Text style={[styles.msgsEmptyText, { color: txt2 }]}>Kullanıcı bulunamadı</Text>
+                  <Text style={[styles.msgsEmptyText, { color: txt2 }]}>{tr('sendSnap.kullaniciBulunamadi')}</Text>
                 </View>
               )
             }
           </>
         ) : conversations.length > 0 ? (
           <>
-            <Text style={[styles.msgsSectionTitle, { color: txt2 }]}>MESAJLAR</Text>
+            <Text style={[styles.msgsSectionTitle, { color: txt2 }]}>{tr('sosyalMain.mesajlar')}</Text>
             {conversations.map(renderConvItem)}
           </>
         ) : (
           <View style={styles.msgsEmpty}>
             <MessageCircle color={txt2} size={44} strokeWidth={1.5} />
-            <Text style={[styles.msgsEmptyText, { color: txt2 }]}>Henüz mesaj yok</Text>
+            <Text style={[styles.msgsEmptyText, { color: txt2 }]}>{tr('sosyalMain.henuzMesajYok')}</Text>
             <Text style={[styles.msgsEmptyHint, { color: txt2 }]}>
-              Arkadaşlarını aramak için yukarıdaki arama çubuğunu kullan
+              {tr('sosyalMain.arkadaslariAramakIcin')}
             </Text>
           </View>
         )}
@@ -1274,6 +1280,7 @@ interface UserSnapMarker {
 }
 
 function RadarView() {
+  const { t: tr } = useTranslation();
   const t = useAppTheme();
   const isDark = t.isDark;
   const txt1    = t.txt1;
@@ -1503,7 +1510,7 @@ function RadarView() {
         <View pointerEvents="none" style={{ position: 'absolute', top: '40%', left: 0, right: 0, alignItems: 'center' }}>
           <View style={{ backgroundColor: cardBg, borderRadius: 16, paddingHorizontal: 20, paddingVertical: 12 }}>
             <Text style={{ color: txt2, fontSize: 13, textAlign: 'center' }}>
-              Henüz bu bölgede paylaşım yok
+              {tr('sosyalMain.buBolgedePaylasimYok')}
             </Text>
           </View>
         </View>
@@ -1515,9 +1522,9 @@ function RadarView() {
           <View style={{ width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: chipBg }}>
             <Radio color={txt1} size={15} strokeWidth={2.2} />
           </View>
-          <Text style={[styles.radarHeaderText, { color: txt1 }]}>Şehir Radarı</Text>
+          <Text style={[styles.radarHeaderText, { color: txt1 }]}>{tr('socialFeed.sehirRadari')}</Text>
           <View style={[styles.radarLiveDot, { backgroundColor: amber }]} />
-          <Text style={[styles.radarLiveText, { color: txt1 }]}>CANLI</Text>
+          <Text style={[styles.radarLiveText, { color: txt1 }]}>{tr('socialFeed.canli')}</Text>
           {loading && <ActivityIndicator size="small" color={txt1} style={{ marginLeft: 6 }} />}
         </View>
       </View>
@@ -1526,12 +1533,12 @@ function RadarView() {
       <View style={[styles.radarLegendOuter, cardOuterShadow, { overflow: 'visible' }]}>
         <View style={[styles.radarLegendBlur, isDark ? cardBorderDark : cardBorderLight, { backgroundColor: cardBg }]}>
           <Text style={[styles.radarLegendTitle, { color: txt1 }]}>
-            Son 4 saatteki hareketlilik
-            {activeCount > 0 ? ` · ${activeCount} paylaşım` : ''}
+            {tr('socialFeed.sonHareketlilik')}
+            {activeCount > 0 ? ` · ${tr('sosyalMain.paylasimSayisi', { count: activeCount })}` : ''}
           </Text>
           {districtSummary ? (
             <Text style={[styles.radarLegendNote, { color: txt2, marginBottom: 6 }]}>
-              En hareketli bölgeler: {districtSummary}
+              {tr('sosyalMain.enHareketliBolgeler')}: {districtSummary}
             </Text>
           ) : null}
           <View style={styles.radarLegendBar}>
@@ -1542,13 +1549,13 @@ function RadarView() {
               style={styles.radarLegendGradient}
             />
             <View style={styles.radarLegendLabels}>
-              <Text style={[styles.radarLegendLabel, { color: txt2 }]}>Sakin</Text>
-              <Text style={[styles.radarLegendLabel, { color: txt2 }]}>Orta</Text>
-              <Text style={[styles.radarLegendLabel, { color: txt2 }]}>Yoğun</Text>
+              <Text style={[styles.radarLegendLabel, { color: txt2 }]}>{tr('sosyalMain.sakin')}</Text>
+              <Text style={[styles.radarLegendLabel, { color: txt2 }]}>{tr('sosyalMain.orta')}</Text>
+              <Text style={[styles.radarLegendLabel, { color: txt2 }]}>{tr('sosyalMain.yogun')}</Text>
             </View>
           </View>
           <Text style={[styles.radarLegendNote, { color: txt2 }]}>
-            Bireyler değil, bölgeler gösteriliyor. Kimlik bilgisi paylaşılmaz.
+            {tr('sosyalMain.bireylerDegilBolgeler')}
           </Text>
         </View>
       </View>
@@ -1564,6 +1571,7 @@ type Tab = 'feed' | 'messages';
 
 export default function SosyalScreen() {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+  const { t: tr } = useTranslation();
   const t = useAppTheme();
   const { profile } = useUser();
   const isDark = t.isDark;
@@ -1968,7 +1976,7 @@ export default function SosyalScreen() {
           userId: post.user_id,
           user: {
             id: post.user_id,
-            name: prof?.name ?? 'Kullanıcı',
+            name: prof?.name ?? tr('common.kullanici'),
             username: prof?.username ?? '',
             avatarColor: '#f59e0b',
             avatarUrl: prof?.avatar_url,
@@ -2011,15 +2019,15 @@ export default function SosyalScreen() {
       });
 
       // Gönderene "isteğin kabul edildi" bildirimi gönder
-      const myName = profile?.name || profile?.username || 'Biri';
+      const myName = profile?.name || profile?.username || tr('sosyalMain.biri');
       notify.friendAccepted(senderId, myName).catch(() => {});
 
       await fetchIncomingRequests(userId);
       await fetchConversations(userId);
       await fetchFriends(userId);
-      Alert.alert('Arkadaş Eklendi! 🎉', 'Artık mesajlaşabilir ve anlık görüntü atabilirsiniz.');
+      Alert.alert(tr('sosyalMain.arkadasEklendi'), tr('sosyalMain.artikMesajlasabilirsiniz'));
     } catch (e: any) {
-      Alert.alert('Hata', e.message);
+      Alert.alert(tr('common.error'), e.message);
     }
   };
 
@@ -2033,7 +2041,7 @@ export default function SosyalScreen() {
         .eq('id', requestId);
       await fetchIncomingRequests(userId);
     } catch (e: any) {
-      Alert.alert('Hata', e.message);
+      Alert.alert(tr('common.error'), e.message);
     }
   };
 
@@ -2051,7 +2059,7 @@ export default function SosyalScreen() {
       // Listeden kaldır
       setConversations(prev => prev.filter(c => c.conversation_id !== conversationId));
     } catch {
-      Alert.alert('Hata', 'Sohbet gizlenemedi.');
+      Alert.alert(tr('common.error'), tr('sosyalMain.sohbetGizlenemedi'));
     }
   }, [profile?.userId]);
 
@@ -2102,7 +2110,7 @@ export default function SosyalScreen() {
 
           return {
             conversation_id: convId,
-            other_user: profile || { user_id: otherParticipant.user_id, name: 'Kullanıcı', username: '' },
+            other_user: profile || { user_id: otherParticipant.user_id, name: tr('common.kullanici'), username: '' },
             last_message: lastMsgData || null,
             unread_count: unreadCount || 0,
           } as Conversation;
@@ -2127,7 +2135,7 @@ export default function SosyalScreen() {
     const now = new Date();
     const d = new Date(timestamp);
     const diffMins = Math.floor((now.getTime() - d.getTime()) / 60000);
-    if (diffMins < 1) return 'Şimdi';
+    if (diffMins < 1) return tr('weather.simdi');
     if (diffMins < 60) return `${diffMins}d`;
     const diffH = Math.floor(diffMins / 60);
     if (diffH < 24) return `${diffH}s`;
@@ -2189,7 +2197,7 @@ export default function SosyalScreen() {
     if (!isRecordingVideo) {
       const mic = microphonePermission ?? await requestMicrophonePermission();
       if (!mic?.granted) {
-        Alert.alert('Mikrofon', 'Video kıvılcımı için mikrofon iznine ihtiyaç var.');
+        Alert.alert(tr('sosyalMain.mikrofon'), tr('sosyalMain.mikrofonIzniAciklama'));
         return;
       }
       try {
@@ -2200,7 +2208,7 @@ export default function SosyalScreen() {
         setIsRecordingVideo(true);
       } catch (e: any) {
         recordingPromiseRef.current = null;
-        Alert.alert('Video', e?.message ?? 'Kayıt başlatılamadı.');
+        Alert.alert(tr('sosyalMain.video'), e?.message ?? tr('sosyalMain.kayitBaslatilamadi'));
       } finally {
         setCameraBusy(false);
       }
@@ -2217,7 +2225,7 @@ export default function SosyalScreen() {
         setCapturedIsVideo(true);
         setCapturedPhotoUri(result.uri);
       } else {
-        Alert.alert('Video', 'Kayıt dosyası alınamadı.');
+        Alert.alert(tr('sosyalMain.video'), tr('sosyalMain.kayitDosyasiAlinamadi'));
       }
     } catch (e: any) {
       recordingPromiseRef.current = null;
@@ -2248,7 +2256,7 @@ export default function SosyalScreen() {
       const { data: { session } } = await supabase.auth.getSession();
       const authToken = session?.access_token;
       if (!authToken) {
-        Alert.alert('Oturum Hatası', 'Lütfen tekrar giriş yap.');
+        Alert.alert(tr('sosyalMain.oturumHatasi'), tr('sosyalMain.lutfenTekrarGiris'));
         return;
       }
 
@@ -2260,12 +2268,12 @@ export default function SosyalScreen() {
 
       const fetchResp = await fetch(mediaUri);
       if (!fetchResp.ok) {
-        Alert.alert('Dosya Hatası', `Medya okunamadı: ${fetchResp.status}`);
+        Alert.alert(tr('sosyalMain.dosyaHatasi'), `${tr('sosyalMain.medyaOkunamadi')}: ${fetchResp.status}`);
         return;
       }
       const blob = await fetchResp.blob();
       if (blob.size === 0) {
-        Alert.alert('Dosya Hatası', 'Dosya boş geldi.');
+        Alert.alert(tr('sosyalMain.dosyaHatasi'), tr('sosyalMain.dosyaBosGeldi'));
         return;
       }
 
@@ -2282,7 +2290,7 @@ export default function SosyalScreen() {
 
       if (!uploadResp.ok) {
         const errText = await uploadResp.text();
-        Alert.alert('Yükleme Hatası', `${uploadResp.status}: ${errText}`);
+        Alert.alert(tr('sosyalProfile.yuklemeHatasi'), `${uploadResp.status}: ${errText}`);
         return;
       }
 
@@ -2331,7 +2339,7 @@ export default function SosyalScreen() {
       const { error: insertError } = await supabase.from('social_posts').insert(row);
 
       if (insertError) {
-        Alert.alert('Kayıt Hatası', insertError.message);
+        Alert.alert(tr('sosyalMain.kayitHatasi'), insertError.message);
         return;
       }
 
@@ -2359,7 +2367,7 @@ export default function SosyalScreen() {
       );
 
       // 7. Arkadaşlara bildirim (grup veya tümü)
-      const myName = profile?.name || profile?.username || 'Biri';
+      const myName = profile?.name || profile?.username || tr('sosyalMain.biri');
       const targets =
         recipientIds && recipientIds.length >= GROUP_KIVILCIM_MIN
           ? recipientIds.slice(0, GROUP_KIVILCIM_MAX)
@@ -2373,20 +2381,20 @@ export default function SosyalScreen() {
         }
       });
     } catch (e: any) {
-      Alert.alert('Beklenmeyen Hata', e?.message ?? 'Kıvılcım kaydedilemedi.');
+      Alert.alert(tr('sosyalMain.beklenmeyenHata'), e?.message ?? tr('sosyalMain.kivilcimKaydedilemedi'));
     }
   }, [profile, loadStreakData]);
 
   const handleConfirmPhoto = useCallback(async () => {
     if (!capturedPhotoUri) {
-      Alert.alert('Hata', 'Medya bulunamadı.');
+      Alert.alert(tr('common.error'), tr('sosyalMain.medyaBulunamadi'));
       return;
     }
     if (!profile?.userId) {
       Alert.alert(
-        'Giriş Gerekiyor',
-        'Kıvılcım paylaşmak için ŞanlıSosyal hesabınla giriş yapman gerekiyor.',
-        [{ text: 'Tamam', style: 'default' }]
+        tr('sosyalMain.girisGerekiyor'),
+        tr('sosyalMain.kivilcimPaylasmakIcinGiris'),
+        [{ text: tr('sendSnap.tamam'), style: 'default' }]
       );
       return;
     }
@@ -2399,15 +2407,15 @@ export default function SosyalScreen() {
     if (snapGroupMode) {
       if (friends.length < GROUP_KIVILCIM_MIN) {
         Alert.alert(
-          'Grup kıvılcımı',
-          `Grup kıvılcımı için en az ${GROUP_KIVILCIM_MIN} arkadaşın olmalı.`,
+          tr('sosyalMain.grupKivilcimi'),
+          tr('sosyalMain.grupKivilcimiEnAz', { count: GROUP_KIVILCIM_MIN }),
         );
         return;
       }
       if (groupRecipientIds.length < GROUP_KIVILCIM_MIN) {
         Alert.alert(
-          'Grup kıvılcımı',
-          `En az ${GROUP_KIVILCIM_MIN}, en fazla ${GROUP_KIVILCIM_MAX} arkadaş seç.`,
+          tr('sosyalMain.grupKivilcimi'),
+          tr('sosyalMain.enAzEnFazlaArkadas', { min: GROUP_KIVILCIM_MIN, max: GROUP_KIVILCIM_MAX }),
         );
         return;
       }
@@ -2501,9 +2509,9 @@ export default function SosyalScreen() {
 
       if (existing) {
         if (existing.status === 'accepted') {
-          Alert.alert('Zaten Arkadaşsınız', `${selectedUser.name || selectedUser.username} ile zaten arkadaşsınız.`);
+          Alert.alert(tr('sosyalMain.zatenArkadassiniz'), tr('sosyalMain.ileZatenArkadassiniz', { name: selectedUser.name || selectedUser.username }));
         } else if (existing.status === 'pending') {
-          Alert.alert('İstek Gönderildi', `${selectedUser.name || selectedUser.username} kullanıcısına zaten istek gönderilmiş, onay bekleniyor.`);
+          Alert.alert(tr('sosyalMain.istekGonderildi'), tr('sosyalMain.zatenIstekGonderilmis', { name: selectedUser.name || selectedUser.username }));
         }
         return;
       }
@@ -2516,15 +2524,15 @@ export default function SosyalScreen() {
       if (insertError) throw insertError;
 
       // Alıcıya bildirim gönder
-      const myName = profile?.name || profile?.username || 'Biri';
+      const myName = profile?.name || profile?.username || tr('sosyalMain.biri');
       notify.friendRequest(selectedUser.user_id, myName).catch(() => {});
 
       setFriendPhone('');
       setFriendSearchResults([]);
       setFriendModalVisible(false);
-      Alert.alert('İstek Gönderildi! 🎉', `${selectedUser.name || selectedUser.username} kullanıcısına arkadaşlık isteği gönderildi. Kabul edince mesajlaşabilirsiniz.`);
+      Alert.alert(tr('sosyalMain.istekGonderildiUnlem'), tr('sosyalMain.arkadaslikIstegiGonderildi', { name: selectedUser.name || selectedUser.username }));
     } catch (e: any) {
-      Alert.alert('Hata', e.message || 'Bir hata oluştu.');
+      Alert.alert(tr('common.error'), e.message || tr('sosyalMain.birHataOlustu'));
     }
   }, [profile, currentUserId]);
 
@@ -2535,9 +2543,9 @@ export default function SosyalScreen() {
     // QR format: sanligencsosyal://add/<username>
     const match = qrData.match(/sanligencsosyal:\/\/add\/(.+)/);
     if (!match) {
-      Alert.alert('Geçersiz QR', 'Bu QR kodu ŞanlıSosyal\'e ait değil.', [
-        { text: 'Tekrar Dene', onPress: () => setQrScanned(false) },
-        { text: 'Kapat', onPress: () => { setQrScanVisible(false); setQrScanned(false); } },
+      Alert.alert(tr('sosyalMain.gecersizQr'), tr('sosyalMain.qrAitDegil'), [
+        { text: tr('sosyalMain.tekrarDene'), onPress: () => setQrScanned(false) },
+        { text: tr('sosyalMain.kapat'), onPress: () => { setQrScanVisible(false); setQrScanned(false); } },
       ]);
       return;
     }
@@ -2553,7 +2561,7 @@ export default function SosyalScreen() {
         .single();
 
       if (error || !data) {
-        Alert.alert('Bulunamadı', 'Bu QR koduna ait kullanıcı bulunamadı.');
+        Alert.alert(tr('sosyalMain.bulunamadi'), tr('sosyalMain.qrKullaniciBulunamadi'));
         setQrScanned(false);
         return;
       }
@@ -2561,7 +2569,7 @@ export default function SosyalScreen() {
       const userId = profile?.userId;
       if (!userId) { setQrScanned(false); return; }
       if (data.user_id === userId) {
-        Alert.alert('Bu senin QR kodun!', 'Kendi QR kodunu okutamazsın.');
+        Alert.alert(tr('sosyalMain.buSeninQrKodun'), tr('sosyalMain.kendiQrKoduOkutamaz'));
         setQrScanned(false);
         return;
       }
@@ -2574,9 +2582,9 @@ export default function SosyalScreen() {
 
       if (existing) {
         if (existing.status === 'accepted') {
-          Alert.alert('Zaten Arkadaşsınız', `@${data.username} ile zaten arkadaşsınız.`);
+          Alert.alert(tr('sosyalMain.zatenArkadassiniz'), tr('sosyalMain.ileZatenArkadassiniz', { name: `@${data.username}` }));
         } else {
-          Alert.alert('İstek Mevcut', `@${data.username} kullanıcısına zaten istek gönderilmiş.`);
+          Alert.alert(tr('sosyalMain.istekMevcut'), tr('sosyalMain.zatenIstekGonderilmis', { name: `@${data.username}` }));
         }
         setQrScanned(false);
         return;
@@ -2589,12 +2597,12 @@ export default function SosyalScreen() {
       if (insertError) throw insertError;
 
       // Alıcıya bildirim gönder
-      const myName = profile?.name || profile?.username || 'Biri';
+      const myName = profile?.name || profile?.username || tr('sosyalMain.biri');
       notify.friendRequest(data.user_id, myName).catch(() => {});
 
-      Alert.alert('İstek Gönderildi! 🎉', `@${data.username} kullanıcısına arkadaşlık isteği gönderildi.`);
+      Alert.alert(tr('sosyalMain.istekGonderildiUnlem'), tr('sosyalMain.arkadaslikIstegiGonderildi', { name: `@${data.username}` }));
     } catch (e: any) {
-      Alert.alert('Hata', e.message || 'Bir hata oluştu.');
+      Alert.alert(tr('common.error'), e.message || tr('sosyalMain.birHataOlustu'));
     } finally {
       setQrScanned(false);
     }
@@ -2625,7 +2633,7 @@ export default function SosyalScreen() {
         /schema cache|could not find|column/i.test(msg)
           ? '\n\nSupabase SQL Editor’da database/14_streak_and_group_snap.sql dosyasını çalıştırın. Sonra Dashboard → Project Settings → Data API → Reload schema (veya birkaç dakika bekleyin).'
           : '';
-      Alert.alert('Hata', (msg || 'Kaydedilemedi.') + schemaHint);
+      Alert.alert(tr('common.error'), (msg || tr('sosyalMain.kaydedilemedi')) + schemaHint);
     }
   }, [profile?.userId, streakBuddyPickId, loadStreakData]);
 
@@ -2676,10 +2684,10 @@ export default function SosyalScreen() {
         : '';
       /** Mesajda hangi kıvılcıma tepki verildiği net görünsün */
       const snapRefBlock =
-        `Hangisi: ${who} kıvılcımı\n📅 ${timeStr}${locPart}`;
+        `${tr('sosyalMain.hangisi')}: ${who} ${tr('sosyalProfile.kivilcim').toLowerCase()}\n📅 ${timeStr}${locPart}`;
       const messageContent = isQuickReaction
-        ? `Tepki: ${trimmed}\n────────\n${snapRefBlock}`
-        : `Yanıt: ${trimmed}\n────────\n${snapRefBlock}`;
+        ? `${tr('sosyalMain.tepki')}: ${trimmed}\n────────\n${snapRefBlock}`
+        : `${tr('chat.yanitlaniyor')}: ${trimmed}\n────────\n${snapRefBlock}`;
 
       // Konuşmayı bul veya oluştur
       const { data: convData } = await supabase.rpc('get_or_create_conversation', {
@@ -2687,7 +2695,7 @@ export default function SosyalScreen() {
         user2_id: recipientId,
       });
       const convId = convData;
-      if (!convId) throw new Error('Konuşma oluşturulamadı');
+      if (!convId) throw new Error(tr('sosyalMain.konusmaOlusturulamadi'));
 
       // Önizleme: sadece kalıcı URL (Supabase); file:// karşı tarafa gitmez
       const previewUrl =
@@ -2707,7 +2715,7 @@ export default function SosyalScreen() {
       // Snap'i kapat
       handleCloseSnapViewer();
     } catch {
-      Alert.alert('Hata', 'Yanıt gönderilemedi.');
+      Alert.alert(tr('common.error'), tr('sosyalMain.yanitGonderilemedi'));
     } finally {
       setSnapReplySending(false);
     }
@@ -2753,9 +2761,9 @@ export default function SosyalScreen() {
               )}
             </View>
             <View>
-              <Text style={[styles.headerTitle, { color: txt1 }]}>Kıvılcım</Text>
+              <Text style={[styles.headerTitle, { color: txt1 }]}>{tr('sosyalProfile.kivilcim')}</Text>
               <Text style={[styles.headerSub, { color: txt2 }]}>
-                {profile?.username ? `@${profile.username}` : 'Anlık · Doğal · Geçici'}
+                {profile?.username ? `@${profile.username}` : tr('sosyalMain.anlikDogalGecici')}
               </Text>
             </View>
           </TouchableOpacity>
@@ -2843,7 +2851,7 @@ export default function SosyalScreen() {
             color={activeTab === 'feed' ? amber : txt2}
           />
           <Text style={[styles.sosyalBottomLabel, { color: activeTab === 'feed' ? txt1 : txt2, fontWeight: activeTab === 'feed' ? '700' : '500' }]}>
-            Akış
+            {tr('socialFeed.akis')}
           </Text>
         </TouchableOpacity>
 
@@ -2858,7 +2866,7 @@ export default function SosyalScreen() {
               <Camera color={ctaTxt} size={26} strokeWidth={2} />
             </View>
           </TouchableOpacity>
-          <Text style={[styles.sosyalOrbLabel, { color: txt2 }]}>Çek</Text>
+          <Text style={[styles.sosyalOrbLabel, { color: txt2 }]}>{tr('sosyalMain.cek')}</Text>
         </View>
 
         {/* Mesajlar */}
@@ -2878,7 +2886,7 @@ export default function SosyalScreen() {
             )}
           </View>
           <Text style={[styles.sosyalBottomLabel, { color: activeTab === 'messages' ? txt1 : txt2, fontWeight: activeTab === 'messages' ? '700' : '500' }]}>
-            Mesajlar
+            {tr('sosyalMain.mesajlar')}
           </Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -2897,7 +2905,7 @@ export default function SosyalScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Radio size={18} color={txt1} strokeWidth={2} />
-                <Text style={{ fontSize: 18, fontWeight: '800', color: txt1, letterSpacing: -0.4 }}>Şehir Radarı</Text>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: txt1, letterSpacing: -0.4 }}>{tr('socialFeed.sehirRadari')}</Text>
               </View>
               <TouchableOpacity
                 onPress={() => setRadarModalVisible(false)}
@@ -2938,12 +2946,12 @@ export default function SosyalScreen() {
             /* İzin ekranı */
             <View style={[styles.permissionState, { backgroundColor: '#000' }]}>
               <Camera color="#FF4500" size={52} strokeWidth={1.5} />
-              <Text style={[styles.permissionTitle, { color: '#fff' }]}>Kamera izni gerekiyor</Text>
+              <Text style={[styles.permissionTitle, { color: '#fff' }]}>{tr('sosyalMain.kameraIzniGerekiyor')}</Text>
               <Text style={[styles.permissionSub, { color: 'rgba(255,255,255,0.5)' }]}>
-                Anlık foto ve kısa video çekilir; galeriye erişilmez.
+                {tr('sosyalMain.kameraIzniAciklamaUzun')}
               </Text>
               <TouchableOpacity activeOpacity={0.85} style={styles.permissionButton} onPress={requestCameraPermission}>
-                <Text style={styles.permissionButtonText}>İzin Ver</Text>
+                <Text style={styles.permissionButtonText}>{tr('sosyalMain.izinVer')}</Text>
               </TouchableOpacity>
             </View>
           ) : capturedPhotoUri ? (
@@ -2980,7 +2988,7 @@ export default function SosyalScreen() {
                 >
                   <XIcon color="#fff" size={28} strokeWidth={2} />
                 </TouchableOpacity>
-                <Text style={styles.snapCameraTopTitle}>Önizleme</Text>
+                <Text style={styles.snapCameraTopTitle}>{tr('sosyalMain.onizleme')}</Text>
                 <View style={{ width: 44 }} />
               </View>
 
@@ -3002,15 +3010,15 @@ export default function SosyalScreen() {
                       borderColor: 'rgba(255,255,255,0.25)',
                     }}
                   >
-                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Tüm arkadaşlar</Text>
+                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>{tr('sosyalMain.tumArkadaslar')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     activeOpacity={0.85}
                     onPress={() => {
                       if (friends.length < GROUP_KIVILCIM_MIN) {
                         Alert.alert(
-                          'Grup kıvılcımı',
-                          `En az ${GROUP_KIVILCIM_MIN} arkadaşın olmalı.`,
+                          tr('sosyalMain.grupKivilcimi'),
+                          tr('sosyalMain.grupKivilcimiEnAz', { count: GROUP_KIVILCIM_MIN }),
                         );
                         return;
                       }
@@ -3026,7 +3034,7 @@ export default function SosyalScreen() {
                       borderColor: 'rgba(255,255,255,0.25)',
                     }}
                   >
-                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Grup (2–5)</Text>
+                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>{tr('sosyalMain.grupParantez')}</Text>
                   </TouchableOpacity>
                 </View>
                 {snapGroupMode && (
@@ -3036,18 +3044,18 @@ export default function SosyalScreen() {
                     style={{ marginBottom: 10 }}
                   >
                     <Text style={{ color: 'rgba(125,211,252,0.95)', fontSize: 13, fontWeight: '600', textAlign: 'center' }}>
-                      Kişi seç · {groupRecipientIds.length}/{GROUP_KIVILCIM_MAX} seçili (en az {GROUP_KIVILCIM_MIN})
+                      {tr('sosyalMain.kisiSecSayisi', { selected: groupRecipientIds.length, max: GROUP_KIVILCIM_MAX, min: GROUP_KIVILCIM_MIN })}
                     </Text>
                   </TouchableOpacity>
                 )}
-                <Text style={styles.snapCameraHint}>Kıvılcım at ya da tekrar çek</Text>
+                <Text style={styles.snapCameraHint}>{tr('sosyalMain.kivilcimAtYaTekrarCek')}</Text>
                 <View style={styles.snapCameraBottomRow}>
                   <TouchableOpacity
                     onPress={() => { setCapturedPhotoUri(null); setCapturedIsVideo(false); }}
                     style={styles.snapCameraRetakeBtn}
                     activeOpacity={0.85}
                   >
-                    <Text style={styles.snapCameraRetakeText}>Tekrar</Text>
+                    <Text style={styles.snapCameraRetakeText}>{tr('chat.tekrar')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={handleConfirmPhoto}
@@ -3055,7 +3063,7 @@ export default function SosyalScreen() {
                     activeOpacity={0.9}
                   >
                     <LinearGradient colors={['#CC3700', '#FF4500']} style={styles.snapCameraConfirmGrad}>
-                      <Text style={styles.snapCameraConfirmText}>Kıvılcım At ✦</Text>
+                      <Text style={styles.snapCameraConfirmText}>{tr('sosyalMain.kivilcimAt')} ✦</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                 </View>
@@ -3154,7 +3162,7 @@ export default function SosyalScreen() {
                     borderColor: 'rgba(255,255,255,0.3)',
                   }}
                 >
-                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Foto</Text>
+                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>{tr('sosyalMain.foto')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   activeOpacity={0.85}
@@ -3169,7 +3177,7 @@ export default function SosyalScreen() {
                     borderColor: 'rgba(255,255,255,0.3)',
                   }}
                 >
-                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Video</Text>
+                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>{tr('sosyalMain.video')}</Text>
                 </TouchableOpacity>
               </View>
 
@@ -3202,7 +3210,7 @@ export default function SosyalScreen() {
                   }
                   {flashMode !== 'off' && (
                     <Text style={{ color: '#FFD700', fontSize: 8, fontWeight: '800', marginTop: 1 }}>
-                      {flashMode === 'auto' ? 'OTO' : 'AÇIK'}
+                      {flashMode === 'auto' ? tr('sosyalMain.oto') : tr('sosyalMain.acik')}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -3292,8 +3300,8 @@ export default function SosyalScreen() {
               <View style={[styles.snapCameraMidHint, { bottom: insets.bottom + 130, zIndex: 12 }]} pointerEvents="none">
                 <Text style={styles.snapCameraTimerBadge}>
                   {cameraCaptureMode === 'video'
-                    ? (isRecordingVideo ? '● Kayıt… · durmak için tekrar dokun' : 'Video · başlatmak için dokun · en fazla 60 sn')
-                    : '⏱ 4 saat · Anlık çekim'}
+                    ? (isRecordingVideo ? tr('sosyalMain.kayitDurdurmakIcin') : tr('sosyalMain.videoBaslatmakIcin'))
+                    : tr('sosyalMain.anlikCekimSaat')}
                 </Text>
                 {cameraCaptureMode === 'photo' && cameraZoom > 0.02 && (
                   <View style={styles.zoomBadge}>
@@ -3312,7 +3320,7 @@ export default function SosyalScreen() {
                     activeOpacity={0.8}
                   >
                     <Users color="rgba(255,255,255,0.85)" size={26} strokeWidth={1.8} />
-                    <Text style={styles.snapCameraSideLbl}>Akış</Text>
+                    <Text style={styles.snapCameraSideLbl}>{tr('socialFeed.akis')}</Text>
                   </TouchableOpacity>
 
                   {/* Orta: Foto shutter veya Video kayıt */}
@@ -3350,7 +3358,7 @@ export default function SosyalScreen() {
                     activeOpacity={0.8}
                   >
                     <MessageCircle color="rgba(255,255,255,0.85)" size={26} strokeWidth={1.8} />
-                    <Text style={styles.snapCameraSideLbl}>Mesajlar</Text>
+                    <Text style={styles.snapCameraSideLbl}>{tr('sosyalMain.mesajlar')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -3424,7 +3432,7 @@ export default function SosyalScreen() {
                       <View style={styles.snapReplyRow}>
                         <TextInput
                           style={styles.snapReplyInput}
-                          placeholder="Kıvılcıma yanıt yaz..."
+                          placeholder={tr('sosyalMain.kivilcimaYanitYaz')}
                           placeholderTextColor="rgba(255,255,255,0.45)"
                           value={snapReplyText}
                           onChangeText={setSnapReplyText}
@@ -3440,12 +3448,12 @@ export default function SosyalScreen() {
                         >
                           {snapReplySending
                             ? <ActivityIndicator size="small" color="#fff" />
-                            : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Gönder</Text>
+                            : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>{tr('common.send')}</Text>
                           }
                         </TouchableOpacity>
                       </View>
                     ) : (
-                      <Text style={styles.snapViewerNote}>Kendi kıvılcımın — 4 saat sonra silinir.</Text>
+                      <Text style={styles.snapViewerNote}>{tr('sosyalMain.kendiKivilciminNot')}</Text>
                     )}
                   </>
                 )}
@@ -3461,13 +3469,13 @@ export default function SosyalScreen() {
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setGroupPickModalVisible(false)} />
           <View style={[styles.friendModalCard, { backgroundColor: theme.surfaceHi, borderColor: theme.border, maxHeight: '72%' }]}>
             <View style={styles.friendModalHeader}>
-              <Text style={[styles.friendModalTitle, { color: theme.text }]}>Grup kıvılcımı</Text>
+              <Text style={[styles.friendModalTitle, { color: theme.text }]}>{tr('sosyalMain.grupKivilcimi')}</Text>
               <TouchableOpacity onPress={() => setGroupPickModalVisible(false)} style={styles.modalCloseBtn} activeOpacity={0.8}>
-                <Text style={styles.modalCloseText}>Tamam</Text>
+                <Text style={styles.modalCloseText}>{tr('sendSnap.tamam')}</Text>
               </TouchableOpacity>
             </View>
             <Text style={{ color: theme.textSub, fontSize: 13, marginBottom: 12, paddingHorizontal: 4 }}>
-              {GROUP_KIVILCIM_MIN}–{GROUP_KIVILCIM_MAX} kişi seç. Yalnızca seçilenler görür ve bildirim alır.
+              {tr('sosyalMain.kisiSecGorurBildirim', { min: GROUP_KIVILCIM_MIN, max: GROUP_KIVILCIM_MAX })}
             </Text>
             <ScrollView showsVerticalScrollIndicator={false}>
               {friends.map((f) => {
@@ -3518,13 +3526,13 @@ export default function SosyalScreen() {
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setStreakBuddyModalVisible(false)} />
           <View style={[styles.friendModalCard, { backgroundColor: theme.surfaceHi, borderColor: theme.border, maxHeight: '72%' }]}>
             <View style={styles.friendModalHeader}>
-              <Text style={[styles.friendModalTitle, { color: theme.text }]}>İkili zincir</Text>
+              <Text style={[styles.friendModalTitle, { color: theme.text }]}>{tr('sosyalMain.ikiliZincir')}</Text>
               <TouchableOpacity onPress={() => setStreakBuddyModalVisible(false)} style={styles.modalCloseBtn} activeOpacity={0.8}>
-                <Text style={styles.modalCloseText}>Kapat</Text>
+                <Text style={styles.modalCloseText}>{tr('sosyalMain.kapat')}</Text>
               </TouchableOpacity>
             </View>
             <Text style={{ color: theme.textSub, fontSize: 13, marginBottom: 12 }}>
-              Aynı gün içinde ikiniz de kıvılcım attığınız ardışık günler sayılır (İstanbul saati).
+              {tr('sosyalMain.ikiliZincirAciklama')}
             </Text>
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 320 }}>
               <TouchableOpacity
@@ -3532,7 +3540,7 @@ export default function SosyalScreen() {
                 onPress={() => setStreakBuddyPickId(null)}
                 style={[styles.msgItem, { borderColor: theme.border }]}
               >
-                <Text style={[styles.msgName, { color: theme.text, flex: 1 }]}>Kimse (sadece kişisel zincir)</Text>
+                <Text style={[styles.msgName, { color: theme.text, flex: 1 }]}>{tr('sosyalMain.kimseKisiselZincir')}</Text>
                 {!streakBuddyPickId && <Check color={isDark ? NIGHT.warm : LIGHT.accent} size={18} strokeWidth={2.5} />}
               </TouchableOpacity>
               {friends.map((f) => {
@@ -3560,7 +3568,7 @@ export default function SosyalScreen() {
             </ScrollView>
             <TouchableOpacity activeOpacity={0.9} style={[styles.friendActionBtn, { marginTop: 12 }]} onPress={saveStreakBuddy}>
               <LinearGradient colors={isDark ? ['#CC3700', '#FF4500'] : ['#FF6B35', '#FF4500']} style={styles.friendActionGradient}>
-                <Text style={styles.friendActionText}>Kaydet</Text>
+                <Text style={styles.friendActionText}>{tr('sosyalMain.kaydet')}</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -3573,9 +3581,9 @@ export default function SosyalScreen() {
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setFriendModalVisible(false)} />
           <View style={[styles.friendModalCard, { backgroundColor: theme.surfaceHi, borderColor: theme.border }]}>
             <View style={styles.friendModalHeader}>
-              <Text style={[styles.friendModalTitle, { color: theme.text }]}>Arkadaş Ekle</Text>
+              <Text style={[styles.friendModalTitle, { color: theme.text }]}>{tr('sosyalMain.arkadasEkle')}</Text>
               <TouchableOpacity onPress={() => setFriendModalVisible(false)} style={styles.modalCloseBtn} activeOpacity={0.8}>
-                <Text style={styles.modalCloseText}>Kapat</Text>
+                <Text style={styles.modalCloseText}>{tr('sosyalMain.kapat')}</Text>
               </TouchableOpacity>
             </View>
             {/* QR butonları — yan yana */}
@@ -3592,8 +3600,8 @@ export default function SosyalScreen() {
                 >
                   <QrCode color="#fff" size={22} strokeWidth={2} />
                 </LinearGradient>
-                <Text style={[styles.friendQrCode, { color: theme.text, fontSize: 13 }]}>QR Göster</Text>
-                <Text style={[styles.friendQrSub, { color: theme.textSub }]}>Arkadaşına tarat</Text>
+                <Text style={[styles.friendQrCode, { color: theme.text, fontSize: 13 }]}>{tr('sosyalMain.qrGoster')}</Text>
+                <Text style={[styles.friendQrSub, { color: theme.textSub }]}>{tr('sosyalMain.arkadasinaTarat')}</Text>
               </TouchableOpacity>
 
               {/* QR Okut */}
@@ -3608,14 +3616,14 @@ export default function SosyalScreen() {
                 >
                   <Camera color="#fff" size={22} strokeWidth={2} />
                 </LinearGradient>
-                <Text style={[styles.friendQrCode, { color: theme.text, fontSize: 13 }]}>QR Okut</Text>
-                <Text style={[styles.friendQrSub, { color: theme.textSub }]}>Arkadaşından tara</Text>
+                <Text style={[styles.friendQrCode, { color: theme.text, fontSize: 13 }]}>{tr('sosyalMain.qrOkut')}</Text>
+                <Text style={[styles.friendQrSub, { color: theme.textSub }]}>{tr('sosyalMain.arkadasindanTara')}</Text>
               </TouchableOpacity>
             </View>
             <TextInput
               value={friendPhone}
               onChangeText={handleSearchFriend}
-              placeholder="İsim veya kullanıcı adı ara..."
+              placeholder={tr('sosyalMain.isimVeyaKullaniciAdiAra')}
               placeholderTextColor={theme.textSub}
               keyboardType="default"
               autoCapitalize="none"
@@ -3657,28 +3665,28 @@ export default function SosyalScreen() {
             )}
             {!friendSearching && friendPhone.trim().length >= 2 && friendSearchResults.length === 0 && (
               <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-                <Text style={[styles.msgsEmptyText, { color: theme.textSub }]}>Kullanıcı bulunamadı</Text>
+                <Text style={[styles.msgsEmptyText, { color: theme.textSub }]}>{tr('sendSnap.kullaniciBulunamadi')}</Text>
               </View>
             )}
           </View>
         </KeyboardAvoidingView>
       </Modal>
-      
+
       {/* Arkadaşlık İstekleri Modalı */}
       <Modal visible={requestsModalVisible} animationType="slide" transparent onRequestClose={() => setRequestsModalVisible(false)}>
         <View style={styles.friendModalBackdrop}>
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setRequestsModalVisible(false)} />
           <View style={[styles.friendModalCard, { backgroundColor: theme.surfaceHi, borderColor: theme.border, maxHeight: '70%' }]}>
             <View style={styles.friendModalHeader}>
-              <Text style={[styles.friendModalTitle, { color: theme.text }]}>Arkadaşlık İstekleri</Text>
+              <Text style={[styles.friendModalTitle, { color: theme.text }]}>{tr('sosyalMain.arkadaslikIstekleri')}</Text>
               <TouchableOpacity onPress={() => setRequestsModalVisible(false)} style={styles.modalCloseBtn} activeOpacity={0.8}>
-                <Text style={styles.modalCloseText}>Kapat</Text>
+                <Text style={styles.modalCloseText}>{tr('sosyalMain.kapat')}</Text>
               </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
               {incomingRequests.length === 0 ? (
                 <View style={{ alignItems: 'center', paddingVertical: 32 }}>
-                  <Text style={[styles.msgsEmptyText, { color: theme.textSub }]}>Bekleyen istek yok</Text>
+                  <Text style={[styles.msgsEmptyText, { color: theme.textSub }]}>{tr('sosyalMain.bekleyenIstekYok')}</Text>
                 </View>
               ) : incomingRequests.map((req) => (
                 <View key={req.id} style={[styles.msgItem, { borderColor: theme.border }]}>
@@ -3688,7 +3696,7 @@ export default function SosyalScreen() {
                     </Text>
                   </View>
                   <View style={[styles.msgInfo, { flex: 1 }]}>
-                    <Text style={[styles.msgName, { color: theme.text }]}>{req.sender_profile?.name || 'Kullanıcı'}</Text>
+                    <Text style={[styles.msgName, { color: theme.text }]}>{req.sender_profile?.name || tr('common.kullanici')}</Text>
                     <Text style={[styles.msgSub, { color: theme.textSub }]}>@{req.sender_profile?.username || ''}</Text>
                   </View>
                   <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -3719,9 +3727,9 @@ export default function SosyalScreen() {
           <View style={[styles.friendModalCard, { backgroundColor: theme.surfaceHi, borderColor: theme.border, alignItems: 'center', paddingBottom: 28 }]}>
             {/* Başlık */}
             <View style={[styles.friendModalHeader, { width: '100%' }]}>
-              <Text style={[styles.friendModalTitle, { color: theme.text }]}>QR Kodum</Text>
+              <Text style={[styles.friendModalTitle, { color: theme.text }]}>{tr('sosyalMain.qrKodum')}</Text>
               <TouchableOpacity onPress={() => setQrModalVisible(false)} style={styles.modalCloseBtn} activeOpacity={0.8}>
-                <Text style={styles.modalCloseText}>Kapat</Text>
+                <Text style={styles.modalCloseText}>{tr('sosyalMain.kapat')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -3738,7 +3746,7 @@ export default function SosyalScreen() {
               elevation: 6,
             }}>
               <QRCode
-                value={`sanligencsosyal://add/${profile?.username || profile?.name || 'kullanici'}`}
+                value={`sanligencsosyal://add/${profile?.username || profile?.name || tr('common.kullanici').toLowerCase()}`}
                 size={200}
                 color="#0f172a"
                 backgroundColor="#ffffff"
@@ -3748,7 +3756,7 @@ export default function SosyalScreen() {
             {/* Kullanıcı adı */}
             <View style={{ alignItems: 'center', gap: 4 }}>
               <Text style={{ fontSize: 22, fontWeight: '800', color: theme.text, letterSpacing: 0.3 }}>
-                {profile?.name || 'İsimsiz'}
+                {profile?.name || tr('sosyalMain.isimsiz')}
               </Text>
               <View style={{
                 flexDirection: 'row',
@@ -3760,11 +3768,11 @@ export default function SosyalScreen() {
                 marginTop: 4,
               }}>
                 <Text style={{ fontSize: 15, fontWeight: '600', color: isDark ? NIGHT.warm : '#60a5fa' }}>
-                  @{profile?.username || 'kullanici'}
+                  @{profile?.username || tr('common.kullanici').toLowerCase()}
                 </Text>
               </View>
               <Text style={{ fontSize: 13, color: theme.textSub, marginTop: 10, textAlign: 'center' }}>
-                Bu kodu arkadaşına tarat — seni otomatik eklesin
+                {tr('sosyalMain.buKoduArkadasinaTarat')}
               </Text>
             </View>
           </View>
@@ -3784,9 +3792,9 @@ export default function SosyalScreen() {
           ) : (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
               <QrCode color="#38bdf8" size={52} strokeWidth={1.5} />
-              <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700' }}>Kamera izni gerekiyor</Text>
+              <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700' }}>{tr('sosyalMain.kameraIzniGerekiyor')}</Text>
               <TouchableOpacity onPress={requestCameraPermission} style={{ backgroundColor: '#0ea5e9', borderRadius: 16, paddingHorizontal: 24, paddingVertical: 12 }}>
-                <Text style={{ color: '#000', fontWeight: '700' }}>İzin Ver</Text>
+                <Text style={{ color: '#000', fontWeight: '700' }}>{tr('sosyalMain.izinVer')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -3823,7 +3831,7 @@ export default function SosyalScreen() {
               <XIcon color="#fff" size={24} strokeWidth={2} />
             </TouchableOpacity>
             <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 }}>
-              QR Kodu Tara
+              {tr('sosyalMain.qrKoduTara')}
             </Text>
             <View style={{ width: 44 }} />
           </View>
@@ -3831,8 +3839,8 @@ export default function SosyalScreen() {
           {/* Alt açıklama */}
           <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 20, paddingBottom: insets.bottom + 32, alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)', paddingTop: 20 }}>
             <QrCode color="#38bdf8" size={28} strokeWidth={1.8} />
-            <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600', marginTop: 10 }}>Arkadaşının QR kodunu çerçeveye getir</Text>
-            <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 13, marginTop: 4 }}>Otomatik tanınır ve istek gönderilir</Text>
+            <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600', marginTop: 10 }}>{tr('sosyalMain.qrKoduCerceveyeGetir')}</Text>
+            <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 13, marginTop: 4 }}>{tr('sosyalMain.otomatikTaninirIstekGonderilir')}</Text>
           </View>
         </View>
       </Modal>

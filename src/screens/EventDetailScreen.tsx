@@ -11,6 +11,7 @@ import {
   Dimensions,
   RefreshControl,
   Platform,
+  Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -23,12 +24,19 @@ import { useAppTheme } from '@/theme/useAppTheme';
 import { FontFamily } from '@/constants/Typography';
 import { supabase, processImageUrl } from '@/lib/supabase';
 import { cityFallback } from '@/lib/imageFallback';
+import { pickLocalized } from '@/lib/localizeContent';
+import { useTranslation } from 'react-i18next';
 
 const HERO_RATIO = 0.62;
 const RADIUS = 22;
 const { width: SCREEN_W } = Dimensions.get('window');
 const HERO_W = SCREEN_W - 32;
 const HERO_H = HERO_W * HERO_RATIO;
+const CATEGORY_TINTS: Record<string, { bg: string; border: string }> = {
+  Konser: { bg: 'rgba(236,72,153,0.2)', border: 'rgba(236,72,153,0.45)' },
+  Gezi: { bg: 'rgba(56,189,248,0.2)', border: 'rgba(56,189,248,0.45)' },
+  Spor: { bg: 'rgba(34,197,94,0.2)', border: 'rgba(34,197,94,0.45)' },
+};
 
 interface EventData {
   id: string;
@@ -46,6 +54,7 @@ type EventDetailScreenProps = StackScreenProps<RootStackParamList, 'EventDetail'
 const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation }) => {
   const { eventId } = route.params;
   const t = useAppTheme();
+  const { t: tr, i18n } = useTranslation();
   const { isDark, pageBg, cardBg, cardBdr, chipBg, txt1, txt2, ctaBg, ctaTxt } = t;
   const insets = useSafeAreaInsets();
 
@@ -69,7 +78,11 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation
           console.error('Etkinlik detayları çekilirken hata:', error);
           setEvent(null);
         } else if (data) {
-          setEvent(data as EventData);
+          setEvent({
+            ...(data as EventData),
+            baslik: pickLocalized(data, 'baslik', i18n.language),
+            aciklama: pickLocalized(data, 'aciklama', i18n.language),
+          });
         }
       } catch (e) {
         console.error('Etkinlik detayları beklenmedik hata:', e);
@@ -79,7 +92,7 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation
         setRefreshing(false);
       }
     },
-    [eventId]
+    [eventId, i18n.language]
   );
 
   useEffect(() => {
@@ -93,7 +106,7 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation
         <StatusBar style={isDark ? 'light' : 'dark'} />
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color={txt1} />
-          <Text style={[styles.loadingLabel, { color: txt2 }]}>Etkinlik yükleniyor…</Text>
+          <Text style={[styles.loadingLabel, { color: txt2 }]}>{tr('eventDetail.yukleniyor')}</Text>
         </View>
       </View>
     );
@@ -107,11 +120,11 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backIconBtn} hitSlop={12}>
             <ChevronLeft color={txt1} size={28} />
           </TouchableOpacity>
-          <Text style={[styles.simpleHeaderTitle, { color: txt1 }]}>Etkinlik bulunamadı</Text>
+          <Text style={[styles.simpleHeaderTitle, { color: txt1 }]}>{tr('eventDetail.bulunamadi')}</Text>
         </View>
         <View style={styles.emptyBody}>
           <Text style={[styles.emptyCopy, { color: txt2 }]}>
-            Bu etkinlik bulunamadı veya bir hata oluştu.
+            {tr('eventDetail.hataMetni')}
           </Text>
         </View>
       </View>
@@ -119,6 +132,27 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation
   }
 
   const imageUri = processImageUrl(event.resim_url, 'etkinlik_resimleri') || cityFallback(event.id);
+  const categoryTint = CATEGORY_TINTS[event.kategori] ?? {
+    bg: 'rgba(255,248,234,0.92)',
+    border: 'rgba(58,42,26,0.18)',
+  };
+  const openInMaps = async () => {
+    const query = encodeURIComponent(`${event.konum} Şanlıurfa`);
+    const googleAppUrl = `comgooglemaps://?q=${query}`;
+    const appleMapsUrl = `http://maps.apple.com/?q=${query}`;
+    const webUrl = `https://www.google.com/maps/search/?api=1&query=${query}`;
+    try {
+      const canOpenGoogle = await Linking.canOpenURL(googleAppUrl);
+      if (canOpenGoogle) {
+        await Linking.openURL(googleAppUrl);
+        return;
+      }
+      const canOpenApple = await Linking.canOpenURL(appleMapsUrl);
+      await Linking.openURL(canOpenApple ? appleMapsUrl : webUrl);
+    } catch {
+      await Linking.openURL(webUrl);
+    }
+  };
 
   return (
     <View style={[styles.screen, { backgroundColor: pageBg }]}>
@@ -174,7 +208,7 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation
             <ChevronLeft color="#ffffff" size={26} strokeWidth={2.2} />
           </TouchableOpacity>
 
-          <View style={styles.heroBadge}>
+          <View style={[styles.heroBadge, { backgroundColor: categoryTint.bg, borderColor: categoryTint.border }]}>
             <Text style={styles.heroBadgeText}>{event.kategori}</Text>
           </View>
           </ImageBackground>
@@ -185,22 +219,35 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation
             <View style={[styles.sheetHandle, { backgroundColor: cardBdr }]} />
           </View>
 
+          <Text style={[styles.eyebrow, { color: txt2 }]}>{tr('eventDetail.detay')}</Text>
           <Text style={[styles.title, { color: txt1 }]}>{event.baslik}</Text>
+
+          <View style={styles.summaryRow}>
+            <View style={[styles.summaryPill, { backgroundColor: chipBg, borderColor: t.border }]}>
+              <Tag color={t.accent} size={14} strokeWidth={2} />
+              <Text style={[styles.summaryPillText, { color: txt1 }]}>{event.kategori}</Text>
+            </View>
+            {event.saat ? (
+              <View style={[styles.summaryPill, { backgroundColor: chipBg, borderColor: t.border }]}>
+                <CalendarDays color={t.accent} size={14} strokeWidth={2} />
+                <Text style={[styles.summaryPillText, { color: txt1 }]}>{event.saat}</Text>
+              </View>
+            ) : null}
+          </View>
 
           <View style={[styles.bentoRow, { backgroundColor: chipBg, borderColor: t.border }]}>
             <CalendarDays color={t.accent} size={18} strokeWidth={2} />
-            <Text style={[styles.bentoText, { color: txt1 }]}>
-              {event.tarih}
-              {event.saat ? ` · ${event.saat}` : ''}
-            </Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.bentoLabel, { color: txt2 }]}>{tr('eventDetail.tarih')}</Text>
+              <Text style={[styles.bentoText, { color: txt1 }]}>{event.tarih}</Text>
+            </View>
           </View>
           <View style={[styles.bentoRow, { backgroundColor: chipBg, borderColor: t.border }]}>
             <MapPin color={t.accent} size={18} strokeWidth={2} />
-            <Text style={[styles.bentoText, { color: txt1 }]}>{event.konum}</Text>
-          </View>
-          <View style={[styles.bentoRow, { backgroundColor: chipBg, borderColor: t.border }]}>
-            <Tag color={t.accent} size={18} strokeWidth={2} />
-            <Text style={[styles.bentoText, { color: txt1 }]}>{event.kategori}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.bentoLabel, { color: txt2 }]}>{tr('eventDetail.konum')}</Text>
+              <Text style={[styles.bentoText, { color: txt1 }]}>{event.konum}</Text>
+            </View>
           </View>
 
           <View style={[styles.descCard, { backgroundColor: cardBg, borderColor: t.border }]}>
@@ -211,11 +258,20 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation
               style={StyleSheet.absoluteFill}
               pointerEvents="none"
             />
-            <Text style={[styles.descLabel, { color: txt2 }]}>Detay</Text>
+            <Text style={[styles.descLabel, { color: txt2 }]}>{tr('eventDetail.aciklamaBaslik')}</Text>
             <Text style={[styles.description, { color: txt2 }]}>
-              {event.aciklama?.trim() || 'Bu etkinlik için detaylı açıklama bulunmamaktadır.'}
+              {event.aciklama?.trim() || tr('eventDetail.aciklamaYok')}
             </Text>
           </View>
+
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={openInMaps}
+            style={[styles.mapCta, { backgroundColor: ctaBg }]}
+          >
+            <MapPin color={ctaTxt} size={16} strokeWidth={2} />
+            <Text style={[styles.mapCtaText, { color: ctaTxt }]}>{tr('eventDetail.haritadaAc')}</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
@@ -307,9 +363,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,248,234,0.92)',
     borderWidth: 1,
-    borderColor: 'rgba(58,42,26,0.18)',
   },
   heroBadgeText: {
     fontFamily: FontFamily.semiBold,
@@ -330,6 +384,12 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 8,
   },
+  eyebrow: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 11,
+    letterSpacing: 1.2,
+    marginBottom: 6,
+  },
   sheetHandleWrap: {
     alignItems: 'center',
     marginBottom: 10,
@@ -344,7 +404,26 @@ const styles = StyleSheet.create({
     fontSize: 24,
     letterSpacing: -0.35,
     lineHeight: 30,
-    marginBottom: 18,
+    marginBottom: 14,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+    marginBottom: 10,
+  },
+  summaryPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+  },
+  summaryPillText: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 12,
   },
   bentoRow: {
     flexDirection: 'row',
@@ -356,11 +435,16 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
   },
+  bentoLabel: {
+    fontFamily: FontFamily.medium,
+    fontSize: 11,
+    marginBottom: 2,
+  },
   bentoText: {
     flex: 1,
     fontFamily: FontFamily.medium,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14.5,
+    lineHeight: 21,
   },
   descCard: {
     marginTop: 8,
@@ -380,6 +464,20 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.regular,
     fontSize: 16,
     lineHeight: 26,
+  },
+  mapCta: {
+    marginTop: 14,
+    borderRadius: 14,
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  mapCtaText: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 14.5,
+    letterSpacing: 0.1,
   },
 });
 

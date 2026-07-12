@@ -21,8 +21,10 @@ import {
   QrCode,
   User,
 } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { Editorial } from '@/theme/colors';
+import { useThemeMode } from '@/context/ThemeContext';
 
 const ICONS = {
   Home,
@@ -35,15 +37,15 @@ const ICONS = {
   Profile: User,
 };
 
-const TAB_LABELS: Record<string, string> = {
-  Home: 'Ana Sayfa',
-  Transport: 'Ulaşım',
-  GencKart: 'Genç Kart',
-  HizliErisim: 'Hızlı Erişim',
-  Assistant: 'Asistan',
-  Profile: 'Profil',
-  Notifications: 'Bildirim',
-  Camera: 'Kamera',
+const TAB_LABEL_KEYS: Record<string, string> = {
+  Home: 'tabBar.home',
+  Transport: 'tabBar.transport',
+  GencKart: 'tabBar.gencKart',
+  HizliErisim: 'tabBar.hizliErisim',
+  Assistant: 'tabBar.assistant',
+  Profile: 'tabBar.profile',
+  Notifications: 'tabBar.notifications',
+  Camera: 'tabBar.camera',
 };
 
 type TabName =
@@ -107,6 +109,9 @@ const buildBarPath = (width: number, bumpCenterX: number) => {
 
 const CustomTabBar = (props: CustomTabBarProps) => {
   const theme = useAppTheme();
+  const { mode } = useThemeMode();
+  const isInverse = mode === 'inverse';
+  const isDarkMode = mode === 'dark';
   const isLegacy = isLegacyProps(props);
   const tabNames = isLegacy
     ? props.tabNames
@@ -184,18 +189,23 @@ const CustomTabBar = (props: CustomTabBarProps) => {
       <View style={[
         styles.barShadow,
         { top: BUMP_EXTRA, height: BAR_HEIGHT },
-        theme.isDark && {
+        (isDarkMode || isInverse) && {
           backgroundColor: Editorial.bg,
           borderColor: Editorial.borderSoft,
           shadowColor: Editorial.coffee,
+        },
+        isInverse && {
+          backgroundColor: '#0A0A0C',
+          borderColor: 'rgba(255,255,255,0.2)',
+          shadowColor: '#000000',
         },
       ]} />
 
       <Svg width={tabBarWidth} height={BAR_HEIGHT + BUMP_EXTRA} style={StyleSheet.absoluteFill}>
         <Path
           d={pathD}
-          fill={theme.isDark ? Editorial.bg : '#FFFFFF'}
-          stroke={theme.isDark ? Editorial.borderSoft : 'rgba(17,17,20,0.12)'}
+          fill={isInverse ? '#0A0A0C' : isDarkMode ? Editorial.bg : '#FFFFFF'}
+          stroke={isInverse ? 'rgba(255,255,255,0.2)' : isDarkMode ? Editorial.borderSoft : 'rgba(17,17,20,0.12)'}
           strokeWidth={1.1}
         />
       </Svg>
@@ -208,7 +218,8 @@ const CustomTabBar = (props: CustomTabBarProps) => {
             Icon={resolveIcon(name)}
             isFocused={activeIndex === index}
             onPress={() => onTabPress(index)}
-            isDark={theme.isDark}
+            isDark={isDarkMode || isInverse}
+            isInverse={isInverse}
           />
         ))}
       </View>
@@ -222,13 +233,16 @@ const TabItem = ({
   isFocused,
   onPress,
   isDark,
+  isInverse,
 }: {
   name: string;
   Icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
   isFocused: boolean;
   onPress: () => void;
   isDark: boolean;
+  isInverse: boolean;
 }) => {
+  const { t } = useTranslation();
   const pressScale = useSharedValue(1);
   const bump = useSharedValue(isFocused ? 1 : 0);
 
@@ -259,8 +273,8 @@ const TabItem = ({
     >
       {/* Pasif hâl — gri ikon + etiket */}
       <Animated.View style={[styles.tabInner, passiveStyle]} pointerEvents="none">
-        <Icon size={20} color={isDark ? 'rgba(58,42,26,0.45)' : 'rgba(17,17,20,0.45)'} strokeWidth={2} />
-        <Text numberOfLines={1} style={[styles.tabLabel, isDark && { color: 'rgba(58,42,26,0.45)' }]}>{TAB_LABELS[name] || name}</Text>
+        <Icon size={20} color={isInverse ? 'rgba(255,255,255,0.6)' : isDark ? 'rgba(58,42,26,0.45)' : 'rgba(17,17,20,0.45)'} strokeWidth={2} />
+        <Text numberOfLines={1} style={[styles.tabLabel, isDark && { color: 'rgba(58,42,26,0.45)' }, isInverse && { color: 'rgba(255,255,255,0.6)' }]}>{TAB_LABEL_KEYS[name] ? t(TAB_LABEL_KEYS[name]) : name}</Text>
       </Animated.View>
 
       {/* Aktif hâl — yükselen kabarcık */}
@@ -271,8 +285,12 @@ const TabItem = ({
           backgroundColor: Editorial.coffee,
           shadowColor: Editorial.coffee,
         },
+        isInverse && {
+          backgroundColor: '#FFFFFF',
+          shadowColor: '#000000',
+        },
       ]}>
-        <Icon size={22} color={isDark ? '#FFF8EA' : '#FFFFFF'} strokeWidth={2.25} />
+        <Icon size={22} color={isInverse ? '#111114' : isDark ? '#FFF8EA' : '#FFFFFF'} strokeWidth={2.25} />
       </Animated.View>
     </Pressable>
   );

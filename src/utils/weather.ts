@@ -5,10 +5,47 @@
  * (weather[0].id, main.temp, sys.sunrise vb.) dönüştürülüyor.
  */
 
+export const SANLIURFA_COORDS = { lat: 37.1674, lon: 38.7955 };
+
+/** Şanlıurfa için Open-Meteo forecast URL */
+export function buildWeatherUrl(lat = SANLIURFA_COORDS.lat, lon = SANLIURFA_COORDS.lon) {
+  return (
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+    `&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,surface_pressure,visibility` +
+    `&hourly=temperature_2m,weather_code,precipitation_probability` +
+    `&daily=sunrise,sunset,temperature_2m_max,temperature_2m_min` +
+    `&timezone=Europe/Istanbul&forecast_days=8`
+  );
+}
+
+/**
+ * Open-Meteo yerel saat string'ini (timezone offset ile) Unix saniyeye çevirir.
+ * Örn: "2026-07-08T18:00" + utc_offset=10800 → doğru UTC epoch.
+ * `new Date("2026-07-08T18:00")` cihaz TZ'sine bağlı olduğundan kullanılmaz.
+ */
+export function parseOmLocalToUnix(isoLocal: string, utcOffsetSeconds: number): number {
+  if (!isoLocal) return 0;
+  const [datePart, timePart = '00:00'] = isoLocal.split('T');
+  const [y, m, d] = datePart.split('-').map(Number);
+  const [hh, mm = 0, ss = 0] = timePart.split(':').map(Number);
+  // Wall clock Istanbul = UTC + offset → UTC ms = Date.UTC(wall) - offset*1000
+  return Math.floor((Date.UTC(y, m - 1, d, hh, mm, ss) - utcOffsetSeconds * 1000) / 1000);
+}
+
+/** Yerel HH:MM — gün doğumu/batımı için Date TZ kayması olmasın */
+export function formatOmClock(isoLocal?: string): string {
+  if (!isoLocal) return '--:--';
+  const time = isoLocal.split('T')[1] || isoLocal;
+  const [hh = '--', mm = '--'] = time.split(':');
+  return `${hh.padStart(2, '0')}:${mm.padStart(2, '0')}`;
+}
+
 /** WMO hava kodunu OpenWeather'ın id aralıklarına eşler (ikon seçimi için) */
 export function mapWmoToOwmId(code: number): number {
-  if (code === 0) return 800;
-  if (code === 1 || code === 2 || code === 3) return 801;
+  if (code === 0) return 800;           // açık
+  if (code === 1) return 801;           // az bulutlu
+  if (code === 2) return 802;           // parçalı bulutlu
+  if (code === 3) return 804;           // kapalı
   if (code === 45 || code === 48) return 741;
   if (code >= 51 && code <= 57) return 300;
   if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return 500;
@@ -39,23 +76,30 @@ export function toOwmCurrent(om: any, cityName: string) {
   const c = om?.current;
   const daily = om?.daily;
   if (!c) return null;
+  const offset = om?.utc_offset_seconds ?? 10800; // Europe/Istanbul varsayılan
+  const sunriseIso = daily?.sunrise?.[0];
+  const sunsetIso = daily?.sunset?.[0];
   return {
     cod: 200,
     name: cityName,
-    visibility: 10000,
+    // Open-Meteo metres; yoksa null — UI sabit 10 göstermesin diye bilinçli
+    visibility: typeof c.visibility === 'number' ? c.visibility : null,
     main: {
       temp: c.temperature_2m,
       feels_like: c.apparent_temperature,
       humidity: c.relative_humidity_2m,
-      pressure: c.surface_pressure,
+      pressure: Math.round(c.surface_pressure),
       temp_min: daily?.temperature_2m_min?.[0] ?? c.temperature_2m,
       temp_max: daily?.temperature_2m_max?.[0] ?? c.temperature_2m,
     },
+    // Open-Meteo km/h → OWM m/s (UI tekrar *3.6 yapıyor)
     wind: { speed: (c.wind_speed_10m ?? 0) / 3.6 },
     weather: [{ id: mapWmoToOwmId(c.weather_code), description: wmoDescriptionTr(c.weather_code) }],
     sys: {
-      sunrise: daily?.sunrise?.[0] ? Math.floor(new Date(daily.sunrise[0]).getTime() / 1000) : undefined,
-      sunset: daily?.sunset?.[0] ? Math.floor(new Date(daily.sunset[0]).getTime() / 1000) : undefined,
+      sunrise: sunriseIso ? parseOmLocalToUnix(sunriseIso, offset) : undefined,
+      sunset: sunsetIso ? parseOmLocalToUnix(sunsetIso, offset) : undefined,
+      sunriseLocal: formatOmClock(sunriseIso),
+      sunsetLocal: formatOmClock(sunsetIso),
     },
   };
 }
@@ -64,11 +108,22 @@ export function toOwmCurrent(om: any, cityName: string) {
 export function toOwmForecast(om: any) {
   const h = om?.hourly;
   if (!h?.time) return { cod: '200', list: [] };
-  const list = h.time.map((t: string, i: number) => ({
-    dt: Math.floor(new Date(t).getTime() / 1000),
-    main: { temp: h.temperature_2m?.[i] },
-    weather: [{ id: mapWmoToOwmId(h.weather_code?.[i]) }],
-    pop: (h.precipitation_probability?.[i] ?? 0) / 100,
-  }));
+  const offset = om?.utc_offset_seconds ?? 10800;
+  // Şu anki saat dilimi diliminin başı (UTC epoch)
+  const currentHourStart = Math.floor(Date.now() / 1000 / 3600) * 3600;
+  const list = h.time
+    .map((t: string, i: number) => {
+      const dt = parseOmLocalToUnix(t, offset);
+      const localHour = Number((t.split('T')[1] || '0').split(':')[0]);
+      return {
+        dt,
+        localHour,
+        localDate: t.split('T')[0], // YYYY-MM-DD Istanbul
+        main: { temp: h.temperature_2m?.[i] },
+        weather: [{ id: mapWmoToOwmId(h.weather_code?.[i]) }],
+        pop: (h.precipitation_probability?.[i] ?? 0) / 100,
+      };
+    })
+    .filter((item: { dt: number }) => item.dt >= currentHourStart);
   return { cod: '200', list };
 }

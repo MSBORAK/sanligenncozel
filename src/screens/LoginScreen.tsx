@@ -1,32 +1,31 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Animated, KeyboardAvoidingView, LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { CommonActions } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { GradientBackground } from '@/components/GradientBackground';
 import { InputField } from '@/components/InputField';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import type { RootStackParamList } from '@/types/navigation';
 import type { OnboardingStackParamList } from '../navigation/OnboardingNavigator';
-import { colors, Editorial } from '@/theme/colors';
+import { Clean } from '@/constants/Colors';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/context/UserContext';
-import { useAppTheme } from '@/theme/useAppTheme';
+import { useTranslation } from 'react-i18next';
 
 type AuthMode = 'login' | 'register';
 type NestedNav = StackNavigationProp<OnboardingStackParamList, 'Login'>;
 type AuthStep = 'email' | 'code';
 
 /**
- * Glassmorphism authentication screen with segmented login/register.
+ * Light, segmented login/register screen — matches onboarding's Clean palette.
  */
 export const LoginScreen: React.FC = () => {
   const navigation = useNavigation<NestedNav>();
+  const insets = useSafeAreaInsets();
   const { setGuestMode } = useUser();
-  const { isDark, ctaBg, ctaTxt, accent } = useAppTheme();
+  const { t: tr } = useTranslation();
   const [mode, setMode] = useState<AuthMode>('login');
   const [step, setStep] = useState<AuthStep>('email');
   const [email, setEmail] = useState('');
@@ -76,7 +75,7 @@ export const LoginScreen: React.FC = () => {
 
   const sendOtpCode = async () => {
     if (!email.trim()) {
-      Alert.alert('Eksik Bilgi', 'Lütfen e-posta adresinizi girin.');
+      Alert.alert(tr('login.eksikBilgi'), tr('login.epostaGirin'));
       return;
     }
     try {
@@ -88,16 +87,16 @@ export const LoginScreen: React.FC = () => {
       });
       if (error) throw error;
       setStep('code');
-      Alert.alert('Kod Gönderildi', 'E-posta adresine gelen doğrulama kodunu gir.');
+      Alert.alert(tr('login.kodGonderildi'), tr('login.dogrulamaKoduGir'));
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Bir hata oluştu.';
-      Alert.alert('Hata', message);
+      const message = error instanceof Error ? error.message : tr('login.birHataOlustu');
+      Alert.alert(tr('common.error'), message);
     }
   };
 
   const verifyOtpCode = async () => {
     if (!email.trim() || !otpCode.trim()) {
-      Alert.alert('Eksik Bilgi', 'Lütfen e-posta ve doğrulama kodunu girin.');
+      Alert.alert(tr('login.eksikBilgi'), tr('login.epostaVeKodGirin'));
       return;
     }
     try {
@@ -109,136 +108,110 @@ export const LoginScreen: React.FC = () => {
       if (error) throw error;
       goToMain();
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Kod doğrulanamadı.';
-      Alert.alert('Doğrulama Hatası', message);
+      const message = error instanceof Error ? error.message : tr('login.kodDogrulanamadi');
+      Alert.alert(tr('login.dogrulamaHatasi'), message);
     }
   };
 
   return (
-    <GradientBackground>
+    <View style={[styles.root, { backgroundColor: Clean.bg, paddingTop: insets.top + 24 }]}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={styles.cardShell}>
-          <BlurView intensity={25} tint="dark" style={styles.blur}>
-            <View style={styles.card}>
-              <View style={styles.header}>
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>ŞANLIURFA</Text>
-                </View>
-                <Text style={styles.title}>Şanlı Genç</Text>
-                <Text style={styles.subtitle}>
-                  {step === 'email'
-                    ? mode === 'login'
-                      ? 'E-posta adresinle giriş kodu al'
-                      : 'E-posta adresinle hızlıca hesap oluştur'
-                    : 'E-postana gelen 6 haneli kodu gir'}
-                </Text>
-              </View>
-
-              <View style={styles.segmentWrap} onLayout={onSegmentLayout}>
-                <Animated.View
-                  style={[
-                    styles.indicator,
-                    {
-                      width: indicatorWidth,
-                      transform: [{ translateX: indicatorTranslateX }],
-                    },
-                  ]}
-                >
-                  <LinearGradient colors={isDark ? [Editorial.coffee, Editorial.coffeeSoft] : [ctaBg, accent]} style={styles.indicatorGradient} />
-                </Animated.View>
-                <Pressable style={styles.segmentButton} onPress={() => onModeChange('login')}>
-                  <Text style={[styles.segmentLabel, mode === 'login' && styles.segmentLabelActive]}>Giriş Yap</Text>
-                </Pressable>
-                <Pressable style={styles.segmentButton} onPress={() => onModeChange('register')}>
-                  <Text style={[styles.segmentLabel, mode === 'register' && styles.segmentLabelActive]}>Kayıt Ol</Text>
-                </Pressable>
-              </View>
-
-              <InputField
-                icon="✉️"
-                placeholder="E-posta adresiniz"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                editable={step === 'email'}
-              />
-              {step === 'code' ? (
-                <InputField
-                  icon="🔐"
-                  placeholder="Doğrulama kodu"
-                  value={otpCode}
-                  onChangeText={setOtpCode}
-                  keyboardType="number-pad"
-                  containerStyle={styles.inputSpacing}
-                  maxLength={6}
-                />
-              ) : null}
-
-              {step === 'code' ? (
-                <Pressable style={styles.forgotWrap} onPress={() => setStep('email')}>
-                  <Text style={styles.forgotText}>E-postayı değiştir</Text>
-                </Pressable>
-              ) : null}
-
-              <PrimaryButton
-                label={step === 'email' ? 'Kod Gönder' : 'Kodu Doğrula'}
-                onPress={step === 'email' ? sendOtpCode : verifyOtpCode}
-                style={styles.buttonSpacing}
-              />
-              <SecondaryButton label="Misafir Olarak Devam Et" onPress={() => goToMain(true)} style={styles.buttonSpacing} />
-
-              <Text style={styles.finePrint}>Devam ederek Gizlilik Politikası'nı kabul edersiniz</Text>
+        <View style={styles.card}>
+          <View style={styles.header}>
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>ŞANLIURFA</Text>
             </View>
-          </BlurView>
+            <Text style={styles.title}>Şanlı Genç</Text>
+            <Text style={styles.subtitle}>
+              {step === 'email'
+                ? mode === 'login'
+                  ? tr('login.epostaIleGirisKodu')
+                  : tr('login.epostaIleHesapOlustur')
+                : tr('login.altiHaneliKod')}
+            </Text>
+          </View>
+
+          <View style={styles.segmentWrap} onLayout={onSegmentLayout}>
+            <Animated.View
+              style={[
+                styles.indicator,
+                {
+                  width: indicatorWidth,
+                  transform: [{ translateX: indicatorTranslateX }],
+                },
+              ]}
+            />
+            <Pressable style={styles.segmentButton} onPress={() => onModeChange('login')}>
+              <Text style={[styles.segmentLabel, mode === 'login' && styles.segmentLabelActive]}>{tr('login.girisYap')}</Text>
+            </Pressable>
+            <Pressable style={styles.segmentButton} onPress={() => onModeChange('register')}>
+              <Text style={[styles.segmentLabel, mode === 'register' && styles.segmentLabelActive]}>{tr('login.kayitOl')}</Text>
+            </Pressable>
+          </View>
+
+          <InputField
+            icon="✉️"
+            placeholder={tr('login.epostaAdresiniz')}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            editable={step === 'email'}
+          />
+          {step === 'code' ? (
+            <InputField
+              icon="🔐"
+              placeholder={tr('login.dogrulamaKodu')}
+              value={otpCode}
+              onChangeText={setOtpCode}
+              keyboardType="number-pad"
+              containerStyle={styles.inputSpacing}
+              maxLength={6}
+            />
+          ) : null}
+
+          {step === 'code' ? (
+            <Pressable style={styles.forgotWrap} onPress={() => setStep('email')}>
+              <Text style={styles.forgotText}>{tr('login.epostayiDegistir')}</Text>
+            </Pressable>
+          ) : null}
+
+          <PrimaryButton
+            label={step === 'email' ? tr('login.kodGonder') : tr('login.koduDogrula')}
+            onPress={step === 'email' ? sendOtpCode : verifyOtpCode}
+            style={styles.buttonSpacing}
+          />
+          <SecondaryButton label={tr('login.misafirOlarakDevam')} onPress={() => goToMain(true)} style={styles.buttonSpacing} />
+
+          <Text style={styles.finePrint}>{tr('login.gizlilikOnay')}</Text>
         </View>
       </KeyboardAvoidingView>
-    </GradientBackground>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  cardShell: {
-    position: 'absolute',
-    top: '20%',
-    bottom: '20%',
-    left: 24,
-    right: 24,
-    borderRadius: 24,
-  },
-  blur: {
-    flex: 1,
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
-  },
+  root: { flex: 1 },
+  flex: { flex: 1, justifyContent: 'center' },
   card: {
-    flex: 1,
-    paddingHorizontal: 22,
-    paddingTop: 24,
-    paddingBottom: 18,
-    backgroundColor: colors.glassBackground,
+    paddingHorizontal: 24,
   },
-  header: { alignItems: 'center', marginBottom: 20 },
+  header: { alignItems: 'center', marginBottom: 24 },
   badge: {
     height: 22,
     borderRadius: 11,
     paddingHorizontal: 10,
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,248,234,0.18)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,248,234,0.32)',
+    backgroundColor: Clean.accentSoft,
     marginBottom: 10,
   },
-  badgeText: { color: Editorial.creamText, fontSize: 10, letterSpacing: 1.4, fontWeight: '700' },
-  title: { color: colors.white, fontSize: 30, fontWeight: '800', marginBottom: 6 },
-  subtitle: { color: colors.textSecondary, fontSize: 13, textAlign: 'center' },
+  badgeText: { color: Clean.accent, fontSize: 10, letterSpacing: 1.4, fontWeight: '700' },
+  title: { color: Clean.textPrimary, fontSize: 28, fontWeight: '800', marginBottom: 6 },
+  subtitle: { color: Clean.textSecondary, fontSize: 13, textAlign: 'center' },
   segmentWrap: {
-    height: 44,
+    height: 48,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.09)',
-    marginBottom: 16,
+    backgroundColor: Clean.chipBg,
+    marginBottom: 18,
     padding: 4,
     flexDirection: 'row',
   },
@@ -246,23 +219,22 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 4,
     top: 4,
-    height: 36,
+    height: 40,
     borderRadius: 12,
-    overflow: 'hidden',
+    backgroundColor: Clean.ctaBg,
   },
-  indicatorGradient: { flex: 1, borderRadius: 12 },
-  segmentButton: { flex: 1, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
-  segmentLabel: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
-  segmentLabelActive: { color: colors.white },
+  segmentButton: { flex: 1, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
+  segmentLabel: { fontSize: 13, fontWeight: '600', color: Clean.textSecondary },
+  segmentLabelActive: { color: Clean.ctaText },
   inputSpacing: { marginTop: 10 },
   forgotWrap: { alignSelf: 'flex-end', marginTop: 8, marginBottom: 12 },
-  forgotText: { color: Editorial.creamText, fontSize: 11 },
-  buttonSpacing: { marginTop: 9 },
+  forgotText: { color: Clean.accent, fontSize: 12, fontWeight: '600' },
+  buttonSpacing: { marginTop: 10 },
   finePrint: {
-    marginTop: 12,
+    marginTop: 14,
     textAlign: 'center',
-    color: colors.textMuted,
-    fontSize: 10,
+    color: Clean.textMuted,
+    fontSize: 11,
   },
 });
 

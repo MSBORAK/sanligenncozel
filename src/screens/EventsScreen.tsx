@@ -9,7 +9,7 @@ import {
   ImageBackground,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Heart } from 'lucide-react-native';
+import { Heart, CalendarDays, MapPin } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
@@ -22,6 +22,8 @@ import { useAppTheme } from '@/theme/useAppTheme';
 import { useFavorites } from '@/context/FavoritesContext';
 import { supabase, processImageUrl } from '@/lib/supabase';
 import { cityFallback } from '@/lib/imageFallback';
+import { pickLocalized } from '@/lib/localizeContent';
+import { useTranslation } from 'react-i18next';
 
 const CATEGORIES = ['Tümü', 'Favorilerim', 'Konser', 'Gezi', 'Spor'];
 
@@ -55,6 +57,7 @@ type EventScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Events
 
 const EventsScreen = () => {
   const t = useAppTheme();
+  const { i18n } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<EventScreenNavigationProp>();
   const route = useRoute();
@@ -75,7 +78,13 @@ const EventsScreen = () => {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (data) setEvents(data);
+      if (data) {
+        setEvents(data.map((row: any) => ({
+          ...row,
+          baslik: pickLocalized(row, 'baslik', i18n.language),
+          aciklama: pickLocalized(row, 'aciklama', i18n.language),
+        })));
+      }
       if (error) console.log('Etkinlik hatası:', error);
     } catch (e) {
       console.log(e);
@@ -86,7 +95,7 @@ const EventsScreen = () => {
 
   useEffect(() => {
     fetchEvents();
-  }, []);
+  }, [i18n.language]);
 
   const availableDays = useMemo(() => {
     const map = new Map<string, Date>();
@@ -248,9 +257,20 @@ const EventsScreen = () => {
               <Text style={[styles.rowTitle, { color: txt1 }]} numberOfLines={2}>
                 {item.title}
               </Text>
-              <Text style={[styles.rowMeta, { color: txt2 }]} numberOfLines={1}>
-                {item.location}
-              </Text>
+              <View style={styles.rowMetaLine}>
+                <View style={styles.rowMetaChip}>
+                  <CalendarDays color={txt2} size={12} strokeWidth={2} />
+                  <Text style={[styles.rowMeta, { color: txt2 }]} numberOfLines={1}>
+                    {item.date}
+                  </Text>
+                </View>
+                <View style={styles.rowMetaChip}>
+                  <MapPin color={txt2} size={12} strokeWidth={2} />
+                  <Text style={[styles.rowMeta, { color: txt2 }]} numberOfLines={1}>
+                    {item.location}
+                  </Text>
+                </View>
+              </View>
             </View>
 
             <TouchableOpacity
@@ -276,22 +296,40 @@ const EventsScreen = () => {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: pageBg }]} edges={['top']}>
       <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: txt1 }]}>Etkinlikler</Text>
-        <TouchableOpacity
-          onPress={() => setActiveTab('Favorilerim')}
-          activeOpacity={0.85}
-          style={[styles.favBadgeOuter, { backgroundColor: chipBg }]}
-        >
-          <Heart
-            color={activeTab === 'Favorilerim' ? amber : txt1}
-            size={18}
-            strokeWidth={2}
-            fill={activeTab === 'Favorilerim' ? amber : 'transparent'}
-          />
-          {(hasFavorites || activeTab === 'Favorilerim') && (
-            <View style={[styles.favDot, { backgroundColor: amber, borderColor: chipBg }]} />
-          )}
-        </TouchableOpacity>
+        <View style={[styles.headerPanel, cardBorder, { backgroundColor: cardBg }]}>
+          <View style={styles.headerRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.headerLabel, { color: txt2 }]}>KEŞFET</Text>
+              <Text style={[styles.headerTitle, { color: txt1 }]}>Etkinlikler</Text>
+              <Text style={[styles.headerSubtitle, { color: txt2 }]}>Şehirde bugün ve yakında olanlar</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setActiveTab('Favorilerim')}
+              activeOpacity={0.85}
+              style={[styles.favBadgeOuter, { backgroundColor: chipBg }]}
+            >
+              <Heart
+                color={activeTab === 'Favorilerim' ? amber : txt1}
+                size={18}
+                strokeWidth={2}
+                fill={activeTab === 'Favorilerim' ? amber : 'transparent'}
+              />
+              {(hasFavorites || activeTab === 'Favorilerim') && (
+                <View style={[styles.favDot, { backgroundColor: amber, borderColor: chipBg }]} />
+              )}
+            </TouchableOpacity>
+          </View>
+          <View style={styles.headerStatsRow}>
+            <View style={[styles.headerStatPill, { backgroundColor: chipBg }]}>
+              <Text style={[styles.headerStatText, { color: txt2 }]}>{filteredEvents.length} etkinlik</Text>
+            </View>
+            {selectedDayKey && (
+              <View style={[styles.headerStatPill, { backgroundColor: chipBg }]}>
+                <Text style={[styles.headerStatText, { color: txt2 }]}>Gün filtresi açık</Text>
+              </View>
+            )}
+          </View>
+        </View>
       </View>
 
       <View style={styles.pillsRowFixed}>
@@ -352,15 +390,17 @@ const EventsScreen = () => {
         </View>
       ) : filteredEvents.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, { color: txt2 }]}>
-            {selectedDayKey
-              ? 'Seçili günde etkinlik bulunmuyor.'
-              : activeTab === 'Tümü'
-                ? 'Henüz etkinlik bulunmuyor.'
-                : activeTab === 'Favorilerim'
-                  ? 'Henüz favori etkinliğiniz bulunmuyor.'
-                  : `${activeTab} kategorisinde etkinlik bulunmuyor.`}
-          </Text>
+          <View style={[styles.emptyCard, cardBorder, { backgroundColor: chipBg }]}>
+            <Text style={[styles.emptyText, { color: txt2 }]}>
+              {selectedDayKey
+                ? 'Seçili günde etkinlik bulunmuyor.'
+                : activeTab === 'Tümü'
+                  ? 'Henüz etkinlik bulunmuyor.'
+                  : activeTab === 'Favorilerim'
+                    ? 'Henüz favori etkinliğiniz bulunmuyor.'
+                    : `${activeTab} kategorisinde etkinlik bulunmuyor.`}
+            </Text>
+          </View>
         </View>
       ) : (
         <FlatList
@@ -385,15 +425,49 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingBottom: 14,
+    paddingBottom: 10,
+  },
+  headerPanel: {
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    gap: 8,
+  },
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  headerLabel: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 11,
+    letterSpacing: 1.3,
+    marginBottom: 2,
+  },
   headerTitle: {
     fontFamily: FontFamily.semiBold,
-    fontSize: 26,
+    fontSize: 28,
     letterSpacing: -0.4,
+  },
+  headerSubtitle: {
+    fontFamily: FontFamily.medium,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  headerStatsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  headerStatPill: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  headerStatText: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 11,
   },
   favBadgeOuter: {
     width: 44,
@@ -412,22 +486,22 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   pillsRowFixed: {
-    height: 52,
+    height: 50,
     flexGrow: 0,
     flexShrink: 0,
   },
   pillsFlatList: {
     flexGrow: 0,
-    height: 52,
+    height: 50,
   },
   pillsContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 4,
+    paddingVertical: 2,
     alignItems: 'center',
     flexGrow: 0,
   },
   dayStripRow: {
-    marginBottom: 10,
+    marginBottom: 8,
   },
   dayStripContent: {
     paddingHorizontal: 20,
@@ -435,7 +509,7 @@ const styles = StyleSheet.create({
   },
   dayChip: {
     width: 48,
-    paddingVertical: 8,
+    paddingVertical: 7,
     borderRadius: 14,
     alignItems: 'center',
   },
@@ -450,8 +524,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   tabPill: {
-    paddingHorizontal: 18,
-    height: 44,
+    paddingHorizontal: 16,
+    height: 40,
     borderRadius: 22,
     marginRight: 10,
     justifyContent: 'center',
@@ -464,17 +538,17 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     paddingHorizontal: 20,
-    paddingTop: 6,
+    paddingTop: 4,
   },
   heroEventOuter: {
-    marginBottom: 20,
+    marginBottom: 14,
     borderRadius: 22,
     overflow: 'hidden',
   },
   heroEventCard: {
     width: '100%',
     borderRadius: 22,
-    height: 260,
+    height: 236,
     overflow: 'hidden',
     justifyContent: 'flex-end',
   },
@@ -515,7 +589,7 @@ const styles = StyleSheet.create({
   },
   heroTextBlock: {
     padding: 18,
-    paddingBottom: 16,
+    paddingBottom: 15,
   },
   heroEventTitle: {
     fontFamily: FontFamily.semiBold,
@@ -528,7 +602,7 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.medium,
     fontSize: 13,
     color: 'rgba(255,255,255,0.85)',
-    marginTop: 4,
+    marginTop: 5,
   },
   heroUrgentTag: {
     position: 'absolute',
@@ -546,22 +620,23 @@ const styles = StyleSheet.create({
   },
   eventRowOuter: {
     marginBottom: 12,
-    borderRadius: 18,
+    borderRadius: 16,
   },
   eventRow: {
-    borderRadius: 18,
+    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
-    gap: 12,
+    paddingHorizontal: 11,
+    paddingVertical: 10,
+    gap: 10,
   },
   skeletonCard: {
     overflow: 'hidden',
   },
   dateBadge: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
+    width: 48,
+    height: 48,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -583,9 +658,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   rowThumbWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
+    width: 64,
+    height: 64,
+    borderRadius: 10,
     overflow: 'hidden',
   },
   rowThumb: {
@@ -594,7 +669,7 @@ const styles = StyleSheet.create({
   },
   rowInfo: {
     flex: 1,
-    gap: 4,
+    gap: 5,
   },
   rowTitle: {
     fontFamily: FontFamily.semiBold,
@@ -604,7 +679,18 @@ const styles = StyleSheet.create({
   },
   rowMeta: {
     fontFamily: FontFamily.medium,
-    fontSize: 12,
+    fontSize: 11.5,
+    maxWidth: 120,
+  },
+  rowMetaLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  rowMetaChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   rowHeartBtn: {
     width: 36,
@@ -622,8 +708,14 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 80,
-    paddingHorizontal: 32,
+    paddingTop: 72,
+    paddingHorizontal: 24,
+  },
+  emptyCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   emptyText: {
     fontFamily: FontFamily.medium,

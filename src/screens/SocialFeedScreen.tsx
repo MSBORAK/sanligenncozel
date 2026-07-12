@@ -19,6 +19,7 @@ import { cityFallback } from '@/lib/imageFallback';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
+import { useTranslation } from 'react-i18next';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2; // 2 columns with padding
@@ -48,6 +49,7 @@ interface FeedPost {
 
 const SocialFeedScreen = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+  const { t: tr } = useTranslation();
   const t = useAppTheme();
   const isDark = t.isDark;
   const [activeTab, setActiveTab] = useState<'feed' | 'map'>('feed');
@@ -120,7 +122,7 @@ const SocialFeedScreen = () => {
           image_url: story.image_url,
           created_at: story.created_at,
           user: {
-            name: profile?.name || 'Kullanıcı',
+            name: profile?.name || tr('common.kullanici'),
             username: profile?.username || 'user',
             avatar_url: profile?.avatar_url,
           },
@@ -151,9 +153,9 @@ const SocialFeedScreen = () => {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffHours < 1) return 'Az önce';
-    if (diffHours < 24) return `${diffHours}s önce`;
-    return `${diffDays}g önce`;
+    if (diffHours < 1) return tr('weather.simdi');
+    if (diffHours < 24) return tr('common.saatOnce', { count: diffHours });
+    return tr('common.gunOnce', { count: diffDays });
   };
 
   const renderFeedView = () => (
@@ -226,9 +228,9 @@ const SocialFeedScreen = () => {
       {posts.length === 0 && !loading && (
         <View style={styles.emptyState}>
           <Users size={48} color={txt2} />
-          <Text style={[styles.emptyStateTitle, { color: txt1 }]}>Henüz içerik yok</Text>
+          <Text style={[styles.emptyStateTitle, { color: txt1 }]}>{tr('socialFeed.icerikYok')}</Text>
           <Text style={[styles.emptyStateText, { color: txt2 }]}>
-            Arkadaşların hikaye paylaştığında burada görünecek
+            {tr('socialFeed.icerikYokAciklama')}
           </Text>
         </View>
       )}
@@ -281,7 +283,7 @@ const SocialFeedScreen = () => {
       <View style={[styles.activityBar, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
         <View style={styles.activityBarInner}>
           <Radio size={16} color={amber} />
-          <Text style={[styles.activityText, { color: txt1 }]}>Son 4 saatteki hareketlilik</Text>
+          <Text style={[styles.activityText, { color: txt1 }]}>{tr('socialFeed.sonHareketlilik')}</Text>
         </View>
         <View style={styles.heatBar}>
           <View style={[styles.heatSegment, { backgroundColor: '#34C759' }]} />
@@ -294,7 +296,7 @@ const SocialFeedScreen = () => {
       {/* Live Badge */}
       <View style={[styles.liveBadge, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
         <View style={[styles.liveDot, { backgroundColor: amber }]} />
-        <Text style={[styles.liveText, { color: txt1 }]}>CANLI</Text>
+        <Text style={[styles.liveText, { color: txt1 }]}>{tr('socialFeed.canli')}</Text>
       </View>
     </View>
   );
@@ -312,7 +314,7 @@ const SocialFeedScreen = () => {
             >
               <Users size={20} color={activeTab === 'feed' ? ctaTxt : txt2} />
               <Text style={[styles.tabText, { color: activeTab === 'feed' ? ctaTxt : txt2 }]}>
-                Akış
+                {tr('socialFeed.akis')}
               </Text>
             </TouchableOpacity>
 
@@ -322,14 +324,14 @@ const SocialFeedScreen = () => {
             >
               <MapPin size={20} color={activeTab === 'map' ? ctaTxt : txt2} />
               <Text style={[styles.tabText, { color: activeTab === 'map' ? ctaTxt : txt2 }]}>
-                Şehir Radarı
+                {tr('socialFeed.sehirRadari')}
               </Text>
             </TouchableOpacity>
           </View>
         </View>
 
         <Text style={[styles.subtitle, { color: txt2 }]}>
-          {activeTab === 'feed' ? 'Arkadaşlarının son 4 saati' : 'Şehirdeki son paylaşımlar'}
+          {activeTab === 'feed' ? tr('socialFeed.arkadaslarinSonSaati') : tr('socialFeed.sehirdekiSonPaylasimlar')}
         </Text>
       </SafeAreaView>
 

@@ -10,7 +10,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.sanligenc.app",
@@ -38,7 +40,8 @@
           "color": "#F59E0B",
           "sounds": []
         }
-      ]
+      ],
+      "expo-localization"
     ]
   }
 }

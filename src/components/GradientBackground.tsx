@@ -14,7 +14,7 @@ type Props = {
  */
 export const GradientBackground: React.FC<Props> = ({ children }) => {
   const { mode } = useThemeMode();
-  const isDark = mode === 'dark';
+  const isDark = mode !== 'light';
 
   return (
     <View style={styles.container}>

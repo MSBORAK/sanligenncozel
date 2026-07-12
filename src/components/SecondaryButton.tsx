@@ -1,5 +1,6 @@
 import React from 'react';
 import { Animated, Pressable, StyleProp, StyleSheet, Text, ViewStyle } from 'react-native';
+import { Clean } from '@/constants/Colors';
 
 type Props = {
   label: string;
@@ -8,7 +9,7 @@ type Props = {
 };
 
 /**
- * Secondary outline button for lower emphasis actions.
+ * Outlined secondary button for lower-emphasis actions.
  */
 export const SecondaryButton: React.FC<Props> = ({ label, onPress, style }) => {
   const scale = React.useRef(new Animated.Value(1)).current;
@@ -39,17 +40,17 @@ export const SecondaryButton: React.FC<Props> = ({ label, onPress, style }) => {
 const styles = StyleSheet.create({
   button: {
     width: '100%',
-    height: 52,
-    borderRadius: 50,
+    height: 56,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
-    backgroundColor: 'transparent',
+    borderColor: Clean.border,
+    backgroundColor: Clean.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.75)',
+    fontSize: 15,
+    fontWeight: '700',
+    color: Clean.textPrimary,
   },
 });

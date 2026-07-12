@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -38,21 +38,19 @@ import {
   RefreshCw,
   CloudFog,
 } from 'lucide-react-native';
-import { toOwmCurrent, toOwmForecast } from '@/utils/weather';
+import { buildWeatherUrl, toOwmCurrent, toOwmForecast } from '@/utils/weather';
+import { useTranslation } from 'react-i18next';
 
 const { width } = Dimensions.get('window');
 
 type WeatherDetailScreenProps = StackScreenProps<RootStackParamList, 'WeatherDetail'>;
 
-const SEHIR_KOORDINAT = { lat: 37.1674, lon: 38.7955 };
-
-// Gün isimleri
-const GUNLER = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
-
 const WeatherDetailScreen: React.FC<WeatherDetailScreenProps> = ({ route, navigation }) => {
   const { weatherData: initialWeather, forecastData: initialForecast } = route.params || {};
   const t = useAppTheme();
+  const { t: tr } = useTranslation();
   const { isDark, pageBg, cardBg, cardBdr, chipBg, txt1, txt2 } = t;
+  const GUNLER = tr('weather.gunler', { returnObjects: true }) as string[];
   const sunColor  = '#EAB308'; // güneş/şimşek — sarı, uygulamanın turuncu vurgusundan bağımsız
   const rainBlue  = '#3B82F6'; // yağış olasılığı / nem — mavi
   const cardBorder = isDark ? cardBorderDark : cardBorderLight;
@@ -66,12 +64,7 @@ const WeatherDetailScreen: React.FC<WeatherDetailScreenProps> = ({ route, naviga
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${SEHIR_KOORDINAT.lat}&longitude=${SEHIR_KOORDINAT.lon}` +
-        `&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,surface_pressure` +
-        `&hourly=temperature_2m,weather_code,precipitation_probability` +
-        `&daily=sunrise,sunset,temperature_2m_max,temperature_2m_min` +
-        `&timezone=auto&forecast_days=8`;
-      const res = await fetch(url);
+      const res = await fetch(buildWeatherUrl());
       const om = await res.json();
       if (om?.current) {
         setWeatherData(toOwmCurrent(om, 'Şanlıurfa'));
@@ -89,9 +82,9 @@ const WeatherDetailScreen: React.FC<WeatherDetailScreenProps> = ({ route, naviga
       <View style={[styles.container, { backgroundColor: pageBg }]}>
         <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <Cloud color={txt2} size={80} strokeWidth={1.5} />
-          <Text style={[styles.errorText, { color: txt1 }]}>Hava durumu verisi yüklenemedi</Text>
+          <Text style={[styles.errorText, { color: txt1 }]}>{tr('weather.veriYuklenemedi')}</Text>
           <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.errorBackBtn, { backgroundColor: chipBg }]}>
-            <Text style={[styles.errorBackText, { color: txt1 }]}>Geri Dön</Text>
+            <Text style={[styles.errorBackText, { color: txt1 }]}>{tr('weather.geriDon')}</Text>
           </TouchableOpacity>
         </SafeAreaView>
       </View>
@@ -108,16 +101,14 @@ const WeatherDetailScreen: React.FC<WeatherDetailScreenProps> = ({ route, naviga
   const cityName = weatherData.name;
   const tempMin = Math.round(weatherData.main.temp_min);
   const tempMax = Math.round(weatherData.main.temp_max);
-  const visibility = weatherData.visibility ? Math.round(weatherData.visibility / 1000) : 10;
+  // Görüş: API metres → km; yoksa gösterme yerine "—"
+  const visibilityKm =
+    typeof weatherData.visibility === 'number'
+      ? Math.max(0, Math.round(weatherData.visibility / 1000))
+      : null;
   const pressure = weatherData.main.pressure;
-  const sunrise = weatherData.sys.sunrise;
-  const sunset = weatherData.sys.sunset;
-
-  // Gün doğumu/batımı formatla
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp * 1000);
-    return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-  };
+  const sunriseText = weatherData.sys?.sunriseLocal || '--:--';
+  const sunsetText = weatherData.sys?.sunsetLocal || '--:--';
 
   // Ana hava ikonu
   const MainWeatherIcon = () => {
@@ -132,17 +123,19 @@ const WeatherDetailScreen: React.FC<WeatherDetailScreenProps> = ({ route, naviga
     return <Cloud color={txt1} size={iconSize} strokeWidth={1.5} />;
   };
 
-  // Saatlik tahmin (gerçek veri)
+  // Saatlik tahmin — İstanbul yerel saat, şu andan sonraki saatler
   const getHourlyForecast = () => {
     if (!forecastData?.list) return [];
 
     const result: any[] = [];
+    const currentHourStart = Math.floor(Date.now() / 1000 / 3600) * 3600;
+    // İstanbul saatine göre gece/gündüz (UTC+3)
+    const istanbulHour = (new Date().getUTCHours() + 3) % 24;
 
     if (weatherData) {
-      const currentHour = new Date().getHours();
-      const isNight = currentHour < 6 || currentHour > 19;
+      const isNight = istanbulHour < 6 || istanbulHour >= 20;
       result.push({
-        time: 'Şimdi',
+        time: tr('weather.simdi'),
         temp: Math.round(weatherData.main.temp),
         icon: weatherData.weather[0].id,
         isNight,
@@ -150,58 +143,62 @@ const WeatherDetailScreen: React.FC<WeatherDetailScreenProps> = ({ route, naviga
       });
     }
 
-    forecastData.list.slice(0, 7).forEach((item: any) => {
-      const date = new Date(item.dt * 1000);
-      const hour = date.getHours();
-      const isNight = hour < 6 || hour > 19;
+    forecastData.list
+      .filter((item: any) => item.dt > currentHourStart)
+      .slice(0, 7)
+      .forEach((item: any) => {
+        const hour = typeof item.localHour === 'number'
+          ? item.localHour
+          : new Date(item.dt * 1000).getUTCHours();
+        const isNight = hour < 6 || hour >= 20;
 
-      result.push({
-        time: `${hour.toString().padStart(2, '0')}:00`,
-        temp: Math.round(item.main.temp),
-        icon: item.weather[0].id,
-        isNight,
-        pop: Math.round((item.pop || 0) * 100),
+        result.push({
+          time: `${hour.toString().padStart(2, '0')}:00`,
+          temp: Math.round(item.main.temp),
+          icon: item.weather[0].id,
+          isNight,
+          pop: Math.round((item.pop || 0) * 100),
+        });
       });
-    });
 
     return result;
   };
 
-  // 7 günlük tahmin (gerçek veri)
+  // 7 günlük tahmin — İstanbul yerel tarih anahtarıyla
   const getDailyForecast = () => {
     if (!forecastData?.list) return [];
 
     const dailyMap: { [key: string]: { items: any[], timestamp: number } } = {};
 
     forecastData.list.forEach((item: any) => {
-      const date = new Date(item.dt * 1000);
-      const dateKey = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+      const dateKey = item.localDate
+        || new Date(item.dt * 1000).toISOString().slice(0, 10);
       if (!dailyMap[dateKey]) {
         dailyMap[dateKey] = { items: [], timestamp: item.dt };
       }
       dailyMap[dateKey].items.push(item);
     });
 
-    const today = new Date();
-    const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
+    // Bugün / yarın İstanbul takvimine göre
+    const istanbulNow = new Date(Date.now() + 3 * 3600 * 1000);
+    const todayKey = istanbulNow.toISOString().slice(0, 10);
+    const tomorrow = new Date(istanbulNow);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    const tomorrowKey = tomorrow.toISOString().slice(0, 10);
 
     return Object.entries(dailyMap).slice(0, 7).map(([dateKey, data]) => {
       const temps = data.items.map((i: any) => i.main.temp);
-      const date = new Date(data.timestamp * 1000);
-      const isToday = dateKey === todayKey;
-
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const tomorrowKey = `${tomorrow.getFullYear()}-${tomorrow.getMonth()}-${tomorrow.getDate()}`;
-      const isTomorrow = dateKey === tomorrowKey;
+      // dateKey = YYYY-MM-DD → haftanın günü (UTC noon ile kaymayı önle)
+      const [y, m, d] = dateKey.split('-').map(Number);
+      const weekday = new Date(Date.UTC(y, m - 1, d, 12)).getUTCDay();
 
       let dayName: string;
-      if (isToday) {
-        dayName = 'Bugün';
-      } else if (isTomorrow) {
-        dayName = 'Yarın';
+      if (dateKey === todayKey) {
+        dayName = tr('weather.bugun');
+      } else if (dateKey === tomorrowKey) {
+        dayName = tr('weather.yarin');
       } else {
-        dayName = GUNLER[date.getDay()];
+        dayName = GUNLER[weekday];
       }
 
       return {
@@ -300,14 +297,14 @@ const WeatherDetailScreen: React.FC<WeatherDetailScreenProps> = ({ route, naviga
             <MainWeatherIcon />
             <Text style={[styles.temperature, { color: txt1 }]}>{temperature}°</Text>
             <Text style={[styles.description, { color: txt2 }]}>{description}</Text>
-            <Text style={[styles.highLow, { color: txt2 }]}>En Yüksek: {tempMax}°  En Düşük: {tempMin}°</Text>
+            <Text style={[styles.highLow, { color: txt2 }]}>{tr('weather.enYuksek')}: {tempMax}°  {tr('weather.enDusuk')}: {tempMin}°</Text>
           </View>
 
           {/* Akıllı Öneriler */}
           <View style={[styles.card, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
             <View style={styles.suggestionsHeader}>
               <Sparkles color={txt2} size={15}/>
-              <Text style={[styles.cardTitle, { color: txt2 }]}>AKILLI ÖNERİLER</Text>
+              <Text style={[styles.cardTitle, { color: txt2 }]}>{tr('weather.akilliOneriler')}</Text>
             </View>
             {suggestions.map((suggestion, index) => (
               <View key={index} style={styles.suggestionRow}>
@@ -321,7 +318,7 @@ const WeatherDetailScreen: React.FC<WeatherDetailScreenProps> = ({ route, naviga
 
           {/* Saatlik Tahmin */}
           <View style={[styles.card, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
-            <Text style={[styles.cardTitle, { color: txt2 }]}>SAATLİK TAHMİN</Text>
+            <Text style={[styles.cardTitle, { color: txt2 }]}>{tr('weather.saatlikTahmin')}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={styles.hourlyContainer}>
                 {hourlyForecast.map((hour: any, index: number) => (
@@ -338,7 +335,7 @@ const WeatherDetailScreen: React.FC<WeatherDetailScreenProps> = ({ route, naviga
 
           {/* 5 Günlük Tahmin */}
           <View style={[styles.card, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
-            <Text style={[styles.cardTitle, { color: txt2 }]}>7 GÜNLÜK TAHMİN</Text>
+            <Text style={[styles.cardTitle, { color: txt2 }]}>{tr('weather.gunlukTahmin')}</Text>
             {dailyForecast.map((day, index) => (
               <View key={index} style={[styles.dailyRow, { borderTopColor: cardBdr }, index === 0 && { borderTopWidth: 0 }]}>
                 <Text style={[styles.dailyDay, { color: txt1 }]}>{day.day}</Text>
@@ -362,51 +359,59 @@ const WeatherDetailScreen: React.FC<WeatherDetailScreenProps> = ({ route, naviga
             <View style={[styles.detailCard, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
               <View style={styles.detailHeader}>
                 <Thermometer color={txt2} size={15}/>
-                <Text style={[styles.detailLabel, { color: txt2 }]}>HİSSEDİLEN</Text>
+                <Text style={[styles.detailLabel, { color: txt2 }]}>{tr('weather.hissedilen')}</Text>
               </View>
               <Text style={[styles.detailValue, { color: txt1 }]}>{feelsLike}°</Text>
               <Text style={[styles.detailNote, { color: txt2 }]}>
-                {feelsLike > temperature ? 'Daha sıcak hissediyor' : feelsLike < temperature ? 'Daha soğuk hissediyor' : 'Gerçek sıcaklık ile aynı'}
+                {feelsLike > temperature ? tr('weather.dahaSicak') : feelsLike < temperature ? tr('weather.dahaSoguk') : tr('weather.gercekSicaklik')}
               </Text>
             </View>
 
             <View style={[styles.detailCard, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
               <View style={styles.detailHeader}>
                 <Droplets color={txt2} size={15}/>
-                <Text style={[styles.detailLabel, { color: txt2 }]}>NEM</Text>
+                <Text style={[styles.detailLabel, { color: txt2 }]}>{tr('weather.nem')}</Text>
               </View>
               <Text style={[styles.detailValue, { color: txt1 }]}>%{humidity}</Text>
               <Text style={[styles.detailNote, { color: txt2 }]}>
-                {humidity > 70 ? 'Yüksek nem' : humidity < 30 ? 'Düşük nem' : 'Normal seviye'}
+                {humidity > 70 ? tr('weather.yuksekNem') : humidity < 30 ? tr('weather.dusukNem') : tr('weather.normalSeviye')}
               </Text>
             </View>
 
             <View style={[styles.detailCard, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
               <View style={styles.detailHeader}>
                 <Wind color={txt2} size={15}/>
-                <Text style={[styles.detailLabel, { color: txt2 }]}>RÜZGAR</Text>
+                <Text style={[styles.detailLabel, { color: txt2 }]}>{tr('weather.ruzgar')}</Text>
               </View>
               <Text style={[styles.detailValue, { color: txt1 }]}>{windSpeed} km/sa</Text>
               <Text style={[styles.detailNote, { color: txt2 }]}>
-                {windSpeed > 40 ? 'Kuvvetli rüzgar' : windSpeed > 20 ? 'Orta şiddetli' : 'Hafif esinti'}
+                {windSpeed > 40 ? tr('weather.kuvvetliRuzgar') : windSpeed > 20 ? tr('weather.ortaSiddetli') : tr('weather.hafifEsinti')}
               </Text>
             </View>
 
             <View style={[styles.detailCard, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
               <View style={styles.detailHeader}>
                 <Eye color={txt2} size={15}/>
-                <Text style={[styles.detailLabel, { color: txt2 }]}>GÖRÜŞ</Text>
+                <Text style={[styles.detailLabel, { color: txt2 }]}>{tr('weather.gorus')}</Text>
               </View>
-              <Text style={[styles.detailValue, { color: txt1 }]}>{visibility} km</Text>
+              <Text style={[styles.detailValue, { color: txt1 }]}>
+                {visibilityKm != null ? `${visibilityKm} km` : '—'}
+              </Text>
               <Text style={[styles.detailNote, { color: txt2 }]}>
-                {visibility >= 10 ? 'Mükemmel' : visibility >= 5 ? 'İyi' : 'Sınırlı'}
+                {visibilityKm == null
+                  ? tr('weather.veriYok')
+                  : visibilityKm >= 10
+                    ? tr('weather.mukemmel')
+                    : visibilityKm >= 5
+                      ? tr('weather.iyi')
+                      : tr('weather.sinirli')}
               </Text>
             </View>
 
             <View style={[styles.detailCard, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
               <View style={styles.detailHeader}>
                 <Gauge color={txt2} size={15}/>
-                <Text style={[styles.detailLabel, { color: txt2 }]}>BASINÇ</Text>
+                <Text style={[styles.detailLabel, { color: txt2 }]}>{tr('weather.basinc')}</Text>
               </View>
               <Text style={[styles.detailValue, { color: txt1 }]}>{pressure}</Text>
               <Text style={[styles.detailNote, { color: txt2 }]}>hPa</Text>
@@ -415,16 +420,16 @@ const WeatherDetailScreen: React.FC<WeatherDetailScreenProps> = ({ route, naviga
             <View style={[styles.detailCard, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
               <View style={styles.detailHeader}>
                 <Sunrise color={txt2} size={15}/>
-                <Text style={[styles.detailLabel, { color: txt2 }]}>GÜN DÖNGÜSÜ</Text>
+                <Text style={[styles.detailLabel, { color: txt2 }]}>{tr('weather.gunDongusu')}</Text>
               </View>
               <View style={styles.sunTimesRow}>
                 <View style={styles.sunTimeItem}>
                   <Sunrise color={sunColor} size={17}/>
-                  <Text style={[styles.sunTimeText, { color: txt1 }]}>{formatTime(sunrise)}</Text>
+                  <Text style={[styles.sunTimeText, { color: txt1 }]}>{sunriseText}</Text>
                 </View>
                 <View style={styles.sunTimeItem}>
                   <Sunset color="#6366F1" size={17}/>
-                  <Text style={[styles.sunTimeText, { color: txt1 }]}>{formatTime(sunset)}</Text>
+                  <Text style={[styles.sunTimeText, { color: txt1 }]}>{sunsetText}</Text>
                 </View>
               </View>
             </View>
@@ -432,8 +437,8 @@ const WeatherDetailScreen: React.FC<WeatherDetailScreenProps> = ({ route, naviga
 
           {/* Kaynak */}
           <View style={styles.sourceRow}>
-            <Text style={[styles.sourceText, { color: txt2 }]}>Open-Meteo tarafından sağlanmaktadır</Text>
-            <Text style={[styles.updateText, { color: txt2 }]}>Son güncelleme: Şimdi</Text>
+            <Text style={[styles.sourceText, { color: txt2 }]}>{tr('weather.kaynak')}</Text>
+            <Text style={[styles.updateText, { color: txt2 }]}>{tr('weather.sonGuncelleme')}</Text>
           </View>
         </ScrollView>
       </SafeAreaView>

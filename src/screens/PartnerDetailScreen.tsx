@@ -38,8 +38,11 @@ import {
 } from 'lucide-react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/types/navigation';
+import { useTranslation } from 'react-i18next';
+import i18nInstance from '@/i18n';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { useFavorites } from '@/context/FavoritesContext';
+import { pickLocalized } from '@/lib/localizeContent';
 import { cardOuterShadow, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { FontFamily } from '@/constants/Typography';
 import { supabase, processImageUrl } from '@/lib/supabase';
@@ -102,10 +105,11 @@ function openInMaps(placeName: string) {
   });
 }
 
-function fromSupabase(row: FirsatRow): PartnerView {
+function fromSupabase(row: FirsatRow, lang: string): PartnerView {
+  const desc = pickLocalized(row as any, 'aciklama', lang).trim();
   return {
-    title: row.baslik,
-    description: row.aciklama?.trim() || 'Bu fırsat için açıklama eklenmemiş.',
+    title: pickLocalized(row as any, 'baslik', lang),
+    description: desc || i18nInstance.t('partnerDetail.aciklamaEklenmemis'),
     category: row.kategori,
     imageUrl: processImageUrl(row.resim_url, 'firsat_resimleri'),
     date: row.tarih,
@@ -118,7 +122,7 @@ function fromMock(id: string): PartnerView | null {
   return {
     title: m.name,
     description: m.description,
-    category: m.category || 'Diğer',
+    category: m.category || i18nInstance.t('partnerDetail.diger'),
     offer: m.offer,
     imageUrl: m.imageUrl || null,
     externalUrl: m.url,
@@ -128,6 +132,7 @@ function fromMock(id: string): PartnerView | null {
 const PartnerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { partnerId } = route.params;
   const t = useAppTheme();
+  const { i18n, t: tr } = useTranslation();
   const { isDark, pageBg, cardBg, cardBdr, chipBg, txt1, txt2, accent: amber } = t;
   const insets = useSafeAreaInsets();
   const { isFavoritePartner, toggleFavorite } = useFavorites();
@@ -147,7 +152,7 @@ const PartnerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         if (!Number.isNaN(numId)) {
           const { data, error } = await supabase.from('firsatlar').select('*').eq('id', numId).single();
           if (!error && data) {
-            setPartner(fromSupabase(data as FirsatRow));
+            setPartner(fromSupabase(data as FirsatRow, i18n.language));
             return;
           }
         }
@@ -162,7 +167,7 @@ const PartnerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         setRefreshing(false);
       }
     },
-    [partnerId]
+    [partnerId, i18n.language]
   );
 
   useEffect(() => {
@@ -186,7 +191,7 @@ const PartnerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         <StatusBar style={isDark ? 'light' : 'dark'} />
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color={txt1} />
-          <Text style={[styles.loadingLabel, { color: txt2 }]}>Fırsat yükleniyor…</Text>
+          <Text style={[styles.loadingLabel, { color: txt2 }]}>{tr('partnerDetail.firsatYukleniyor')}</Text>
         </View>
       </View>
     );
@@ -200,11 +205,11 @@ const PartnerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backIconBtn} hitSlop={12}>
             <ChevronLeft color={txt1} size={28} />
           </TouchableOpacity>
-          <Text style={[styles.simpleHeaderTitle, { color: txt1 }]}>Fırsat bulunamadı</Text>
+          <Text style={[styles.simpleHeaderTitle, { color: txt1 }]}>{tr('partnerDetail.firsatBulunamadi')}</Text>
         </View>
         <View style={styles.emptyBody}>
           <Text style={[styles.emptyCopy, { color: txt2 }]}>
-            Bu fırsat kaldırılmış veya artık geçerli olmayabilir.
+            {tr('partnerDetail.firsatKaldirilmisOlabilir')}
           </Text>
         </View>
       </View>
@@ -294,9 +299,9 @@ const PartnerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 <Sparkles color={amber} size={20} strokeWidth={2.2} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.offerLabel, { color: txt2 }]}>GENÇ KART FIRSATI</Text>
+                <Text style={[styles.offerLabel, { color: txt2 }]}>{tr('partnerDetail.gencKartFirsati')}</Text>
                 <Text style={[styles.offerValue, { color: txt1 }]} numberOfLines={2}>
-                  {discountNum ? `%${discountNum} İndirim` : partner.offer}
+                  {discountNum ? tr('partnerDetail.yuzdeIndirim', { percent: discountNum }) : partner.offer}
                 </Text>
               </View>
             </View>
@@ -305,12 +310,12 @@ const PartnerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           {partner.date ? (
             <View style={[styles.infoRow, { backgroundColor: chipBg }]}>
               <Calendar color={txt2} size={18} strokeWidth={2} />
-              <Text style={[styles.infoText, { color: txt1 }]}>Geçerlilik: {partner.date}</Text>
+              <Text style={[styles.infoText, { color: txt1 }]}>{tr('partnerDetail.gecerlilik')}: {partner.date}</Text>
             </View>
           ) : null}
 
           <View style={[styles.descCard, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
-            <Text style={[styles.descLabel, { color: txt2 }]}>HAKKINDA</Text>
+            <Text style={[styles.descLabel, { color: txt2 }]}>{tr('heritageDetail.hakkinda')}</Text>
             <Text style={[styles.description, { color: txt1 }]}>{partner.description}</Text>
           </View>
 
@@ -320,7 +325,7 @@ const PartnerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             onPress={() => openInMaps(partner.title)}
           >
             <Navigation color={pageBg} size={18} strokeWidth={2.2} />
-            <Text style={[styles.mapCtaText, { color: pageBg }]}>Haritada Aç</Text>
+            <Text style={[styles.mapCtaText, { color: pageBg }]}>{tr('heritageDetail.haritadaAc')}</Text>
           </TouchableOpacity>
 
           {canOpenLink ? (
@@ -333,7 +338,7 @@ const PartnerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               }}
             >
               <ExternalLink color={txt1} size={18} strokeWidth={2} />
-              <Text style={[styles.linkCtaText, { color: txt1 }]}>Web sitesini aç</Text>
+              <Text style={[styles.linkCtaText, { color: txt1 }]}>{tr('partnerDetail.webSitesiniAc')}</Text>
             </TouchableOpacity>
           ) : null}
         </View>

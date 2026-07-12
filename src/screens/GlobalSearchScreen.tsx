@@ -17,6 +17,7 @@ import { MOCK_PARTNERS, MOCK_EVENTS, MOCK_MAGAZINES } from '@/api/mockData';
 import { MOCK_STOPS } from '@/data/transport';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { supabase, processImageUrl } from '@/lib/supabase';
+import { useTranslation } from 'react-i18next';
 
 type SearchResult = {
   type: 'event' | 'partner' | 'heritage' | 'stop';
@@ -28,6 +29,7 @@ type SearchResult = {
 
 const GlobalSearchScreen = () => {
   const t = useAppTheme();
+  const { t: tr } = useTranslation();
   const navigation = useNavigation<any>();
   const [query, setQuery] = useState('');
   const [events, setEvents] = useState<any[]>([]);
@@ -137,10 +139,10 @@ const GlobalSearchScreen = () => {
   };
 
   const getTypeLabel = (type: SearchResult['type']) => {
-    if (type === 'event') return 'Etkinlik';
-    if (type === 'partner') return 'Mekan';
-    if (type === 'heritage') return 'Keşfet';
-    return 'Durak';
+    if (type === 'event') return tr('hizliErisim.etkinlik');
+    if (type === 'partner') return tr('search.mekan');
+    if (type === 'heritage') return tr('hizliErisim.kesfet');
+    return tr('transport.durak');
   };
 
   return (
@@ -153,7 +155,7 @@ const GlobalSearchScreen = () => {
           <View style={[styles.searchInputWrap, { backgroundColor: t.chipBg }]}>
             <Search color={t.txt2} size={20} />
             <TextInput
-              placeholder="Etkinlik, mekan, durak ara..."
+              placeholder={tr('search.placeholder')}
               placeholderTextColor={t.txt2}
               style={[styles.searchInput, { color: t.txt1 }]}
               value={query}
@@ -178,12 +180,12 @@ const GlobalSearchScreen = () => {
           <View style={styles.placeholder}>
             <Search color={t.txt2} size={48} />
             <Text style={[styles.placeholderText, { color: t.txt2 }]}>
-              Etkinlik, mekan veya durak adı yazın
+              {tr('search.emptyHint')}
             </Text>
           </View>
         ) : list.length === 0 ? (
           <View style={styles.placeholder}>
-            <Text style={[styles.placeholderText, { color: t.txt2 }]}>Sonuç bulunamadı</Text>
+            <Text style={[styles.placeholderText, { color: t.txt2 }]}>{tr('transport.sonucBulunamadi')}</Text>
           </View>
         ) : (
           list.map((r) => (

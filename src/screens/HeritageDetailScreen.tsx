@@ -23,6 +23,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ChevronLeft, Landmark, MapPin, Navigation, Heart, Star, X } from 'lucide-react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/types/navigation';
+import { useTranslation } from 'react-i18next';
 import { useUser } from '@/context/UserContext';
 import { useFavorites } from '@/context/FavoritesContext';
 import { useAppTheme } from '@/theme/useAppTheme';
@@ -40,12 +41,12 @@ const { width: SCREEN_W } = Dimensions.get('window');
 const HERO_W = SCREEN_W - 32;
 const HERO_H = HERO_W * HERO_RATIO;
 
-const categoryLabel: Record<HeritageCategory, string> = {
-  historic: 'Tarihi yer',
-  faith: 'İnanç ve kültür',
-  museum: 'Müze',
-  nature: 'Doğa & park',
-  bazaar: 'Tarihi çarşı',
+const categoryLabelKey: Record<HeritageCategory, string> = {
+  historic: 'heritageDetail.tarihiYer',
+  faith: 'heritageDetail.inancVeKultur',
+  museum: 'heritageDetail.muze',
+  nature: 'heritageDetail.dogaVePark',
+  bazaar: 'heritageDetail.tarihiCarsi',
 };
 
 interface PlaceView {
@@ -93,6 +94,7 @@ function openInMaps(placeName: string) {
 const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { id } = route.params;
   const t = useAppTheme();
+  const { i18n, t: tr } = useTranslation();
   const insets = useSafeAreaInsets();
   const { profile } = useUser();
   const { isFavoriteHeritage, toggleFavorite } = useFavorites();
@@ -167,12 +169,12 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           .select('user_id, name, username')
           .in('user_id', userIds);
         (profiles ?? []).forEach((p: any) => {
-          namesById[p.user_id] = p.name || p.username || 'Kullanıcı';
+          namesById[p.user_id] = p.name || p.username || tr('common.kullanici');
         });
       }
 
       setReviews(
-        (data as ReviewRow[]).map((r) => ({ ...r, reviewer_name: namesById[r.user_id] || 'Kullanıcı' }))
+        (data as ReviewRow[]).map((r) => ({ ...r, reviewer_name: namesById[r.user_id] || tr('common.kullanici') }))
       );
     } catch (e) {
       // Tablo henüz oluşturulmamışsa sessizce boş liste göster
@@ -184,8 +186,11 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   useEffect(() => {
     loadPlace(false);
+  }, [loadPlace, i18n.language]);
+
+  useEffect(() => {
     loadReviews();
-  }, [loadPlace, loadReviews]);
+  }, [loadReviews]);
 
   const avgRating = useMemo(() => {
     if (reviews.length === 0) return null;
@@ -199,11 +204,11 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const submitReview = async () => {
     if (!profile?.userId) {
-      Alert.alert('Giriş Gerekli', 'Yorum yapabilmek için giriş yapmalısın.');
+      Alert.alert(tr('heritageDetail.girisGerekli'), tr('heritageDetail.yorumIcinGiris'));
       return;
     }
     if (!newComment.trim()) {
-      Alert.alert('Eksik Bilgi', 'Lütfen bir yorum yaz.');
+      Alert.alert(tr('login.eksikBilgi'), tr('heritageDetail.lutfenYorumYaz'));
       return;
     }
     setSubmitting(true);
@@ -220,7 +225,7 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       setNewRating(5);
       await loadReviews();
     } catch (e) {
-      Alert.alert('Hata', 'Yorum gönderilemedi, lütfen tekrar dene.');
+      Alert.alert(tr('common.error'), tr('heritageDetail.yorumGonderilemedi'));
     } finally {
       setSubmitting(false);
     }
@@ -232,7 +237,7 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         <StatusBar style={t.isDark ? 'light' : 'dark'} />
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color={t.txt1} />
-          <Text style={[styles.loadingLabel, { color: t.txt2 }]}>Yükleniyor…</Text>
+          <Text style={[styles.loadingLabel, { color: t.txt2 }]}>{tr('common.loading')}</Text>
         </View>
       </View>
     );
@@ -246,11 +251,11 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backIconBtn, { backgroundColor: t.chipBg }]} hitSlop={12}>
             <ChevronLeft color={t.txt1} size={22} strokeWidth={2.2} />
           </TouchableOpacity>
-          <Text style={[styles.simpleHeaderTitle, { color: t.txt1 }]}>İçerik bulunamadı</Text>
+          <Text style={[styles.simpleHeaderTitle, { color: t.txt1 }]}>{tr('heritageDetail.icerikBulunamadi')}</Text>
         </View>
         <View style={styles.emptyBody}>
           <Text style={[styles.emptyCopy, { color: t.txt2 }]}>
-            Bu mekân bulunamadı veya kaldırılmış olabilir.
+            {tr('heritageDetail.mekanBulunamadi')}
           </Text>
         </View>
       </View>
@@ -316,7 +321,7 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <View style={styles.chipRow}>
             <View style={[styles.chip, { backgroundColor: t.chipBg }]}>
               <Landmark color={t.accent} size={14} strokeWidth={2.2} />
-              <Text style={[styles.chipText, { color: t.txt1 }]}>{categoryLabel[place.category]}</Text>
+              <Text style={[styles.chipText, { color: t.txt1 }]}>{tr(categoryLabelKey[place.category])}</Text>
             </View>
             <View style={[styles.chip, { backgroundColor: t.chipBg }]}>
               <MapPin color={t.txt2} size={14} strokeWidth={2.2} />
@@ -325,9 +330,9 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
 
           <View style={[styles.descCard, cardOuterShadow, cardBorder, { backgroundColor: t.cardBg }]}>
-            <Text style={[styles.descLabel, { color: t.txt2 }]}>HAKKINDA</Text>
+            <Text style={[styles.descLabel, { color: t.txt2 }]}>{tr('heritageDetail.hakkinda')}</Text>
             <Text style={[styles.description, { color: t.txt1 }]}>
-              {place.description?.trim() || 'Bu mekân için henüz detaylı açıklama eklenmemiş.'}
+              {place.description?.trim() || tr('heritageDetail.detayliAciklamaYok')}
             </Text>
           </View>
 
@@ -337,23 +342,23 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             onPress={() => openInMaps(place.title)}
           >
             <Navigation color={t.pageBg} size={18} strokeWidth={2.2} />
-            <Text style={[styles.mapCtaText, { color: t.pageBg }]}>Haritada Aç</Text>
+            <Text style={[styles.mapCtaText, { color: t.pageBg }]}>{tr('heritageDetail.haritadaAc')}</Text>
           </TouchableOpacity>
 
           {/* Yorumlar */}
           <View style={styles.sectionHeadRow}>
             <Text style={[styles.sectionTitle, { color: t.txt1 }]}>
-              Yorumlar {reviews.length > 0 ? `(${reviews.length})` : ''}
+              {tr('heritageDetail.yorumlar')} {reviews.length > 0 ? `(${reviews.length})` : ''}
             </Text>
             <TouchableOpacity onPress={() => setReviewModalVisible(true)}>
-              <Text style={[styles.sectionAction, { color: starYellow }]}>Yorum Yap</Text>
+              <Text style={[styles.sectionAction, { color: starYellow }]}>{tr('heritageDetail.yorumYap')}</Text>
             </TouchableOpacity>
           </View>
 
           {reviewsLoading ? (
             <ActivityIndicator color={t.txt2} style={{ marginVertical: 12 }} />
           ) : reviews.length === 0 ? (
-            <Text style={[styles.emptyReviewsTxt, { color: t.txt2 }]}>Henüz yorum yok — ilk yorumu sen yaz.</Text>
+            <Text style={[styles.emptyReviewsTxt, { color: t.txt2 }]}>{tr('heritageDetail.henuzYorumYok')}</Text>
           ) : (
             <View style={{ gap: 10 }}>
               {reviews.slice(0, 2).map((r) => (
@@ -362,7 +367,7 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                     <View style={[styles.reviewAvatar, { backgroundColor: t.chipBg }]}>
                       <Text style={[styles.reviewAvatarTxt, { color: t.txt1 }]}>{(r.reviewer_name || 'K').charAt(0).toUpperCase()}</Text>
                     </View>
-                    <Text style={[styles.reviewerName, { color: t.txt1 }]} numberOfLines={1}>{r.reviewer_name || 'Kullanıcı'}</Text>
+                    <Text style={[styles.reviewerName, { color: t.txt1 }]} numberOfLines={1}>{r.reviewer_name || tr('common.kullanici')}</Text>
                   </View>
                   <View style={styles.reviewStarsRow}>
                     {Array.from({ length: 5 }).map((_, i) => (
@@ -374,7 +379,7 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               ))}
               {reviews.length > 2 && (
                 <TouchableOpacity onPress={() => setAllReviewsModalVisible(true)} style={styles.seeAllBtn}>
-                  <Text style={[styles.sectionAction, { color: t.txt1 }]}>Tümünü Gör ({reviews.length})</Text>
+                  <Text style={[styles.sectionAction, { color: t.txt1 }]}>{tr('heritageDetail.tumunuGor', { count: reviews.length })}</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -384,7 +389,7 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           {relatedPlaces.length > 0 && (
             <View style={{ marginTop: 24 }}>
               <View style={styles.sectionHeadRow}>
-                <Text style={[styles.sectionTitle, { color: t.txt1 }]}>Diğer Yerler</Text>
+                <Text style={[styles.sectionTitle, { color: t.txt1 }]}>{tr('heritageDetail.digerYerler')}</Text>
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 4 }}>
                 {relatedPlaces.map((rp) => {
@@ -422,7 +427,7 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         <View style={styles.modalBack}>
           <View style={[styles.modalCard, { backgroundColor: t.cardBg, maxHeight: '75%' }]}>
             <View style={styles.modalHeadRow}>
-              <Text style={[styles.modalTitle, { color: t.txt1 }]}>Tüm Yorumlar ({reviews.length})</Text>
+              <Text style={[styles.modalTitle, { color: t.txt1 }]}>{tr('heritageDetail.tumYorumlar', { count: reviews.length })}</Text>
               <TouchableOpacity onPress={() => setAllReviewsModalVisible(false)} style={[styles.modalCloseBtn, { backgroundColor: t.chipBg }]}>
                 <X color={t.txt1} size={18} />
               </TouchableOpacity>
@@ -434,7 +439,7 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                     <View style={[styles.reviewAvatar, { backgroundColor: t.chipBg }]}>
                       <Text style={[styles.reviewAvatarTxt, { color: t.txt1 }]}>{(r.reviewer_name || 'K').charAt(0).toUpperCase()}</Text>
                     </View>
-                    <Text style={[styles.reviewerName, { color: t.txt1 }]} numberOfLines={1}>{r.reviewer_name || 'Kullanıcı'}</Text>
+                    <Text style={[styles.reviewerName, { color: t.txt1 }]} numberOfLines={1}>{r.reviewer_name || tr('common.kullanici')}</Text>
                   </View>
                   <View style={styles.reviewStarsRow}>
                     {Array.from({ length: 5 }).map((_, i) => (
@@ -457,7 +462,7 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         >
           <View style={[styles.modalCard, { backgroundColor: t.cardBg }]}>
             <View style={styles.modalHeadRow}>
-              <Text style={[styles.modalTitle, { color: t.txt1 }]}>Yorum Yap</Text>
+              <Text style={[styles.modalTitle, { color: t.txt1 }]}>{tr('heritageDetail.yorumYap')}</Text>
               <TouchableOpacity onPress={() => setReviewModalVisible(false)} style={[styles.modalCloseBtn, { backgroundColor: t.chipBg }]}>
                 <X color={t.txt1} size={18} />
               </TouchableOpacity>
@@ -471,7 +476,7 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             </View>
             <TextInput
               style={[styles.modalInput, { backgroundColor: t.chipBg, color: t.txt1 }]}
-              placeholder="Bu mekân hakkında ne düşünüyorsun?"
+              placeholder={tr('heritageDetail.mekanHakkindaNeDusunuyorsun')}
               placeholderTextColor={t.txt2}
               value={newComment}
               onChangeText={setNewComment}
@@ -485,7 +490,7 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               onPress={submitReview}
               disabled={submitting}
             >
-              <Text style={[styles.modalSubmitTxt, { color: t.pageBg }]}>{submitting ? 'Gönderiliyor…' : 'Gönder'}</Text>
+              <Text style={[styles.modalSubmitTxt, { color: t.pageBg }]}>{submitting ? tr('heritageDetail.gonderiliyor') : tr('common.send')}</Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>

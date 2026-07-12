@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
-  Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SendHorizonal, Bot, Bus, Percent, Calendar, MapPin, BookOpen, Map as MapIcon, Sparkles } from 'lucide-react-native';
@@ -19,27 +18,26 @@ import { MOCK_MESSAGES } from '@/api/mockData';
 import { ChatMessage } from '@/types';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { supabase } from '@/lib/supabase';
+import { useTranslation } from 'react-i18next';
 
 // Gemini çağrısı client'ta değil, Supabase Edge Function (gemini-proxy) üzerinden
 // yapılıyor — API key ve sistem talimatı sunucu tarafında tutulur, client'a hiç gömülmez.
 
 const QUICK_ACTIONS = [
-  { id: 'bus', label: 'Otobüs Saatleri', icon: Bus, text: 'Otobüs saatlerini öğrenmek istiyorum.', accent: false },
-  { id: 'discounts', label: 'Öğrenci İndirimleri', icon: Percent, text: 'Genç Kart ile nerelerde indirim var?', accent: true },
-  { id: 'events', label: 'Bugünkü Etkinlikler', icon: Calendar, text: 'Bugün veya yakında hangi etkinlikler var?', accent: false },
-  { id: 'pharmacy', label: 'Yakınımdaki Eczane', icon: MapPin, text: 'Nöbetçi eczaneleri gösterir misin?', accent: false },
-  { id: 'library', label: 'Kütüphaneler', icon: BookOpen, text: 'Şanlıurfa\'da hangi kütüphaneler var?', accent: false },
-  { id: 'cultural', label: 'Gezilecek Yerler', icon: MapIcon, text: 'Şanlıurfa\'da hangi kültürel rotalar var?', accent: false },
+  { id: 'bus', labelKey: 'assistant.otobusSaatleri', icon: Bus, textKey: 'assistant.otobusSaatleriText', accent: false },
+  { id: 'discounts', labelKey: 'assistant.ogrenciIndirimleri', icon: Percent, textKey: 'assistant.ogrenciIndirimleriText', accent: true },
+  { id: 'events', labelKey: 'assistant.bugunkuEtkinlikler', icon: Calendar, textKey: 'assistant.bugunkuEtkinliklerText', accent: false },
+  { id: 'pharmacy', labelKey: 'assistant.yakinimdakiEczane', icon: MapPin, textKey: 'assistant.yakinimdakiEczaneText', accent: false },
+  { id: 'library', labelKey: 'assistant.kutuphaneler', icon: BookOpen, textKey: 'assistant.kutuphanelerText', accent: false },
+  { id: 'cultural', labelKey: 'assistant.gezilecekYerler', icon: MapIcon, textKey: 'assistant.gezilecekYerlerText', accent: false },
 ];
 
 const CHAT_QUICK_CHIPS = [
-  { id: 'weather', label: 'Bugün hava nasıl?', text: 'Bugün hava nasıl?' },
-  { id: 'lib2', label: 'En yakın kütüphane', text: 'En yakın kütüphane neresi?' },
-  { id: 'genc', label: 'Gençlik merkezi', text: 'Gençlik merkezi hakkında bilgi ver.' },
+  { id: 'weather', labelKey: 'assistant.bugunHavaNasil', textKey: 'assistant.bugunHavaNasil' },
+  { id: 'lib2', labelKey: 'assistant.enYakinKutuphane', textKey: 'assistant.enYakinKutuphaneNeresi' },
+  { id: 'genc', labelKey: 'assistant.genclikMerkezi', textKey: 'assistant.genclikMerkeziText' },
 ];
 
-const TAB_BAR_HEIGHT = 72;
-const TAB_BAR_BOTTOM_MARGIN = 24;
 const TYPING_DELAY_MS = 900;
 const ASSISTANT_QUOTA_KEY = 'sanliasistan_quota_v1';
 const DAILY_LIMIT = 40;
@@ -47,9 +45,10 @@ const PER_MINUTE_LIMIT = 8;
 
 const AssistantScreen = () => {
   const t = useAppTheme();
+  const { t: tr } = useTranslation();
   const insets = useSafeAreaInsets();
-  const tabBarLift = Math.max(TAB_BAR_BOTTOM_MARGIN, insets.bottom + 8);
-  const pageBottomMargin = tabBarLift + TAB_BAR_HEIGHT + 14;
+  // Bu ekran stack içinde açılıyor; tab bar boşluğu bırakmak input'u gereksiz yukarı taşır.
+  const pageBottomMargin = Math.max(insets.bottom + 8, 14);
 
   const [messages, setMessages] = useState<ChatMessage[]>(MOCK_MESSAGES.slice());
   const [inputText, setInputText] = useState('');
@@ -58,17 +57,6 @@ const AssistantScreen = () => {
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'ready' | 'error'>('ready');
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
-
-  useEffect(() => {
-    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const showSub = Keyboard.addListener(showEvt, () => setKeyboardVisible(true));
-    const hideSub = Keyboard.addListener(hideEvt, () => setKeyboardVisible(false));
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
 
   useEffect(() => {
     if (!isTyping) {
@@ -103,10 +91,10 @@ const AssistantScreen = () => {
       const minuteCount = parsed.minuteSlot === minuteSlot ? Number(parsed.minuteCount ?? 0) : 0;
 
       if (dailyCount >= DAILY_LIMIT) {
-        return { ok: false, message: 'Bugünlük mesaj limitine ulaştın. Yarın tekrar dene.' };
+        return { ok: false, message: tr('assistant.gunlukLimit') };
       }
       if (minuteCount >= PER_MINUTE_LIMIT) {
-        return { ok: false, message: 'Çok hızlı gidiyoruz. Lütfen 1 dakika sonra tekrar dene.' };
+        return { ok: false, message: tr('assistant.cokHizli') };
       }
 
       await AsyncStorage.setItem(
@@ -125,22 +113,22 @@ const AssistantScreen = () => {
 
       if (error) {
         setConnectionStatus('error');
-        return 'Şu an yanıt veremiyorum, lütfen biraz sonra tekrar dene.';
+        return tr('assistant.suAnYanitVeremiyorum');
       }
       if (data?.error) {
         if (String(data.error).includes('429')) {
-          return 'Yoğunluk var, lütfen 30 saniye sonra tekrar dene.';
+          return tr('assistant.yogunlukVar');
         }
-        return 'Bir hata oluştu.';
+        return tr('sosyalMain.birHataOlustu');
       }
       if (!data?.reply) {
-        return 'Cevap alınamadı.';
+        return tr('assistant.cevapAlinamadi');
       }
       setConnectionStatus('ready');
       return data.reply;
     } catch {
       setConnectionStatus('error');
-      return 'İnternet bağlantısında sorun var.';
+      return tr('assistant.internetSorunu');
     }
   };
 
@@ -178,8 +166,8 @@ const AssistantScreen = () => {
       <View style={[styles.hero, { paddingTop: insets.top + 18, backgroundColor: pageBg }]}>
         <View style={styles.heroTop}>
           <View>
-            <Text style={[styles.heroLabel, { color: txt2 }]}>ŞANLI ASİSTAN</Text>
-            <Text style={[styles.heroTitle, { color: txt1 }]}>Urfa'ya dair{'\n'}ne varsa sor.</Text>
+            <Text style={[styles.heroLabel, { color: txt2 }]}>{tr('assistant.sanliAsistanBadge')}</Text>
+            <Text style={[styles.heroTitle, { color: txt1 }]}>{tr('assistant.heroTitle')}</Text>
           </View>
           <View style={[styles.heroIconWrap, { backgroundColor: txt1 }]}>
             <Bot color={pageBg} size={22} strokeWidth={1.8} />
@@ -188,13 +176,13 @@ const AssistantScreen = () => {
         <View style={[styles.heroPill, { backgroundColor: chipBg, borderColor: cardBdr }]}>
           <View style={[styles.statusDot, { backgroundColor: connectionStatus === 'error' ? '#EF4444' : '#22C55E' }]} />
           <Text style={[styles.heroPillTxt, { color: txt1 }]}>
-            {connectionStatus === 'error' ? 'Bağlantı sorunu' : 'Çevrimiçi'}
+            {connectionStatus === 'error' ? tr('assistant.baglantiSorunu') : tr('assistant.cevrimici')}
           </Text>
         </View>
       </View>
 
       <KeyboardAvoidingView
-        behavior="padding"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={0}
         style={{ flex: 1, backgroundColor: pageBg }}
       >
@@ -211,10 +199,10 @@ const AssistantScreen = () => {
               <TouchableOpacity
                 key={chip.id}
                 style={[styles.quickStartChip, styles.softShadow, { backgroundColor: cardBg, borderColor: cardBdr }]}
-                onPress={() => { void sendUserMessage(chip.text); }}
+                onPress={() => { void sendUserMessage(tr(chip.textKey)); }}
                 activeOpacity={0.88}
               >
-                <Text style={[styles.quickStartText, { color: txt1 }]}>{chip.label}</Text>
+                <Text style={[styles.quickStartText, { color: txt1 }]}>{tr(chip.labelKey)}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -238,14 +226,14 @@ const AssistantScreen = () => {
                   </View>
                 </View>
                 <Text style={[styles.welcomeTitle, { color: txt1 }]}>
-                  Şanlıurfa'da ihtiyacın olan her konuda buradayım.
+                  {tr('assistant.welcomeTitle')}
                 </Text>
                 <Text style={[styles.welcomeSub, { color: txt2 }]}>
-                  Ulaşım, etkinlikler, indirimler, eczaneler, kütüphaneler ve daha fazlası için sorunu sor, hemen yardımcı olayım.
+                  {tr('assistant.welcomeSub')}
                 </Text>
               </View>
 
-              <Text style={[styles.popularLabel, { color: txt1 }]}>Popüler Sorular</Text>
+              <Text style={[styles.popularLabel, { color: txt1 }]}>{tr('assistant.populerSorular')}</Text>
               <View style={styles.quickGrid}>
                 {QUICK_ACTIONS.map((action) => {
                   const Icon = action.icon;
@@ -253,7 +241,7 @@ const AssistantScreen = () => {
                     <TouchableOpacity
                       key={action.id}
                       style={[styles.quickCard, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}
-                      onPress={() => { void sendUserMessage(action.text); }}
+                      onPress={() => { void sendUserMessage(tr(action.textKey)); }}
                       activeOpacity={0.88}
                     >
                       {action.accent && (
@@ -264,7 +252,7 @@ const AssistantScreen = () => {
                       <View style={[styles.quickCardIcon, { backgroundColor: chipBg }]}>
                         <Icon color={txt1} size={19} strokeWidth={2} />
                       </View>
-                      <Text style={[styles.quickCardTitle, { color: txt1 }]} numberOfLines={2}>{action.label}</Text>
+                      <Text style={[styles.quickCardTitle, { color: txt1 }]} numberOfLines={2}>{tr(action.labelKey)}</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -310,11 +298,13 @@ const AssistantScreen = () => {
         <View style={{ backgroundColor: pageBg, borderTopWidth: 1, borderTopColor: cardBdr }}>
           <View style={styles.inputContainer}>
             <TextInput
-              placeholder="Mesajını buraya yaz..."
+              placeholder={tr('assistant.mesajiniBurayaYaz')}
               style={[styles.input, { backgroundColor: cardBg, borderColor: cardBdr, color: txt1 }]}
               placeholderTextColor={txt2}
               value={inputText}
               onChangeText={setInputText}
+              onFocus={() => setKeyboardVisible(true)}
+              onBlur={() => setKeyboardVisible(false)}
               onSubmitEditing={() => { void sendUserMessage(inputText); }}
               returnKeyType="send"
             />
@@ -327,7 +317,11 @@ const AssistantScreen = () => {
             </TouchableOpacity>
           </View>
           {/* Tab bar boşluğu — klavye açıkken gerekmiyor */}
-          <View style={{ height: keyboardVisible ? Math.max(insets.bottom, 8) : pageBottomMargin }} />
+          <View
+            style={{
+              height: keyboardVisible ? 0 : pageBottomMargin
+            }}
+          />
         </View>
       </KeyboardAvoidingView>
     </View>

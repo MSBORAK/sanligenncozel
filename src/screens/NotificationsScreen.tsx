@@ -5,9 +5,11 @@ import { Bell, UserPlus, Check, X, MessageSquare, Sparkles, Calendar, Percent, C
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { cardOuterShadow, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
+import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabase';
+import { pickLocalized } from '@/lib/localizeContent';
 import { RootStackParamList } from '@/types/navigation';
 
 interface FriendRequest {
@@ -27,6 +29,7 @@ type NotificationItem =
 const NotificationsScreen = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const t = useAppTheme();
+  const { i18n, t: tr } = useTranslation();
   const { profile } = useUser();
 
   const [items, setItems] = useState<NotificationItem[]>([]);
@@ -65,8 +68,8 @@ const NotificationsScreen = () => {
             id: `friend-${req.id}`,
             type: 'friend_request',
             created_at: req.created_at,
-            title: p?.name ?? 'Kullanıcı',
-            message: `@${p?.username ?? ''} seni arkadaş olarak eklemek istiyor`,
+            title: p?.name ?? tr('common.kullanici'),
+            message: `@${p?.username ?? ''} ${tr('sosyalMain.seniEklemekIstiyor')}`,
             request,
           });
         });
@@ -97,17 +100,17 @@ const NotificationsScreen = () => {
 
           const senderMap: Record<string, string> = {};
           (senderProfiles ?? []).forEach((p: any) => {
-            senderMap[p.user_id] = p.name ?? 'Kullanıcı';
+            senderMap[p.user_id] = p.name ?? tr('common.kullanici');
           });
 
           msgData.forEach((m: any) => {
-            const senderName = senderMap[m.sender_id] ?? 'Kullanıcı';
+            const senderName = senderMap[m.sender_id] ?? tr('common.kullanici');
             merged.push({
               id: `msg-${m.id}`,
               type: 'message',
               created_at: m.created_at,
               title: senderName,
-              message: m.content?.trim() ? m.content : 'Yeni bir mesaj gönderdi.',
+              message: m.content?.trim() ? m.content : tr('notifications.yeniMesajGonderdi'),
               targetUserId: m.sender_id,
               targetUserName: senderName,
             });
@@ -139,7 +142,7 @@ const NotificationsScreen = () => {
 
           const friendMap: Record<string, string> = {};
           (friendProfiles ?? []).forEach((p: any) => {
-            friendMap[p.user_id] = p.name ?? 'Arkadaşın';
+            friendMap[p.user_id] = p.name ?? tr('notifications.arkadasin');
           });
 
           snapData.forEach((s: any) => {
@@ -147,8 +150,8 @@ const NotificationsScreen = () => {
               id: `snap-${s.id}`,
               type: 'snap',
               created_at: s.created_at,
-              title: 'Yeni kıvılcım',
-              message: `${friendMap[s.user_id] ?? 'Arkadaşın'} yeni bir kıvılcım paylaştı.`,
+              title: tr('notifications.yeniKivilcim'),
+              message: tr('notifications.yeniKivilcimPaylasti', { name: friendMap[s.user_id] ?? tr('notifications.arkadasin') }),
             });
           });
         }
@@ -158,7 +161,7 @@ const NotificationsScreen = () => {
       const eventSince = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
       const { data: eventsData } = await supabase
         .from('etkinlikler')
-        .select('id, baslik, tarih, created_at')
+        .select('id, baslik, baslik_en, baslik_de, baslik_es, baslik_fr, baslik_ar, tarih, created_at')
         .gte('created_at', eventSince)
         .order('created_at', { ascending: false })
         .limit(15);
@@ -168,15 +171,15 @@ const NotificationsScreen = () => {
           id: `event-${e.id}`,
           type: 'event',
           created_at: e.created_at,
-          title: 'Yeni etkinlik yayinda',
-          message: `${e.baslik ?? 'Etkinlik'}${e.tarih ? ` - ${e.tarih}` : ''}`,
+          title: tr('notifications.yeniEtkinlikYayinda'),
+          message: `${pickLocalized(e, 'baslik', i18n.language) || tr('notifications.etkinlik')}${e.tarih ? ` - ${e.tarih}` : ''}`,
         });
       });
 
       // 5) Yeni indirimler/firsatlar (son 7 gün)
       const { data: discountsData } = await supabase
         .from('firsatlar')
-        .select('id, baslik, kategori, created_at')
+        .select('id, baslik, baslik_en, baslik_de, baslik_es, baslik_fr, baslik_ar, kategori, created_at')
         .gte('created_at', eventSince)
         .order('created_at', { ascending: false })
         .limit(15);
@@ -186,8 +189,8 @@ const NotificationsScreen = () => {
           id: `discount-${d.id}`,
           type: 'discount',
           created_at: d.created_at,
-          title: 'Yeni indirim eklendi',
-          message: `${d.baslik ?? 'Firsat'}${d.kategori ? ` - ${d.kategori}` : ''}`,
+          title: tr('notifications.yeniIndirimEklendi'),
+          message: `${pickLocalized(d, 'baslik', i18n.language) || tr('notifications.firsat')}${d.kategori ? ` - ${d.kategori}` : ''}`,
         });
       });
 
@@ -221,10 +224,10 @@ const NotificationsScreen = () => {
         user2_id: req.sender_id,
       });
 
-      Alert.alert('Arkadaş Eklendi!', `${req.sender_profile?.name ?? 'Kullanıcı'} ile artık mesajlaşabilirsiniz.`);
+      Alert.alert(tr('sosyalMain.arkadasEklendi'), tr('notifications.ileArtikMesajlasabilirsiniz', { name: req.sender_profile?.name ?? tr('common.kullanici') }));
       await fetchNotifications();
     } catch {
-      Alert.alert('Hata', 'İstek kabul edilemedi. Lütfen tekrar deneyin.');
+      Alert.alert(tr('common.error'), tr('notifications.istekKabulEdilemedi'));
     }
   };
 
@@ -234,7 +237,7 @@ const NotificationsScreen = () => {
       if (error) throw error;
       await fetchNotifications();
     } catch {
-      Alert.alert('Hata', 'İstek reddedilemedi. Lütfen tekrar deneyin.');
+      Alert.alert(tr('common.error'), tr('notifications.istekReddedilemedi'));
     }
   };
 
@@ -283,8 +286,8 @@ const NotificationsScreen = () => {
             <ChevronLeft color={txt1} size={22} strokeWidth={2.2} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.heroLabel, { color: txt2 }]}>GÜNCEL</Text>
-            <Text style={[styles.heroTitle, { color: txt1 }]}>Bildirimler</Text>
+            <Text style={[styles.heroLabel, { color: txt2 }]}>{tr('notifications.guncel')}</Text>
+            <Text style={[styles.heroTitle, { color: txt1 }]}>{tr('hizliErisim.bildirimler')}</Text>
           </View>
           <View style={[styles.heroIconWrap, { backgroundColor: txt1 }]}>
             <Bell color={pageBg} size={20} strokeWidth={1.8} />
@@ -306,7 +309,7 @@ const NotificationsScreen = () => {
           ListHeaderComponent={
             items.length > 0 ? (
               <Text style={[styles.sectionTitle, { color: txt2 }]}>
-                Son Bildirimler ({items.length})
+                {tr('notifications.sonBildirimler', { count: items.length })}
               </Text>
             ) : null
           }
@@ -349,9 +352,9 @@ const NotificationsScreen = () => {
               <View style={[styles.emptyIconWrap, { backgroundColor: chipBg }]}>
                 <Bell size={28} color={txt2} strokeWidth={1.8} />
               </View>
-              <Text style={[styles.emptyTitle, { color: txt1 }]}>Henüz bildirimin yok</Text>
+              <Text style={[styles.emptyTitle, { color: txt1 }]}>{tr('notifications.henuzBildirimYok')}</Text>
               <Text style={[styles.emptyText, { color: txt2 }]}>
-                Arkadaşlık, mesaj, kıvılcım, etkinlik ve indirim bildirimlerini burada göreceksin.
+                {tr('notifications.emptyDesc')}
               </Text>
             </View>
           }

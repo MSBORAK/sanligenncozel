@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { markOnboardingCompleted } from '@/utils/onboarding';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Editorial } from '@/theme/colors';
+import { useTranslation } from 'react-i18next';
 
 const planningRouteLottie = require('@/assets/images/Man Planning A Sightseeing Route.json');
 
@@ -28,6 +29,7 @@ const ACCENT2 = Editorial.chip;
 
 export const Onboarding1Screen: React.FC = () => {
   const navigation = useNavigation<NavProp>();
+  const { t: tr } = useTranslation();
   const insets = useSafeAreaInsets();
 
   // Entrance anims
@@ -118,7 +120,7 @@ export const Onboarding1Screen: React.FC = () => {
             resizeMode="contain"
           />
           <View style={styles.yearChip}>
-            <Text style={styles.yearChipText}>11.000 YIL</Text>
+            <Text style={styles.yearChipText}>{tr('onboarding1.yilBadge')}</Text>
           </View>
         </Animated.View>
 
@@ -130,7 +132,7 @@ export const Onboarding1Screen: React.FC = () => {
           }]}>
             <LinearGradient colors={['rgba(245,158,11,0.22)', 'rgba(251,191,36,0.1)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.badgeGradient}>
               <View style={styles.badgeDot} />
-              <Text style={styles.badgeText}>ŞANLIURFA · KEŞFEDİLİYOR</Text>
+              <Text style={styles.badgeText}>{tr('onboarding1.badge')}</Text>
             </LinearGradient>
           </Animated.View>
 
@@ -138,14 +140,14 @@ export const Onboarding1Screen: React.FC = () => {
             opacity: titleAnim,
             transform: [{ translateY: titleAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
           }]}>
-            ŞanlıGenç'e{'\n'}Hoş Geldin
+            {tr('onboarding1.title')}
           </Animated.Text>
 
           <Animated.Text style={[styles.subtitle, {
             opacity: subtitleAnim,
             transform: [{ translateY: subtitleAnim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }],
           }]}>
-            Şanlıurfa'nın gençlere özel uygulaması.{'\n'}Etkinlik, indirim, ulaşım ve yapay zeka{'\n'}— hepsi cebinde.
+            {tr('onboarding1.subtitle')}
           </Animated.Text>
 
           <Animated.View style={[styles.featuresRow, {
@@ -153,10 +155,10 @@ export const Onboarding1Screen: React.FC = () => {
             transform: [{ translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
           }]}>
             {[
-              { icon: '🗺️', label: 'Harita' },
-              { icon: '🎟️', label: 'Etkinlik' },
-              { icon: '💳', label: 'Genç Kart' },
-              { icon: '🤖', label: 'Asistan' },
+              { icon: '🗺️', label: tr('onboarding1.harita') },
+              { icon: '🎟️', label: tr('onboarding1.etkinlik') },
+              { icon: '💳', label: tr('welcome.gencKart') },
+              { icon: '🤖', label: tr('onboarding1.asistan') },
             ].map(f => (
               <View key={f.label} style={styles.featureChip}>
                 <Text style={styles.featureIcon}>{f.icon}</Text>
@@ -189,7 +191,7 @@ export const Onboarding1Screen: React.FC = () => {
                 end={{ x: 1, y: 0 }}
                 style={styles.pillGradient}
               >
-                <Text style={styles.pillText}>Hadi Başlayalım</Text>
+                <Text style={styles.pillText}>{tr('onboarding1.hadiBaslayalim')}</Text>
                 <View style={styles.arrowCircle}>
                   <Text style={styles.arrowText}>→</Text>
                 </View>
@@ -198,9 +200,9 @@ export const Onboarding1Screen: React.FC = () => {
           </Animated.View>
 
           <View style={styles.linkRow}>
-            <Text style={styles.linkBase}>Zaten hesabın var mı? </Text>
+            <Text style={styles.linkBase}>{tr('onboarding1.zatenHesabinVarMi')} </Text>
             <Pressable onPress={handleGoToLogin}>
-              <Text style={styles.linkAccent}>Giriş yap</Text>
+              <Text style={styles.linkAccent}>{tr('onboarding1.girisYapKucuk')}</Text>
             </Pressable>
           </View>
         </Animated.View>

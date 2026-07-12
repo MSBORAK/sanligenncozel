@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, memo } from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,11 @@ import {
   FlatList,
   TouchableOpacity,
   Image,
-  ImageBackground,
   ListRenderItem,
   Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Heart, Search, ArrowRight } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Heart, Search, ArrowRight, Star } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { FontFamily } from '@/constants/Typography';
@@ -20,6 +18,7 @@ import AnimatedListItem from '@/components/AnimatedListItem';
 import Skeleton from '@/components/Skeleton';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/types/navigation';
+import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { useFavorites } from '@/context/FavoritesContext';
 import { supabase } from '@/lib/supabase';
@@ -30,9 +29,21 @@ import type { HeritageCategory } from '@/types';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const HERO_W = SCREEN_W - 40;
+const HERO_GAP = 12;
+const HERO_IMAGE_H = 196;
+const HERO_IMAGE_RADIUS = 28;
+
+type Category = HeritageCategory;
+
+const CATEGORY_LABEL: Record<Category, string> = {
+  historic: 'Tarihi Yer',
+  faith: 'İnanç ve Kültür',
+  nature: 'Doğa & Manzara',
+  museum: 'Müze',
+  bazaar: 'Tarihi Çarşı',
+};
 
 type Nav = StackNavigationProp<RootStackParamList>;
-type Category = HeritageCategory;
 
 interface MagazineData {
   id: number;
@@ -64,14 +75,157 @@ const COLLECTION_COVER_ID: Partial<Record<Category, string>> = {
   historic: 'm1', // Göbeklitepe
 };
 
+interface HeroCarouselProps {
+  items: FormattedMag[];
+  cardBg: string;
+  cardBorder: object;
+  txt1: string;
+  txt2: string;
+  chipBg: string;
+  ctaBg: string;
+  ctaTxt: string;
+  isDark: boolean;
+  isFavoriteHeritage: (id: string) => boolean;
+  toggleFavorite: (type: 'heritage', id: string) => void;
+  onPressItem: (id: string) => void;
+}
+
+const HeroCarousel = memo(function HeroCarousel({
+  items,
+  cardBg,
+  cardBorder,
+  txt1,
+  txt2,
+  chipBg,
+  ctaBg,
+  ctaTxt,
+  isDark,
+  isFavoriteHeritage,
+  toggleFavorite,
+  onPressItem,
+}: HeroCarouselProps) {
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const snapOffsets = useMemo(
+    () => items.map((_, i) => i * (HERO_W + HERO_GAP)),
+    [items]
+  );
+
+  const getItemLayout = useCallback(
+    (_: unknown, index: number) => ({
+      length: HERO_W + HERO_GAP,
+      offset: (HERO_W + HERO_GAP) * index,
+      index,
+    }),
+    []
+  );
+
+  const frameBorderColor = isDark ? 'rgba(58,42,26,0.48)' : '#111114';
+
+  return (
+    <View style={styles.heroSection}>
+      <FlatList
+        data={items}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyExtractor={(item) => item.id}
+        snapToOffsets={snapOffsets}
+        snapToAlignment="start"
+        decelerationRate="fast"
+        disableIntervalMomentum
+        bounces={false}
+        overScrollMode="never"
+        nestedScrollEnabled
+        contentContainerStyle={{ paddingHorizontal: 20 }}
+        getItemLayout={getItemLayout}
+        onMomentumScrollEnd={(e) => {
+          const idx = Math.round(e.nativeEvent.contentOffset.x / (HERO_W + HERO_GAP));
+          setActiveIndex(Math.min(Math.max(idx, 0), items.length - 1));
+        }}
+        renderItem={({ item, index }) => {
+          const isFav = isFavoriteHeritage(item.id);
+          const isLast = index === items.length - 1;
+          return (
+            <View
+              style={[
+                styles.heroCardOuter,
+                cardBorder,
+                { width: HERO_W, backgroundColor: cardBg, marginRight: isLast ? 0 : HERO_GAP },
+              ]}
+            >
+              <TouchableOpacity
+                style={styles.heroCard}
+                activeOpacity={0.92}
+                onPress={() => onPressItem(item.id)}
+              >
+                <View style={[styles.heroImageFrame, { borderColor: frameBorderColor }]}>
+                  <Image
+                    source={typeof item.image === 'string' ? { uri: item.image } : item.image}
+                    style={styles.heroImage}
+                    resizeMode="cover"
+                  />
+                  <TouchableOpacity
+                    style={styles.heroHeartBtn}
+                    activeOpacity={0.85}
+                    onPress={() => toggleFavorite('heritage', item.id)}
+                    hitSlop={8}
+                  >
+                    <Heart
+                      color="#111114"
+                      size={17}
+                      strokeWidth={2.2}
+                      fill={isFav ? '#111114' : 'transparent'}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.heroBody}>
+                  <Text style={[styles.heroCardTitle, { color: txt1 }]} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                  <Text style={[styles.heroCardMeta, { color: txt2 }]} numberOfLines={1}>
+                    {CATEGORY_LABEL[item.category]} • Şanlıurfa
+                  </Text>
+                  <View style={styles.heroFooterRow}>
+                    <View style={styles.heroRatingRow}>
+                      <Star color="#EAB308" fill="#EAB308" size={14} strokeWidth={0} />
+                      <Text style={[styles.heroRatingText, { color: txt1 }]}>Öne çıkan</Text>
+                    </View>
+                    <View style={[styles.heroCtaCircle, { backgroundColor: ctaBg }]}>
+                      <ArrowRight color={ctaTxt} size={20} strokeWidth={2.2} />
+                    </View>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </View>
+          );
+        }}
+      />
+      {items.length > 1 && (
+        <View style={styles.heroDotsRow}>
+          {items.map((_, i) => (
+            <View
+              key={i}
+              style={[
+                styles.heroDot,
+                { backgroundColor: i === activeIndex ? '#111114' : chipBg },
+              ]}
+            />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+});
+
 const MagazineScreen = () => {
   const navigation = useNavigation<Nav>();
+  const { i18n } = useTranslation();
   const t = useAppTheme();
   const insets = useSafeAreaInsets();
   const { favoriteHeritageIds, isFavoriteHeritage, toggleFavorite } = useFavorites();
   const [magazines, setMagazines] = useState<MagazineData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [heroIndex, setHeroIndex] = useState(0);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   const { pageBg, cardBg, cardBdr, txt1, txt2, chipBg, accent: amber, isDark } = t;
@@ -115,7 +269,7 @@ const MagazineScreen = () => {
       image: m.image,
     }));
     return [...fromSupabase, ...fromMock];
-  }, [magazines]);
+  }, [magazines, i18n.language]);
 
   const CURATED_HERO_IDS = ['m1', 'm2', 'm3', 'm4', 'm11'];
   const heroItems = useMemo(() => {
@@ -145,6 +299,11 @@ const MagazineScreen = () => {
       };
     }).filter((c) => c.count > 0);
   }, [formattedMagazines, showFavoritesOnly]);
+
+  const handleHeroPress = useCallback(
+    (id: string) => navigation.push('HeritageDetail', { id }),
+    [navigation]
+  );
 
   const ListHeader = useCallback(
     () => (
@@ -179,70 +338,20 @@ const MagazineScreen = () => {
         </View>
 
         {heroItems.length > 0 && (
-          <View style={styles.heroSection}>
-            <FlatList
-              data={heroItems}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              keyExtractor={(item) => item.id}
-              snapToInterval={HERO_W + 12}
-              decelerationRate="fast"
-              contentContainerStyle={{ paddingHorizontal: 20 }}
-              ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
-              onMomentumScrollEnd={(e) => {
-                const idx = Math.round(e.nativeEvent.contentOffset.x / (HERO_W + 12));
-                setHeroIndex(idx);
-              }}
-              renderItem={({ item }) => (
-                <View style={[styles.heroCardOuter, cardOuterShadow, cardBorder, { width: HERO_W, backgroundColor: cardBg }]}>
-                  <TouchableOpacity
-                    style={[styles.heroCard, cardInnerClip]}
-                    activeOpacity={0.92}
-                    onPress={() => navigation.push('HeritageDetail', { id: item.id })}
-                  >
-                    <ImageBackground
-                      source={typeof item.image === 'string' ? { uri: item.image } : item.image}
-                      style={styles.heroImageBg}
-                      imageStyle={styles.heroImageRadius}
-                      resizeMode="cover"
-                    >
-                      <LinearGradient
-                        colors={['transparent', 'rgba(0,0,0,0.15)', 'rgba(0,0,0,0.7)']}
-                        locations={[0, 0.5, 1]}
-                        style={StyleSheet.absoluteFillObject}
-                        pointerEvents="none"
-                      />
-                      <View style={styles.heroTextRow}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.heroCardTitle} numberOfLines={1}>{item.title}</Text>
-                          {!!item.description && (
-                            <Text style={styles.heroCardDesc} numberOfLines={1}>{item.description}</Text>
-                          )}
-                        </View>
-                        <View style={[styles.heroArrowBtn, { backgroundColor: cardBg }]}>
-                          <ArrowRight color={txt1} size={18} strokeWidth={2.2} />
-                        </View>
-                      </View>
-                    </ImageBackground>
-                  </TouchableOpacity>
-                </View>
-              )}
-            />
-            {heroItems.length > 1 && (
-              <View style={styles.heroDotsRow}>
-                {heroItems.map((_, i) => (
-                  <View
-                    key={i}
-                    style={[
-                      styles.heroDot,
-                      { backgroundColor: i === heroIndex ? amber : chipBg },
-                    ]}
-                  />
-                ))}
-              </View>
-            )}
-          </View>
+          <HeroCarousel
+            items={heroItems}
+            cardBg={cardBg}
+            cardBorder={cardBorder}
+            txt1={txt1}
+            txt2={txt2}
+            chipBg={chipBg}
+            ctaBg={t.ctaBg}
+            ctaTxt={t.ctaTxt}
+            isDark={t.isDark}
+            isFavoriteHeritage={isFavoriteHeritage}
+            toggleFavorite={toggleFavorite}
+            onPressItem={handleHeroPress}
+          />
         )}
 
         {collections.length > 0 && (
@@ -282,7 +391,7 @@ const MagazineScreen = () => {
         )}
       </>
     ),
-    [pageBg, insets.top, txt1, txt2, chipBg, cardBg, cardBorder, heroItems, heroIndex, amber, collections, popularItems.length, navigation, showFavoritesOnly]
+    [pageBg, insets.top, txt1, txt2, chipBg, cardBg, cardBorder, heroItems, collections, popularItems.length, navigation, showFavoritesOnly, isFavoriteHeritage, toggleFavorite, handleHeroPress, t.ctaBg, t.ctaTxt, t.isDark]
   );
 
   const renderItem: ListRenderItem<FormattedMag> = useCallback(
@@ -421,45 +530,79 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   heroCardOuter: {
-    borderRadius: 22,
-    overflow: 'hidden',
+    borderRadius: 24,
   },
   heroCard: {
     width: '100%',
-    borderRadius: 22,
-    overflow: 'hidden',
+    borderRadius: 24,
+    padding: 14,
+    paddingBottom: 16,
   },
-  heroImageBg: {
+  heroImageFrame: {
     width: '100%',
-    height: 220,
-    justifyContent: 'flex-end',
+    height: HERO_IMAGE_H,
+    borderRadius: HERO_IMAGE_RADIUS,
+    overflow: 'hidden',
+    borderWidth: 1.2,
+    position: 'relative',
+    backgroundColor: '#F4F4F5',
   },
-  heroImageRadius: {
-    borderRadius: 22,
+  heroImage: {
+    width: '100%',
+    height: '100%',
   },
-  heroTextRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    padding: 16,
-  },
-  heroCardTitle: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: 20,
-    letterSpacing: -0.3,
-    color: '#fff',
-  },
-  heroCardDesc: {
-    fontFamily: FontFamily.medium,
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.85)',
-    marginTop: 3,
-  },
-  heroArrowBtn: {
+  heroHeartBtn: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
     width: 36,
     height: 36,
     borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.2,
+    borderColor: '#111114',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  heroBody: {
+    paddingHorizontal: 2,
+    paddingTop: 12,
+    gap: 4,
+  },
+  heroCardTitle: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 18,
+    letterSpacing: -0.3,
+  },
+  heroCardMeta: {
+    fontFamily: FontFamily.medium,
+    fontSize: 13,
+    letterSpacing: -0.1,
+  },
+  heroFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  heroRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    flex: 1,
+  },
+  heroRatingText: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 13,
+  },
+  heroCtaCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.2,
+    borderColor: '#111114',
   },
   heroDotsRow: {
     flexDirection: 'row',

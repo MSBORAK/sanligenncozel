@@ -6,10 +6,11 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native';
 import {
   Calendar, Search, Pill, Library, Route,
-  Sparkles, Bus, QrCode, Bell,
+  Sparkles, Bus,
 } from 'lucide-react-native';
 import LottieView from 'lottie-react-native';
 import * as Haptics from 'expo-haptics';
+import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { useUser } from '@/context/UserContext';
 import { HomeScreenProps, MainTabParamList } from '@/types/navigation';
@@ -18,27 +19,26 @@ const SERIF = Platform.select<string>({ ios: 'Georgia', android: 'serif', defaul
 
 type Size = 'wide' | 'tall' | 'small';
 
-const SERVICES: { name: string; screen: string; lottie: any; icon: any; size: Size }[] = [
-  { name: 'Etkinlik',     screen: 'Events',        lottie: require('@/assets/images/El calendario.json'),    icon: Calendar, size: 'tall'  },
-  { name: 'Keşfet',       screen: 'Magazine',      lottie: require('@/assets/images/Map pin location.json'), icon: Search,   size: 'tall'  },
-  { name: 'Asistan',      screen: 'Assistant',     lottie: null,                                             icon: Sparkles, size: 'wide'  },
-  { name: 'Eczane',       screen: 'PharmacyList',  lottie: require('@/assets/images/AR Tablet.json'),        icon: Pill,     size: 'small' },
-  { name: 'Kütüphane',    screen: 'LibraryList',   lottie: require('@/assets/images/Books.json'),            icon: Library,  size: 'small' },
-  { name: 'Gezi Rotası',  screen: 'CulturalRoute', lottie: require('@/assets/images/Travel is fun.json'),    icon: Route,    size: 'small' },
-  { name: 'Ulaşım',       screen: 'Transport',     lottie: require('@/assets/images/bus vehicle.json'),      icon: Bus,      size: 'small' },
-  { name: 'Genç Kart',    screen: 'GencKart',      lottie: null,                                             icon: QrCode,   size: 'small' },
-  { name: 'Bildirimler',  screen: 'Notifications', lottie: require('@/assets/images/Notification bell.json'), icon: Bell,     size: 'small' },
+const SERVICES: { nameKey: string; screen: string; lottie: any; icon: any; size: Size }[] = [
+  { nameKey: 'hizliErisim.etkinlik',   screen: 'Events',        lottie: require('@/assets/images/El calendario.json'),    icon: Calendar, size: 'tall'  },
+  { nameKey: 'hizliErisim.kesfet',     screen: 'Magazine',      lottie: require('@/assets/images/Map pin location.json'), icon: Search,   size: 'tall'  },
+  { nameKey: 'hizliErisim.asistan',    screen: 'Assistant',     lottie: null,                                             icon: Sparkles, size: 'wide'  },
+  { nameKey: 'hizliErisim.eczane',     screen: 'PharmacyList',  lottie: require('@/assets/images/AR Tablet.json'),        icon: Pill,     size: 'small' },
+  { nameKey: 'hizliErisim.kutuphane',  screen: 'LibraryList',   lottie: require('@/assets/images/Books.json'),            icon: Library,  size: 'small' },
+  { nameKey: 'hizliErisim.geziRotasi', screen: 'CulturalRoute', lottie: require('@/assets/images/Travel is fun.json'),    icon: Route,    size: 'small' },
+  { nameKey: 'hizliErisim.ulasim',     screen: 'Transport',     lottie: require('@/assets/images/bus vehicle.json'),      icon: Bus,      size: 'small' },
 ];
 
 export default function HizliErisimScreen() {
   const navigation = useNavigation<HomeScreenProps['navigation']>();
+  const { t: tr } = useTranslation();
   const t = useAppTheme();
   const { isGuest } = useUser();
   const insets = useSafeAreaInsets();
 
   const handlePress = (item: (typeof SERVICES)[number]) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const tabScreens = ['GencKart', 'Transport'];
+    const tabScreens = ['Transport'];
     if (tabScreens.includes(item.screen)) {
       navigation.navigate('Main', { screen: item.screen as keyof MainTabParamList });
     } else {
@@ -56,14 +56,14 @@ export default function HizliErisimScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[s.scroll, { paddingTop: insets.top + 12 }]}
       >
-        <Text style={[s.eyebrow, { color: t.txt2 }]}>ŞANLIGENÇ</Text>
-        <Text style={[s.title, { color: t.txt1 }]}>Hızlı Erişim</Text>
+        <Text style={[s.eyebrow, { color: t.txt2 }]}>{tr('hizliErisim.eyebrow')}</Text>
+        <Text style={[s.title, { color: t.txt1 }]}>{tr('hizliErisim.title')}</Text>
 
         {/* İki büyük tall kart — lottie belirgin */}
         <View style={s.tallRow}>
           {tall.map((item) => (
             <TouchableOpacity
-              key={item.name}
+              key={tr(item.nameKey)}
               activeOpacity={0.86}
               style={[s.tallCard, { borderColor: t.cardBdr, backgroundColor: t.cardBg }]}
               onPress={() => handlePress(item)}
@@ -75,7 +75,7 @@ export default function HizliErisimScreen() {
                   <item.icon color={t.txt1} size={30} strokeWidth={1.6} />
                 </View>
               )}
-              <Text style={[s.tallLabel, { color: t.txt1 }]} numberOfLines={1}>{item.name}</Text>
+              <Text style={[s.tallLabel, { color: t.txt1 }]} numberOfLines={1}>{tr(item.nameKey)}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -87,7 +87,7 @@ export default function HizliErisimScreen() {
           style={[s.wideCard, { backgroundColor: t.ctaBg, borderColor: t.cardBdr }]}
         >
           <Sparkles color={t.ctaTxt} size={26} strokeWidth={1.8} />
-          <Text style={[s.wideLabel, { color: t.ctaTxt }]}>Şanlı Asistan</Text>
+          <Text style={[s.wideLabel, { color: t.ctaTxt }]}>{tr('hizliErisim.sanliAsistan')}</Text>
           <Text style={[s.wideArrow, { color: t.ctaTxt }]}>→</Text>
         </TouchableOpacity>
 
@@ -95,7 +95,7 @@ export default function HizliErisimScreen() {
         <View style={s.smallGrid}>
           {small.map((item) => (
             <TouchableOpacity
-              key={item.name}
+              key={tr(item.nameKey)}
               activeOpacity={0.85}
               style={[s.smallCard, { borderColor: t.cardBdr, backgroundColor: t.cardBg }]}
               onPress={() => handlePress(item)}
@@ -107,7 +107,7 @@ export default function HizliErisimScreen() {
                   <item.icon color={t.txt1} size={20} strokeWidth={1.8} />
                 </View>
               )}
-              <Text style={[s.smallLabel, { color: t.txt1 }]} numberOfLines={1}>{item.name}</Text>
+              <Text style={[s.smallLabel, { color: t.txt1 }]} numberOfLines={1}>{tr(item.nameKey)}</Text>
             </TouchableOpacity>
           ))}
         </View>

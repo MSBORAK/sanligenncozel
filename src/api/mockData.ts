@@ -401,6 +401,8 @@ export interface WeekendPlan {
   activities: string[]; // Aktivite listesi
   duration: string; // tahmini süre
   category: 'tam-gün' | 'yarım-gün' | 'akşam';
+  coordinates: { lat: number; lon: number }; // rotanın ana konumu
+  waypoints: { name: string; lat: number; lon: number }[]; // mesafe hesabı için duraklar
   image?: any; // URL string veya yerel require kaynağı
   tips?: string; // İpuçları
 }
@@ -418,6 +420,13 @@ export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
     ],
     duration: 'Tam Gün',
     category: 'tam-gün',
+    coordinates: { lat: 37.2236, lon: 38.9226 }, // Göbeklitepe
+    waypoints: [
+      { name: 'Göbeklitepe', lat: 37.2236, lon: 38.9226 },
+      { name: 'Öğle molası', lat: 37.201, lon: 38.88 },
+      { name: 'Balıklıgöl', lat: 37.1486, lon: 38.7969 },
+      { name: 'Çarşı', lat: 37.1498, lon: 38.7915 },
+    ],
     image: require('@/assets/images/gobeklitepe.jpg'),
     tips: 'Yoğun saatlerden kaçınmak için sabah erken başlamanız önerilir.',
   },
@@ -433,7 +442,14 @@ export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
     ],
     duration: 'Yarım Gün',
     category: 'yarım-gün',
-    image: require('@/assets/images/urfakalesi.jpg'),
+    coordinates: { lat: 37.1595, lon: 38.7989 }, // Arkeoloji Müzesi
+    waypoints: [
+      { name: 'Arkeoloji Müzesi', lat: 37.1595, lon: 38.7989 },
+      { name: 'Mozaik Müzesi', lat: 37.1591, lon: 38.7997 },
+      { name: 'Müze çevresi', lat: 37.16, lon: 38.8008 },
+      { name: 'Şehir merkezi', lat: 37.151, lon: 38.7935 },
+    ],
+    image: require('@/assets/images/arkeoloji_muzesi.jpg'),
     tips: 'Müzelerin güncel ziyaret saatlerini gitmeden önce kontrol etmeniz faydalı olur.',
   },
   {
@@ -449,6 +465,14 @@ export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
     ],
     duration: 'Tam Gün',
     category: 'tam-gün',
+    coordinates: { lat: 36.8625, lon: 39.0315 }, // Harran
+    waypoints: [
+      { name: 'Harran giriş', lat: 36.8608, lon: 39.0304 },
+      { name: 'Kümbet evler', lat: 36.8616, lon: 39.0322 },
+      { name: 'Ulu Cami', lat: 36.8631, lon: 39.0341 },
+      { name: 'Öğle molası', lat: 36.866, lon: 39.0289 },
+      { name: 'İlçe merkezi', lat: 36.862, lon: 39.031 },
+    ],
     image: require('@/assets/images/harran.jpg'),
     tips: 'Yaz aylarında sıcaklık yüksek olabildiği için su ve şapka bulundurmanız önerilir.',
   },
@@ -465,7 +489,15 @@ export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
     ],
     duration: 'Yarım Gün',
     category: 'yarım-gün',
-    image: require('@/assets/images/balikligol.jpg'),
+    coordinates: { lat: 37.1486, lon: 38.7969 }, // Balıklıgöl çevresi
+    waypoints: [
+      { name: 'Balıklıgöl', lat: 37.1486, lon: 38.7969 },
+      { name: 'Tarihi çarşılar', lat: 37.1502, lon: 38.7927 },
+      { name: 'Urfa Kalesi', lat: 37.152, lon: 38.7938 },
+      { name: 'Lezzet molası', lat: 37.1513, lon: 38.7908 },
+      { name: 'Akşam programı', lat: 37.1489, lon: 38.7956 },
+    ],
+    image: require('@/assets/images/urfa_carsi.jpg'),
     tips: 'Merkez rotası için rahat yürüyüş ayakkabısı tercih etmeniz konfor sağlar.',
   },
   {
@@ -480,7 +512,14 @@ export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
     ],
     duration: 'Akşam',
     category: 'akşam',
-    image: require('@/assets/images/balikligol.jpg'),
+    coordinates: { lat: 37.1486, lon: 38.7969 }, // Balıklıgöl çevresi
+    waypoints: [
+      { name: 'Balıklıgöl yürüyüşü', lat: 37.1486, lon: 38.7969 },
+      { name: 'Mekanlar bölgesi', lat: 37.1495, lon: 38.7946 },
+      { name: 'Yemek noktası', lat: 37.151, lon: 38.7912 },
+      { name: 'Sıra gecesi', lat: 37.15, lon: 38.7899 },
+    ],
+    image: require('@/assets/images/gumruk_hani.jpg'),
     tips: 'Program ve mekan müsaitliği günlere göre değişebildiği için önceden kontrol etmeniz önerilir.',
   },
   {
@@ -496,6 +535,15 @@ export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
     ],
     duration: 'Tam Gün',
     category: 'tam-gün',
+    coordinates: { lat: 37.2448, lon: 37.8698 }, // Halfeti
+    waypoints: [
+      { name: 'Halfeti merkez', lat: 37.2448, lon: 37.8698 },
+      { name: 'Tekne turu', lat: 37.2456, lon: 37.8724 },
+      { name: 'Fotoğraf noktası', lat: 37.2469, lon: 37.8751 },
+      { name: 'Öğle molası', lat: 37.2437, lon: 37.8681 },
+      { name: 'Dönüş noktası', lat: 37.2448, lon: 37.8698 },
+    ],
+    image: require('@/assets/images/halfeti_sakli_cennet.png'),
     tips: 'Tekne turu ve ulaşım saatlerini gitmeden önce doğrulamanız önerilir.',
   },
   {
@@ -509,6 +557,13 @@ export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
     ],
     duration: 'Yarım Gün',
     category: 'yarım-gün',
+    coordinates: { lat: 37.1457, lon: 39.3585 }, // Karahantepe
+    waypoints: [
+      { name: 'Karahantepe alanı', lat: 37.1457, lon: 39.3585 },
+      { name: 'Anıtsal taşlar', lat: 37.1462, lon: 39.3601 },
+      { name: 'Mola noktası', lat: 37.1439, lon: 39.3558 },
+    ],
+    image: require('@/assets/images/karahantepe.png'),
     tips: 'Alan açık hava müzesi niteliğinde olduğu için yaz aylarında sabah erken saatler tercih edilmelidir.',
   },
   {
@@ -523,6 +578,14 @@ export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
     ],
     duration: 'Tam Gün',
     category: 'tam-gün',
+    coordinates: { lat: 37.3081, lon: 39.0931 }, // Soğmatar/Şuayb Şehri bölgesi
+    waypoints: [
+      { name: 'Şuayb Şehri', lat: 37.3081, lon: 39.0931 },
+      { name: 'Soğmatar', lat: 37.3138, lon: 39.1098 },
+      { name: 'Senem Mağarası', lat: 37.3187, lon: 39.1163 },
+      { name: 'Manzara molası', lat: 37.3047, lon: 39.0864 },
+    ],
+    image: require('@/assets/images/sogmatar.jpg'),
     tips: 'Bölgeye özel araç olmadan ulaşım zor olduğundan araçlı gitmeniz önerilir.',
   },
   {
@@ -535,7 +598,12 @@ export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
     ],
     duration: 'Yarım Gün',
     category: 'yarım-gün',
-    image: require('@/assets/images/balikligol.jpg'),
+    coordinates: { lat: 37.1504, lon: 38.7953 }, // Kızılkoyun Nekropolü
+    waypoints: [
+      { name: 'Kızılkoyun Nekropolü', lat: 37.1504, lon: 38.7953 },
+      { name: 'Balıklıgöl', lat: 37.1486, lon: 38.7969 },
+    ],
+    image: require('@/assets/images/kizilkoyun_nekropolu.png'),
     tips: 'Şehir merkezine yakın olduğu için diğer merkez gezileriyle birlikte planlanabilir.',
   },
 ];

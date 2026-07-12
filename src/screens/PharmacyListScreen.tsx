@@ -5,6 +5,7 @@ import { Pill, MapPin, Phone, Navigation } from 'lucide-react-native';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { MOCK_PHARMACIES, Pharmacy } from '@/api/mockData';
 import { useAppTheme } from '@/theme/useAppTheme';
+import { useTranslation } from 'react-i18next';
 
 const DISTRICT_FILTERS = [
   'Tümü',
@@ -25,6 +26,7 @@ type DistrictFilter = typeof DISTRICT_FILTERS[number];
 
 const PharmacyListScreen = () => {
   const t = useAppTheme();
+  const { t: tr } = useTranslation();
   const { isDark, pageBg, cardBg, cardBdr, txt1, txt2, ctaBg, ctaTxt, chipBg, accent: amber } = t;
   const insets = useSafeAreaInsets();
   const [selectedDistrict, setSelectedDistrict] = useState<DistrictFilter>('Tümü');
@@ -87,7 +89,7 @@ const PharmacyListScreen = () => {
             <Text style={[styles.pharmacyName, { color: txt1 }]}>{item.name}</Text>
             {item.isOnDuty && (
               <View style={styles.dutyBadge}>
-                <Text style={styles.dutyText}>Nöbetçi</Text>
+                <Text style={styles.dutyText}>{tr('pharmacy.nobetci')}</Text>
               </View>
             )}
           </View>
@@ -123,10 +125,10 @@ const PharmacyListScreen = () => {
   return (
     <View style={[styles.container, { backgroundColor: pageBg }]}>
       <View style={[styles.header, { backgroundColor: pageBg, paddingTop: insets.top + 18 }]}>
-        <Text style={[styles.headerLabel, { color: txt2 }]}>KEŞFET</Text>
-        <Text style={[styles.headerTitle, { color: txt1 }]}>Nöbetçi Eczaneler</Text>
+        <Text style={[styles.headerLabel, { color: txt2 }]}>{tr('pharmacy.kesfet')}</Text>
+        <Text style={[styles.headerTitle, { color: txt1 }]}>{tr('pharmacy.title')}</Text>
         <Text style={[styles.headerSubtitle, { color: txt2 }]}>
-          {selectedDistrict === 'Tümü' ? 'Tüm ilçeler' : selectedDistrict} · {nöbetçiCount} nöbetçi eczane
+          {selectedDistrict === 'Tümü' ? tr('pharmacy.tumIlceler') : selectedDistrict} · {tr('pharmacy.nobetciEczaneSayisi', { count: nöbetçiCount })}
         </Text>
       </View>
 

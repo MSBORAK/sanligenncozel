@@ -29,6 +29,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { Editorial } from '@/theme/colors';
 import { Clean } from '@/constants/Colors';
+import { useTranslation } from 'react-i18next';
 
 // SnapColors — static fallback values (Editorial defaults); theme-responsive
 // values come from useAppTheme via `sc` inside the component.
@@ -85,6 +86,7 @@ const ChatScreen = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const route = useRoute();
   const params = route.params as RouteParams;
+  const { t: tr } = useTranslation();
   const t = useAppTheme();
   const isDark = t.isDark;
 
@@ -136,7 +138,7 @@ const ChatScreen = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         if (!params.userId || params.userId === '') {
-          Alert.alert('Hata', 'Kullanıcı bilgisi bulunamadı');
+          Alert.alert(tr('common.error'), tr('chat.kullaniciBilgisiBulunamadi'));
           navigation.goBack();
           return;
         }
@@ -152,9 +154,9 @@ const ChatScreen = () => {
 
         if (!isFriend) {
           Alert.alert(
-            'Arkadaş Değilsiniz',
-            'Mesajlaşmak için önce arkadaşlık isteği gönderip kabul ettirmeniz gerekiyor.',
-            [{ text: 'Tamam', onPress: () => navigation.goBack() }]
+            tr('chat.arkadasDegilsiniz'),
+            tr('chat.arkadaslikIstegiGerekli'),
+            [{ text: tr('sendSnap.tamam'), onPress: () => navigation.goBack() }]
           );
           return;
         }
@@ -313,8 +315,8 @@ const ChatScreen = () => {
       if (error) throw error;
       setConversationId(data);
     } catch (err: any) {
-      const detail = err?.message || err?.details || JSON.stringify(err) || 'Bilinmeyen hata';
-      Alert.alert('Sohbet Başlatılamadı', detail);
+      const detail = err?.message || err?.details || JSON.stringify(err) || tr('chat.bilinmeyenHata');
+      Alert.alert(tr('chat.sohbetBaslatilamadi'), detail);
       navigation.goBack();
     }
   };
@@ -369,7 +371,7 @@ const ChatScreen = () => {
     const replySnippet =
       replyTarget != null
         ? replyTarget.content?.trim()?.slice(0, 220) ||
-          (replyTarget.image_url ? (replyTarget.is_snap ? '📷 Kıvılcım' : '📷 Medya') : '')
+          (replyTarget.image_url ? (replyTarget.is_snap ? `📷 ${tr('sosyalProfile.kivilcim')}` : `📷 ${tr('chat.medya')}`) : '')
         : null;
 
     try {
@@ -400,8 +402,8 @@ const ChatScreen = () => {
         flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
       }, 200);
     } catch (err: any) {
-      const detail = err?.message || err?.details || JSON.stringify(err) || 'Bilinmeyen hata';
-      Alert.alert('Mesaj Gönderilemedi', detail);
+      const detail = err?.message || err?.details || JSON.stringify(err) || tr('chat.bilinmeyenHata');
+      Alert.alert(tr('chat.mesajGonderilemedi'), detail);
       setNewMessage(messageContent);
       setReplyingTo(replyTarget);
     } finally {
@@ -419,7 +421,7 @@ const ChatScreen = () => {
   const handleCameraPress = async () => {
     const perm = cameraPermission ?? await requestCameraPermission();
     if (!perm?.granted) {
-      Alert.alert('Kamera İzni', 'Kıvılcım çekebilmek için kamera iznine ihtiyaç var.');
+      Alert.alert(tr('chat.kameraIzni'), tr('chat.kameraIzniAciklama'));
       return;
     }
     setCapturedPhoto(null);
@@ -454,7 +456,7 @@ const ChatScreen = () => {
         }
       }
     } catch (e) {
-      Alert.alert('Hata', 'Fotoğraf çekilemedi');
+      Alert.alert(tr('common.error'), tr('chat.fotografCekilemedi'));
     } finally {
       setCameraBusy(false);
     }
@@ -488,7 +490,7 @@ const ChatScreen = () => {
     if (message.snap_expires_at) {
       const expiresAt = new Date(message.snap_expires_at);
       if (now > expiresAt) {
-        Alert.alert('Kıvılcım Süresi Doldu', 'Bu kıvılcım artık görüntülenemiyor.');
+        Alert.alert(tr('chat.kivilcimSuresiDoldu'), tr('chat.kivilcimGoruntulenemiyor'));
         return;
       }
     }
@@ -518,12 +520,12 @@ const ChatScreen = () => {
     if (!isMe) return; // Sadece kendi mesajlarını silebilir
 
     Alert.alert(
-      'Mesajı Sil',
-      'Bu mesajı silmek istediğine emin misin?',
+      tr('chat.mesajiSil'),
+      tr('chat.mesajiSilOnay'),
       [
-        { text: 'İptal', style: 'cancel' },
+        { text: tr('common.cancel'), style: 'cancel' },
         {
-          text: 'Sil',
+          text: tr('chat.sil'),
           style: 'destructive',
           onPress: async () => {
             const { error } = await supabase
@@ -531,7 +533,7 @@ const ChatScreen = () => {
               .delete()
               .eq('id', item.id);
             if (error) {
-              Alert.alert('Hata', 'Mesaj silinemedi.');
+              Alert.alert(tr('common.error'), tr('chat.mesajSilinemedi'));
             } else {
               setMessages(prev => prev.filter(m => m.id !== item.id));
             }
@@ -587,7 +589,7 @@ const ChatScreen = () => {
                   <View style={styles.snapContent}>
                     <Camera color={isMe ? sc.white : sc.blue} size={20} />
                     <Text style={[styles.snapText, isMe ? styles.mySnapText : styles.theirSnapText]}>
-                      {isExpired ? '🔒 Süre doldu' : isOpened && !isMe ? '👁 Açıldı' : 'Kıvılcım'}
+                      {isExpired ? `🔒 ${tr('chat.sureDoldu')}` : isOpened && !isMe ? `👁 ${tr('chat.acildi')}` : tr('sosyalProfile.kivilcim')}
                     </Text>
                   </View>
                   {item.content && item.content !== '📷 Snap' && (
@@ -600,7 +602,7 @@ const ChatScreen = () => {
                       {formatTime(item.created_at)}
                     </Text>
                     {isMe && item.is_read ? (
-                      <Text style={[styles.seenLabel, isMe && styles.seenLabelMe]}>Görüldü</Text>
+                      <Text style={[styles.seenLabel, isMe && styles.seenLabelMe]}>{tr('chat.gorulduLabel')}</Text>
                     ) : null}
                   </View>
                 </TouchableOpacity>
@@ -657,7 +659,7 @@ const ChatScreen = () => {
                       resizeMode="cover"
                     />
                     <View style={styles.kivilcimReplyThumbLabel}>
-                      <Text style={styles.kivilcimReplyThumbLabelText}>Kıvılcım</Text>
+                      <Text style={styles.kivilcimReplyThumbLabelText}>{tr('sosyalProfile.kivilcim')}</Text>
                     </View>
                   </TouchableOpacity>
                   <Text
@@ -678,7 +680,7 @@ const ChatScreen = () => {
                       {formatTime(item.created_at)}
                     </Text>
                     {isMe && item.is_read ? (
-                      <Text style={[styles.seenLabel, isMe && styles.seenLabelMe]}>Görüldü</Text>
+                      <Text style={[styles.seenLabel, isMe && styles.seenLabelMe]}>{tr('chat.gorulduLabel')}</Text>
                     ) : null}
                   </View>
                 </TouchableOpacity>
@@ -739,7 +741,7 @@ const ChatScreen = () => {
                     {formatTime(item.created_at)}
                   </Text>
                   {isMe && item.is_read ? (
-                    <Text style={[styles.seenLabel, isMe && styles.seenLabelMe]}>Görüldü</Text>
+                    <Text style={[styles.seenLabel, isMe && styles.seenLabelMe]}>{tr('chat.gorulduLabel')}</Text>
                   ) : null}
                 </View>
               </TouchableOpacity>
@@ -849,7 +851,7 @@ const ChatScreen = () => {
             <View style={styles.headerInfo}>
               <Text style={[styles.headerName, { color: t.txt1 }]}>{params.userName}</Text>
               {otherTyping ? (
-                <Text style={[styles.headerTyping, { color: t.ctaBg }]}>Yazıyor ✍️</Text>
+                <Text style={[styles.headerTyping, { color: t.ctaBg }]}>{tr('chat.yaziyor')} ✍️</Text>
               ) : (
                 <Text style={[styles.headerUsername, { color: t.txt2 }]}>@{params.username}</Text>
               )}
@@ -879,7 +881,7 @@ const ChatScreen = () => {
             ListEmptyComponent={
               <View style={[styles.emptyState, { transform: [{ scaleY: -1 }] }]}>
                 <Text style={[styles.emptyStateText, { color: t.txt2 }]}>
-                  {params.userName} ile sohbete başla! 👋
+                  {tr('chat.sohbeteBasla', { name: params.userName })} 👋
                 </Text>
               </View>
             }
@@ -892,7 +894,7 @@ const ChatScreen = () => {
             <View style={[styles.replyBar, { backgroundColor: t.chipBg }]}>
               <View style={styles.replyBarAccent} />
               <View style={{ flex: 1 }}>
-                <Text style={[styles.replyBarLabel, { color: t.ctaBg }]}>Yanıtlanıyor</Text>
+                <Text style={[styles.replyBarLabel, { color: t.ctaBg }]}>{tr('chat.yanitlaniyor')}</Text>
                 <Text style={[styles.replyBarText, { color: t.txt1 }]} numberOfLines={3}>
                   {replyingTo.content?.trim() ||
                     (replyingTo.image_url ? (replyingTo.is_snap ? '📷 Kıvılcım' : '📷 Medya') : '')}
@@ -912,7 +914,7 @@ const ChatScreen = () => {
           </TouchableOpacity>
           <TextInput
             style={[styles.input, { backgroundColor: t.pageBg, color: t.txt1, borderColor: t.border }]}
-            placeholder="Mesaj yaz..."
+            placeholder={tr('chat.mesajYaz')}
             placeholderTextColor={t.txt2}
             value={newMessage}
             onChangeText={handleMessageInputChange}
@@ -977,10 +979,10 @@ const ChatScreen = () => {
               <SafeAreaView edges={['bottom']} style={{ backgroundColor: '#000' }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingVertical: 20 }}>
                   <TouchableOpacity onPress={() => setCapturedPhoto(null)} style={{ paddingHorizontal: 24, paddingVertical: 12, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 24 }}>
-                    <Text style={{ color: '#fff', fontWeight: '600' }}>Tekrar</Text>
+                    <Text style={{ color: '#fff', fontWeight: '600' }}>{tr('chat.tekrar')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={handleConfirmSnap} style={{ paddingHorizontal: 32, paddingVertical: 12, backgroundColor: sc.blue, borderRadius: 24 }}>
-                    <Text style={{ color: '#fff', fontWeight: '700' }}>Gönder</Text>
+                    <Text style={{ color: '#fff', fontWeight: '700' }}>{tr('common.send')}</Text>
                   </TouchableOpacity>
                 </View>
               </SafeAreaView>

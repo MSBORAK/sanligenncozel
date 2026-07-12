@@ -5,9 +5,10 @@ type Props = {
   total: number;
   active: number;
   accentColor?: string;
+  inactiveColor?: string;
 };
 
-const Dot: React.FC<{ isActive: boolean; accentColor: string }> = ({ isActive, accentColor }) => {
+const Dot: React.FC<{ isActive: boolean; accentColor: string; inactiveColor: string }> = ({ isActive, accentColor, inactiveColor }) => {
   const widthAnim = useRef(new Animated.Value(isActive ? 24 : 6)).current;
   const opacityAnim = useRef(new Animated.Value(isActive ? 1 : 0.35)).current;
 
@@ -34,18 +35,18 @@ const Dot: React.FC<{ isActive: boolean; accentColor: string }> = ({ isActive, a
         {
           width: widthAnim,
           opacity: opacityAnim,
-          backgroundColor: isActive ? accentColor : 'rgba(255,255,255,0.5)',
+          backgroundColor: isActive ? accentColor : inactiveColor,
         },
       ]}
     />
   );
 };
 
-export const DotIndicator: React.FC<Props> = ({ total, active, accentColor = '#FFFFFF' }) => {
+export const DotIndicator: React.FC<Props> = ({ total, active, accentColor = '#FFFFFF', inactiveColor = 'rgba(255,255,255,0.5)' }) => {
   return (
     <View style={styles.row}>
       {Array.from({ length: total }, (_, i) => (
-        <Dot key={i} isActive={i === active} accentColor={accentColor} />
+        <Dot key={i} isActive={i === active} accentColor={accentColor} inactiveColor={inactiveColor} />
       ))}
     </View>
   );

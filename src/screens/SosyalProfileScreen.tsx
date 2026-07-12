@@ -26,6 +26,7 @@ import { useAppTheme } from '@/theme/useAppTheme';
 import { Editorial } from '@/theme/colors';
 import { Clean } from '@/constants/Colors';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
+import { useTranslation } from 'react-i18next';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -87,19 +88,19 @@ interface FriendRowProps {
 
 const statusConfig = {
   accepted: {
-    label: 'Karşılıklı Arkadaş',
+    labelKey: 'sosyalProfile.karsilikliArkadas',
     bg: 'rgba(16,185,129,0.15)',
     color: '#10b981',
     icon: <UserCheck size={11} color="#10b981" strokeWidth={2.5} />,
   },
   pending_sent: {
-    label: 'Bekliyor',
+    labelKey: 'sosyalProfile.bekliyor',
     bg: 'rgba(245,158,11,0.15)',
     color: '#f59e0b',
     icon: <Hourglass size={11} color="#f59e0b" strokeWidth={2.5} />,
   },
   pending_received: {
-    label: 'İstek Var',
+    labelKey: 'sosyalProfile.istekVar',
     bg: 'rgba(47,36,24,0.15)',
     color: Editorial.coffee,
     icon: <UserPlus size={11} color={Editorial.coffee} strokeWidth={2.5} />,
@@ -107,6 +108,7 @@ const statusConfig = {
 };
 
 const FriendRow = ({ entry, isDark, onPress }: FriendRowProps) => {
+  const { t: tr } = useTranslation();
   const txt1    = isDark ? Editorial.ink : Clean.textPrimary;
   const txt2    = isDark ? Editorial.coffeeSoft : Clean.textSecondary;
   const cardBdr = isDark ? Editorial.border : Clean.border;
@@ -143,7 +145,7 @@ const FriendRow = ({ entry, isDark, onPress }: FriendRowProps) => {
       {/* Durum rozeti */}
       <View style={[styles.statusBadge, { backgroundColor: cfg.bg }]}>
         {cfg.icon}
-        <Text style={[styles.statusText, { color: cfg.color }]}>{cfg.label}</Text>
+        <Text style={[styles.statusText, { color: cfg.color }]}>{tr(cfg.labelKey)}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -153,6 +155,7 @@ const FriendRow = ({ entry, isDark, onPress }: FriendRowProps) => {
 
 const SosyalProfileScreen = ({ route }: any) => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+  const { t: tr } = useTranslation();
   const t = useAppTheme();
   const isDark = t.isDark;
   const { profile: currentUserProfile, refreshProfile } = useUser();
@@ -249,7 +252,7 @@ const SosyalProfileScreen = ({ route }: any) => {
           return {
             id: f.id,
             other_user_id: otherId,
-            other_name: otherProfile?.name ?? 'Kullanıcı',
+            other_name: otherProfile?.name ?? tr('common.kullanici'),
             other_username: otherProfile?.username ?? '',
             other_avatar: otherProfile?.avatar_url,
             status: 'accepted' as const,
@@ -342,7 +345,7 @@ const SosyalProfileScreen = ({ route }: any) => {
           return {
             id: f.id,
             other_user_id: otherId,
-            other_name: otherProfile?.name ?? 'Kullanıcı',
+            other_name: otherProfile?.name ?? tr('common.kullanici'),
             other_username: otherProfile?.username ?? '',
             other_avatar: otherProfile?.avatar_url,
             status,
@@ -362,12 +365,12 @@ const SosyalProfileScreen = ({ route }: any) => {
 
   const handleRemoveFriend = useCallback(async (friendshipId: string, friendName: string) => {
     Alert.alert(
-      'Arkadaşı Çıkar',
-      `${friendName} adlı kişiyi arkadaş listenden çıkarmak istediğine emin misin?`,
+      tr('sosyalProfile.arkadasiCikar'),
+      tr('sosyalProfile.arkadasiCikarOnay', { name: friendName }),
       [
-        { text: 'İptal', style: 'cancel' },
+        { text: tr('common.cancel'), style: 'cancel' },
         {
-          text: 'Çıkar',
+          text: tr('sosyalProfile.cikar'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -378,11 +381,11 @@ const SosyalProfileScreen = ({ route }: any) => {
 
               if (error) throw error;
 
-              Alert.alert('Başarılı', 'Arkadaş listenden çıkarıldı.');
+              Alert.alert(tr('sendSnap.basarili'), tr('sosyalProfile.arkadasCikarildi'));
               setSelectedFriend(null);
               fetchData();
             } catch (e: any) {
-              Alert.alert('Hata', e.message || 'Arkadaş çıkarılamadı.');
+              Alert.alert(tr('common.error'), e.message || tr('sosyalProfile.arkadasCikarilamadi'));
             }
           },
         },
@@ -392,12 +395,12 @@ const SosyalProfileScreen = ({ route }: any) => {
 
   const handleCancelRequest = useCallback(async (friendshipId: string, friendName: string) => {
     Alert.alert(
-      'İsteği Geri Al',
-      `${friendName} adlı kişiye gönderdiğin arkadaşlık isteğini geri almak istediğine emin misin?`,
+      tr('sosyalProfile.istegiGeriAl'),
+      tr('sosyalProfile.istegiGeriAlOnay', { name: friendName }),
       [
-        { text: 'İptal', style: 'cancel' },
+        { text: tr('common.cancel'), style: 'cancel' },
         {
-          text: 'Geri Al',
+          text: tr('sosyalProfile.geriAl'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -408,11 +411,11 @@ const SosyalProfileScreen = ({ route }: any) => {
 
               if (error) throw error;
 
-              Alert.alert('Başarılı', 'Arkadaşlık isteği geri alındı.');
+              Alert.alert(tr('sendSnap.basarili'), tr('sosyalProfile.istekGeriAlindi'));
               setSelectedFriend(null);
               fetchData();
             } catch (e: any) {
-              Alert.alert('Hata', e.message || 'İstek geri alınamadı.');
+              Alert.alert(tr('common.error'), e.message || tr('sosyalProfile.istekGeriAlinamadi'));
             }
           },
         },
@@ -421,16 +424,16 @@ const SosyalProfileScreen = ({ route }: any) => {
   }, [fetchData]);
 
   const handleAvatarPress = useCallback(() => {
-    Alert.alert('Profil Fotoğrafı', 'Nasıl yüklemek istersin?', [
+    Alert.alert(tr('sosyalProfile.profilFotografi'), tr('sosyalProfile.nasilYuklemekIstersin'), [
       {
-        text: 'Galeriden Seç',
+        text: tr('sosyalProfile.galeridenSec'),
         onPress: () => pickAvatar('gallery'),
       },
       {
-        text: 'Kamera ile Çek',
+        text: tr('sosyalProfile.kameraIleCek'),
         onPress: () => pickAvatar('camera'),
       },
-      { text: 'İptal', style: 'cancel' },
+      { text: tr('common.cancel'), style: 'cancel' },
     ]);
   }, []);
 
@@ -441,7 +444,7 @@ const SosyalProfileScreen = ({ route }: any) => {
     if (source === 'camera') {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('İzin Gerekli', 'Kamera erişimine izin ver.');
+        Alert.alert(tr('sosyalProfile.izinGerekli'), tr('sosyalProfile.kameraIzinVer'));
         return;
       }
       result = await ImagePicker.launchCameraAsync({
@@ -453,7 +456,7 @@ const SosyalProfileScreen = ({ route }: any) => {
     } else {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('İzin Gerekli', 'Galeri erişimine izin ver.');
+        Alert.alert(tr('sosyalProfile.izinGerekli'), tr('sosyalProfile.galeriIzinVer'));
         return;
       }
       result = await ImagePicker.launchImageLibraryAsync({
@@ -472,7 +475,7 @@ const SosyalProfileScreen = ({ route }: any) => {
       // Auth token al
       const { data: { session } } = await supabase.auth.getSession();
       const authToken = session?.access_token;
-      if (!authToken) throw new Error('Oturum bulunamadı');
+      if (!authToken) throw new Error(tr('sosyalProfile.oturumBulunamadi'));
 
       // Debug: Kullanıcı ID'sini kontrol et
       const currentUserId = session?.user?.id;
@@ -480,7 +483,7 @@ const SosyalProfileScreen = ({ route }: any) => {
       console.log('Profile user ID:', profile.userId);
       
       if (currentUserId !== profile.userId) {
-        throw new Error('Kullanıcı ID uyuşmazlığı');
+        throw new Error(tr('sosyalProfile.idUyusmazligi'));
       }
 
       // Dosyayı yükle
@@ -503,7 +506,7 @@ const SosyalProfileScreen = ({ route }: any) => {
 
       if (!uploadResp.ok) {
         const errText = await uploadResp.text();
-        throw new Error(`Yükleme hatası: ${errText}`);
+        throw new Error(`${tr('sosyalProfile.yuklemeHatasi')}: ${errText}`);
       }
 
       // Public URL al
@@ -520,18 +523,14 @@ const SosyalProfileScreen = ({ route }: any) => {
 
       if (rpcError) {
         console.error('RPC Error:', rpcError);
-        throw new Error(`Profil güncellenemedi: ${rpcError.message}`);
+        throw new Error(`${tr('sosyalProfile.profilGuncellenemedi')}: ${rpcError.message}`);
       }
 
       // UserContext'i yenile
       await refreshProfile();
-      Alert.alert('Başarılı', 'Profil fotoğrafın güncellendi!');
-
-      // UserContext'i yenile
-      await refreshProfile();
-      Alert.alert('Başarılı', 'Profil fotoğrafın güncellendi!');
+      Alert.alert(tr('sendSnap.basarili'), tr('sosyalProfile.fotografGuncellendi'));
     } catch (e: any) {
-      Alert.alert('Hata', e.message || 'Fotoğraf yüklenemedi.');
+      Alert.alert(tr('common.error'), e.message || tr('sosyalProfile.fotografYuklenemedi'));
     } finally {
       setAvatarUploading(false);
     }
@@ -551,13 +550,13 @@ const SosyalProfileScreen = ({ route }: any) => {
 
       setIsPublic(value);
       Alert.alert(
-        'Gizlilik Güncellendi',
-        value 
-          ? 'Profilin artık herkese açık. Snap\'lerin herkes tarafından görülebilir.' 
-          : 'Profilin artık özel. Snap\'lerin sadece arkadaşların tarafından görülebilir.'
+        tr('sosyalProfile.gizlilikGuncellendi'),
+        value
+          ? tr('sosyalProfile.artikHerkeseAcik')
+          : tr('sosyalProfile.artikOzel')
       );
     } catch (e: any) {
-      Alert.alert('Hata', e.message || 'Gizlilik ayarı güncellenemedi.');
+      Alert.alert(tr('common.error'), e.message || tr('sosyalProfile.gizlilikGuncellenemedi'));
       // Hata durumunda eski değere geri dön
       setIsPublic(!value);
     } finally {
@@ -587,7 +586,7 @@ const SosyalProfileScreen = ({ route }: any) => {
           <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: chipBg }]}>
             <ArrowLeft size={22} color={txt1} strokeWidth={2} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: txt1 }]}>ŞanlıSosyal Profilim</Text>
+          <Text style={[styles.headerTitle, { color: txt1 }]}>{tr('sosyalProfile.headerTitle')}</Text>
           <View style={{ width: 38 }} />
         </View>
 
@@ -645,7 +644,7 @@ const SosyalProfileScreen = ({ route }: any) => {
             </TouchableOpacity>
 
             <Text style={[styles.profileName, { color: txt1 }]}>
-              {profile?.name ?? 'Kullanıcı'}
+              {profile?.name ?? tr('common.kullanici')}
             </Text>
             <Text style={[styles.profileUsername, { color: txt2 }]}>
               @{profile?.username ?? ''}
@@ -654,7 +653,7 @@ const SosyalProfileScreen = ({ route }: any) => {
             {/* Platform rozeti */}
             <View style={[styles.platformBadge, { backgroundColor: chipBg, borderWidth: 0 }]}>
               <Star size={11} color={amber} strokeWidth={2.5} fill={amber} />
-              <Text style={[styles.platformBadgeText, { color: txt1 }]}>ŞanlıSosyal Üyesi</Text>
+              <Text style={[styles.platformBadgeText, { color: txt1 }]}>{tr('sosyalProfile.sanliSosyalUyesi')}</Text>
             </View>
           </View>
 
@@ -678,12 +677,12 @@ const SosyalProfileScreen = ({ route }: any) => {
                   )}
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.privacyTitle, { color: txt1 }]}>
-                      {isPublic ? 'Herkese Açık' : 'Sadece Arkadaşlar'}
+                      {isPublic ? tr('sosyalProfile.herkeseAcik') : tr('sosyalProfile.sadeceArkadaslar')}
                     </Text>
                     <Text style={[styles.privacyDesc, { color: txt2 }]}>
                       {isPublic
-                        ? 'Snap\'lerin herkes tarafından görülebilir'
-                        : 'Snap\'lerin sadece arkadaşların tarafından görülebilir'}
+                        ? tr('sosyalProfile.herkesGorebilir')
+                        : tr('sosyalProfile.sadeceArkadaslarGorebilir')}
                     </Text>
                   </View>
                 </View>
@@ -715,12 +714,12 @@ const SosyalProfileScreen = ({ route }: any) => {
                   <MessageCircle size={20} color={txt1} strokeWidth={2} />
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.privacyTitle, { color: txt1 }]}>
-                      {reactionsEnabled ? 'Tepkiler Açık' : 'Tepkiler Kapalı'}
+                      {reactionsEnabled ? tr('sosyalProfile.tepkilerAcik') : tr('sosyalProfile.tepkilerKapali')}
                     </Text>
                     <Text style={[styles.privacyDesc, { color: txt2 }]}>
                       {reactionsEnabled
-                        ? 'Arkadaşların kıvılcımlarına emoji ve mesaj bırakabilir'
-                        : 'Kimse kıvılcımlarına tepki veremez'}
+                        ? tr('sosyalProfile.tepkiAcikAciklama')
+                        : tr('sosyalProfile.tepkiKapaliAciklama')}
                     </Text>
                   </View>
                 </View>
@@ -748,7 +747,7 @@ const SosyalProfileScreen = ({ route }: any) => {
                 <BentoCard
                   icon={<Camera size={20} color={txt1} strokeWidth={2} />}
                   value={snapCount}
-                  label="Kıvılcım"
+                  label={tr('sosyalProfile.kivilcim')}
                   isDark={isDark}
                 />
                 <View style={{ width: 10 }} />
@@ -760,7 +759,7 @@ const SosyalProfileScreen = ({ route }: any) => {
                   <BentoCard
                     icon={<Users size={20} color={txt1} strokeWidth={2} />}
                     value={acceptedCount}
-                    label="Arkadaş"
+                    label={tr('sosyalProfile.arkadas')}
                     isDark={isDark}
                   />
                 </TouchableOpacity>
@@ -770,15 +769,15 @@ const SosyalProfileScreen = ({ route }: any) => {
                 <BentoCard
                   icon={<Clock size={20} color={isDark ? '#a78bfa' : '#8b5cf6'} strokeWidth={2} />}
                   value={pendingCount}
-                  label="Bekleyen İstek"
+                  label={tr('sosyalProfile.bekleyenIstek')}
                   isDark={isDark}
                   accent={isDark ? '#a78bfa' : '#8b5cf6'}
                 />
                 <View style={{ width: 10 }} />
                 <BentoCard
                   icon={<Star size={20} color={txt1} strokeWidth={2} />}
-                  value="Anlık"
-                  label="İçerik Modu"
+                  value={tr('sosyalProfile.anlik')}
+                  label={tr('sosyalProfile.icerikModu')}
                   isDark={isDark}
                 />
               </View>
@@ -789,7 +788,7 @@ const SosyalProfileScreen = ({ route }: any) => {
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
                       <Users size={18} color={txt1} strokeWidth={2} />
-                      <Text style={[styles.friendsFriendsTitle, { color: txt1 }]}>Arkadaş Listem</Text>
+                      <Text style={[styles.friendsFriendsTitle, { color: txt1 }]}>{tr('sosyalProfile.arkadasListem')}</Text>
                       <View style={[styles.countPill, { backgroundColor: chipBg }]}>
                         <Text style={[styles.countPillText, { color: txt1 }]}>{acceptedCount}</Text>
                       </View>
@@ -834,7 +833,7 @@ const SosyalProfileScreen = ({ route }: any) => {
                         style={[styles.removeFriendBtn, { backgroundColor: 'rgba(239,68,68,0.15)', borderColor: 'rgba(239,68,68,0.3)' }]}
                       >
                         <X size={14} color="#ef4444" strokeWidth={2.5} />
-                        <Text style={[styles.removeFriendText, { color: '#ef4444' }]}>Çıkar</Text>
+                        <Text style={[styles.removeFriendText, { color: '#ef4444' }]}>{tr('sosyalProfile.cikar')}</Text>
                       </TouchableOpacity>
                     </View>
                   ))}
@@ -895,7 +894,7 @@ const SosyalProfileScreen = ({ route }: any) => {
             <View style={[styles.statusBadge, { backgroundColor: statusConfig[selectedFriend.status].bg, marginBottom: 20 }]}>
               {statusConfig[selectedFriend.status].icon}
               <Text style={[styles.statusText, { color: statusConfig[selectedFriend.status].color }]}>
-                {statusConfig[selectedFriend.status].label}
+                {tr(statusConfig[selectedFriend.status].labelKey)}
               </Text>
             </View>
 
@@ -907,7 +906,7 @@ const SosyalProfileScreen = ({ route }: any) => {
                 <View style={[styles.sheetBentoCard, cardBorder, { backgroundColor: chipBg }]}>
                   <Camera size={18} color={txt1} strokeWidth={2} />
                   <Text style={[styles.sheetBentoValue, { color: txt1 }]}>{friendSnapCount}</Text>
-                  <Text style={[styles.sheetBentoLabel, { color: txt2 }]}>Kıvılcım</Text>
+                  <Text style={[styles.sheetBentoLabel, { color: txt2 }]}>{tr('sosyalProfile.kivilcim')}</Text>
                 </View>
                 <TouchableOpacity
                   activeOpacity={0.7}
@@ -923,7 +922,7 @@ const SosyalProfileScreen = ({ route }: any) => {
                 >
                   <Users size={18} color={txt1} strokeWidth={2} />
                   <Text style={[styles.sheetBentoValue, { color: txt1 }]}>{friendFriendCount}</Text>
-                  <Text style={[styles.sheetBentoLabel, { color: txt2 }]}>Arkadaş</Text>
+                  <Text style={[styles.sheetBentoLabel, { color: txt2 }]}>{tr('sosyalProfile.arkadas')}</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -931,7 +930,7 @@ const SosyalProfileScreen = ({ route }: any) => {
             {/* Arkadaşlarının listesi */}
             {showFriendsFriends && (
               <View style={[styles.friendsFriendsContainer, cardBorder, { backgroundColor: chipBg }]}>
-                <Text style={[styles.friendsFriendsTitle, { color: txt1 }]}>Arkadaşları ({friendsFriends.length})</Text>
+                <Text style={[styles.friendsFriendsTitle, { color: txt1 }]}>{tr('sosyalProfile.arkadaslariSayi', { count: friendsFriends.length })}</Text>
                 <ScrollView style={{ maxHeight: 200 }} showsVerticalScrollIndicator={false}>
                   {friendsFriends.map((ff) => (
                     <TouchableOpacity
@@ -977,7 +976,7 @@ const SosyalProfileScreen = ({ route }: any) => {
               >
                 <View style={styles.sheetMsgGradient}>
                   <MessageCircle size={18} color={ctaTxt} strokeWidth={2} />
-                  <Text style={[styles.sheetMsgText, { color: ctaTxt }]}>Mesaj Gönder</Text>
+                  <Text style={[styles.sheetMsgText, { color: ctaTxt }]}>{tr('sosyalProfile.mesajGonder')}</Text>
                 </View>
               </TouchableOpacity>
             ) : (
@@ -985,7 +984,7 @@ const SosyalProfileScreen = ({ route }: any) => {
                 <View style={[styles.sheetMsgGradient, { backgroundColor: chipBg, borderRadius: 16, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }]}>
                   <MessageCircle size={18} color={txt2} strokeWidth={2} />
                   <Text style={[styles.sheetMsgText, { color: txt2 }]}>
-                    Mesajlaşmak için karşılıklı arkadaş olun
+                    {tr('sosyalProfile.karsilikliArkadasOlun')}
                   </Text>
                 </View>
               </View>
@@ -1001,7 +1000,7 @@ const SosyalProfileScreen = ({ route }: any) => {
                     onPress={() => handleRemoveFriend(selectedFriend.id, selectedFriend.other_name)}
                   >
                     <UserPlus size={16} color="#ef4444" strokeWidth={2} />
-                    <Text style={[styles.sheetRemoveText, { color: '#ef4444' }]}>Arkadaşı Çıkar</Text>
+                    <Text style={[styles.sheetRemoveText, { color: '#ef4444' }]}>{tr('sosyalProfile.arkadasiCikar')}</Text>
                   </TouchableOpacity>
                 )}
                 {selectedFriend.status === 'pending_sent' && (
@@ -1011,7 +1010,7 @@ const SosyalProfileScreen = ({ route }: any) => {
                     onPress={() => handleCancelRequest(selectedFriend.id, selectedFriend.other_name)}
                   >
                     <X size={16} color="#fb923c" strokeWidth={2} />
-                    <Text style={[styles.sheetRemoveText, { color: '#fb923c' }]}>İsteği Geri Al</Text>
+                    <Text style={[styles.sheetRemoveText, { color: '#fb923c' }]}>{tr('sosyalProfile.istegiGeriAl')}</Text>
                   </TouchableOpacity>
                 )}
               </>
