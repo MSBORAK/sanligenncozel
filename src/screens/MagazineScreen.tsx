@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback, memo } from 'react';
+import React, { useState, useMemo, useCallback, memo } from 'react';
 import {
   View,
   Text,
@@ -15,14 +15,11 @@ import { useNavigation } from '@react-navigation/native';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { FontFamily } from '@/constants/Typography';
 import AnimatedListItem from '@/components/AnimatedListItem';
-import Skeleton from '@/components/Skeleton';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/types/navigation';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { useFavorites } from '@/context/FavoritesContext';
-import { supabase } from '@/lib/supabase';
-import { mapKesfetRow, type KesfetRow } from '@/lib/kesfet';
 import { cityFallback } from '@/lib/imageFallback';
 import { MOCK_MAGAZINES } from '@/api/mockData';
 import type { HeritageCategory } from '@/types';
@@ -44,14 +41,6 @@ const CATEGORY_LABEL: Record<Category, string> = {
 };
 
 type Nav = StackNavigationProp<RootStackParamList>;
-
-interface MagazineData {
-  id: number;
-  baslik: string;
-  aciklama?: string;
-  kategori?: string;
-  resim_url?: string;
-}
 
 interface FormattedMag {
   id: string;
@@ -224,43 +213,13 @@ const MagazineScreen = () => {
   const t = useAppTheme();
   const insets = useSafeAreaInsets();
   const { favoriteHeritageIds, isFavoriteHeritage, toggleFavorite } = useFavorites();
-  const [magazines, setMagazines] = useState<MagazineData[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   const { pageBg, cardBg, cardBdr, txt1, txt2, chipBg, accent: amber, isDark } = t;
   const cardBorder = isDark ? cardBorderDark : cardBorderLight;
 
-  const fetchMagazines = async () => {
-    try {
-      const { data, error } = await supabase.from('kesfet').select('*').order('created_at', { ascending: false });
-      if (data) setMagazines(data);
-      if (error) console.log('Keşfet hatası:', error);
-    } catch (e) {
-      console.log(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchMagazines();
-  }, []);
-
   const formattedMagazines = useMemo(() => {
-    const fromSupabase: FormattedMag[] = magazines
-      .filter((mag) => !!mag.baslik?.trim() && !mag.aciklama?.includes('düzenle diyerek giriniz'))
-      .map((mag) => {
-        const place = mapKesfetRow(mag as KesfetRow);
-        return {
-          id: place.id,
-          title: place.title,
-          description: place.description,
-          category: place.category,
-          image: place.image,
-          featured: place.featured,
-        };
-      });
+    // Sadece MOCK_MAGAZINES kullan
     const fromMock: FormattedMag[] = MOCK_MAGAZINES.map((m) => ({
       id: m.id,
       title: m.title,
@@ -268,8 +227,8 @@ const MagazineScreen = () => {
       category: (m.category as Category) || 'historic',
       image: m.image,
     }));
-    return [...fromSupabase, ...fromMock];
-  }, [magazines, i18n.language]);
+    return fromMock;
+  }, [i18n.language]);
 
   const CURATED_HERO_IDS = ['m1', 'm2', 'm3', 'm4', 'm11'];
   const heroItems = useMemo(() => {
@@ -280,13 +239,14 @@ const MagazineScreen = () => {
     return curated.length > 0 ? curated : formattedMagazines.slice(0, Math.min(5, formattedMagazines.length));
   }, [formattedMagazines, showFavoritesOnly]);
   const popularItems = useMemo(() => {
+    // Sadece favoriler modunda kullanılacak
     if (showFavoritesOnly) return formattedMagazines.filter((m) => favoriteHeritageIds.includes(m.id));
     return [];
   }, [formattedMagazines, showFavoritesOnly, favoriteHeritageIds]);
 
   const collections = useMemo(() => {
     if (showFavoritesOnly) return [];
-    return COLLECTION_META.map((c) => {
+    const cols = COLLECTION_META.map((c) => {
       const itemsInCat = formattedMagazines.filter((m) => m.category === c.key);
       const coverId = COLLECTION_COVER_ID[c.key];
       const coverItem = coverId
@@ -298,6 +258,8 @@ const MagazineScreen = () => {
         image: coverItem?.image ?? itemsInCat[0]?.image ?? cityFallback(c.key),
       };
     }).filter((c) => c.count > 0);
+    
+    return cols;
   }, [formattedMagazines, showFavoritesOnly]);
 
   const handleHeroPress = useCallback(
@@ -327,7 +289,7 @@ const MagazineScreen = () => {
               <TouchableOpacity
                 style={[styles.iconBtn, { backgroundColor: chipBg }]}
                 activeOpacity={0.85}
-                onPress={() => navigation.navigate('GlobalSearch')}
+                onPress={() => navigation.navigate('GlobalSearch', { filterType: 'heritage' })}
               >
                 <Search color={txt1} size={18} strokeWidth={2} />
               </TouchableOpacity>
@@ -441,35 +403,22 @@ const MagazineScreen = () => {
   );
 
   const ListEmpty = useCallback(() => {
-    if (loading) {
+    if (showFavoritesOnly && popularItems.length === 0) {
       return (
-        <View style={styles.skeletonStack}>
-          {[1, 2, 3].map((i) => (
-            <View key={i} style={[styles.rowOuter, styles.skeletonRow, { backgroundColor: cardBg }]}>
-              <Skeleton width={64} height={64} borderRadius={12} isDark={isDark} />
-              <View style={{ flex: 1, gap: 8, marginLeft: 12 }}>
-                <Skeleton width="70%" height={16} borderRadius={6} isDark={isDark} />
-                <Skeleton width="90%" height={12} borderRadius={6} isDark={isDark} />
-              </View>
-            </View>
-          ))}
+        <View style={styles.emptyWrap}>
+          <Text style={[styles.emptyText, { color: txt2 }]}>Henüz favori mekanınız bulunmuyor.</Text>
         </View>
       );
     }
-    if (!showFavoritesOnly) return null;
-    return (
-      <View style={styles.emptyWrap}>
-        <Text style={[styles.emptyText, { color: txt2 }]}>Henüz favori mekanınız bulunmuyor.</Text>
-      </View>
-    );
-  }, [loading, isDark, cardBg, txt2, showFavoritesOnly]);
+    return null;
+  }, [txt2, showFavoritesOnly, popularItems.length]);
 
   const bottomPad = Math.max(insets.bottom, 24);
 
   return (
     <View style={[styles.screen, { backgroundColor: pageBg }]}>
       <FlatList
-        data={loading ? [] : popularItems}
+        data={popularItems}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         ListHeaderComponent={ListHeader}

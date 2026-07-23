@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MOCK_PARTNERS, MOCK_EVENTS, MOCK_MAGAZINES } from '@/api/mockData';
 import { MOCK_STOPS } from '@/data/transport';
 import { useAppTheme } from '@/theme/useAppTheme';
-import { supabase, processImageUrl } from '@/lib/supabase';
 import { useTranslation } from 'react-i18next';
 
 type SearchResult = {
@@ -24,99 +23,83 @@ type SearchResult = {
   id: string;
   title: string;
   subtitle?: string;
-  image?: string;
+  image?: string | any; // URL string veya require() objesi
 };
 
-const GlobalSearchScreen = () => {
+const GlobalSearchScreen = ({ route }: any) => {
   const t = useAppTheme();
   const { t: tr } = useTranslation();
   const navigation = useNavigation<any>();
+  const filterType = route?.params?.filterType; // 'heritage' | undefined
   const [query, setQuery] = useState('');
-  const [events, setEvents] = useState<any[]>([]);
-  const [magazines, setMagazines] = useState<any[]>([]);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [eventsRes, magRes] = await Promise.all([
-          supabase.from('etkinlikler').select('*'),
-          supabase.from('kesfet').select('*'),
-        ]);
-        if (eventsRes.data?.length) setEvents(eventsRes.data);
-        else setEvents(MOCK_EVENTS.map(e => ({ id: e.id, baslik: e.title, tarih: e.date, konum: e.location, kategori: e.category, resim_url: e.image })));
-        if (magRes.data?.length) setMagazines(magRes.data);
-        else setMagazines(MOCK_MAGAZINES.map(m => ({ id: m.id.toString(), baslik: m.title, aciklama: m.description, kategori: m.category, resim_url: typeof m.image === 'string' ? m.image : undefined })));
-      } catch {
-        setEvents(MOCK_EVENTS.map(e => ({ id: e.id, baslik: e.title, tarih: e.date, konum: e.location, kategori: e.category, resim_url: e.image })));
-        setMagazines(MOCK_MAGAZINES.map(m => ({ id: m.id.toString(), baslik: m.title, aciklama: m.description, kategori: m.category })));
-      }
-    };
-    fetchData();
-  }, []);
 
   const normalize = (s: string) => s.toLocaleLowerCase('tr-TR').trim();
   const match = (text: string) => query && normalize(text).includes(normalize(query));
 
   const results = useCallback((): SearchResult[] => {
     if (!query.trim()) return [];
-    const q = normalize(query);
     const out: SearchResult[] = [];
 
-    events.forEach((e) => {
-      const title = e.baslik || e.title || '';
-      const loc = e.konum || e.location || '';
-      const cat = e.kategori || e.category || '';
-      if (match(title) || match(loc) || match(cat)) {
-        out.push({
-          type: 'event',
-          id: String(e.id),
-          title: title,
-          subtitle: `${loc} · ${cat}`,
-          image: processImageUrl(e.resim_url, 'etkinlik_resimleri') || e.image,
-        });
-      }
-    });
+    // Eğer sadece keşfet araması istenmişse, diğer tipleri atla
+    if (!filterType || filterType === 'event') {
+      MOCK_EVENTS.forEach((e) => {
+        if (match(e.title) || match(e.location) || match(e.category)) {
+          out.push({
+            type: 'event',
+            id: e.id,
+            title: e.title,
+            subtitle: `${e.location} · ${e.category}`,
+            image: e.image,
+          });
+        }
+      });
+    }
 
-    MOCK_PARTNERS.forEach((p) => {
-      if (match(p.name) || match(p.offer) || match(p.description || '')) {
-        out.push({
-          type: 'partner',
-          id: p.id,
-          title: p.name,
-          subtitle: p.offer,
-        });
-      }
-    });
+    if (!filterType || filterType === 'partner') {
+      MOCK_PARTNERS.forEach((p) => {
+        if (match(p.name) || match(p.offer) || match(p.description || '')) {
+          out.push({
+            type: 'partner',
+            id: p.id,
+            title: p.name,
+            subtitle: p.offer,
+          });
+        }
+      });
+    }
 
-    magazines.forEach((m) => {
-      const title = m.baslik || m.title || '';
-      const desc = m.aciklama || m.description || '';
-      if (match(title) || match(desc)) {
-        out.push({
-          type: 'heritage',
-          id: String(m.id),
-          title: title,
-          subtitle: desc?.slice(0, 50) + (desc?.length > 50 ? '...' : ''),
-          image: processImageUrl(m.resim_url, 'kesfet_resimleri') || (typeof (m as any).image === 'string' ? (m as any).image : undefined),
-        });
-      }
-    });
+    if (!filterType || filterType === 'heritage') {
+      // Sadece MOCK_MAGAZINES kullan
+      MOCK_MAGAZINES.forEach((m) => {
+        if (match(m.title) || match(m.description || '')) {
+          out.push({
+            type: 'heritage',
+            id: m.id,
+            title: m.title,
+            subtitle: m.description?.slice(0, 50) + (m.description && m.description.length > 50 ? '...' : ''),
+            image: m.image,
+          });
+        }
+      });
+    }
 
-    MOCK_STOPS.forEach((s) => {
-      const lines = s.buses.map((b: any) => b.line).join(' ');
-      const routes = s.buses.map((b: any) => b.route).join(' ');
-      if (match(s.name) || match(lines) || match(routes) || match(s.region || '')) {
-        out.push({
-          type: 'stop',
-          id: s.id,
-          title: s.name,
-          subtitle: s.buses.map((b: any) => b.line).slice(0, 5).join(', ') + (s.buses.length > 5 ? '...' : ''),
-        });
-      }
-    });
+    if (!filterType || filterType === 'stop') {
+      MOCK_STOPS.forEach((s) => {
+        const lines = s.buses.map((b: any) => b.line).join(' ');
+        const routes = s.buses.map((b: any) => b.route).join(' ');
+        if (match(s.name) || match(lines) || match(routes) || match(s.region || '')) {
+          out.push({
+            type: 'stop',
+            id: s.id,
+            title: s.name,
+            subtitle: s.buses.map((b: any) => b.line).slice(0, 5).join(', ') + (s.buses.length > 5 ? '...' : ''),
+          });
+        }
+      });
+    }
 
     return out;
-  }, [query, events, magazines]);
+  }, [query, filterType]);
 
   const list = results();
 
@@ -155,7 +138,7 @@ const GlobalSearchScreen = () => {
           <View style={[styles.searchInputWrap, { backgroundColor: t.chipBg }]}>
             <Search color={t.txt2} size={20} />
             <TextInput
-              placeholder={tr('search.placeholder')}
+              placeholder={filterType === 'heritage' ? 'Keşfet içeriklerinde ara...' : tr('search.placeholder')}
               placeholderTextColor={t.txt2}
               style={[styles.searchInput, { color: t.txt1 }]}
               value={query}
@@ -197,7 +180,11 @@ const GlobalSearchScreen = () => {
             >
               {r.image ? (
                 <View style={styles.resultImageWrap}>
-                  <Image source={{ uri: r.image }} style={styles.resultImage} resizeMode="cover" />
+                  <Image 
+                    source={typeof r.image === 'string' ? { uri: r.image } : r.image} 
+                    style={styles.resultImage} 
+                    resizeMode="cover" 
+                  />
                 </View>
               ) : (
                 <View style={[styles.resultIcon, { backgroundColor: t.chipBg }]}>{getIcon(r.type)}</View>

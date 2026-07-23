@@ -15,7 +15,8 @@ import {
   Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Users, Camera, Clock, Star, UserCheck, UserPlus, Hourglass, MessageCircle, X, Globe, Lock } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { ArrowLeft, Users, Camera, Clock, Star, UserCheck, UserPlus, Hourglass, MessageCircle, X, Globe, Lock, Check } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
@@ -186,6 +187,8 @@ const SosyalProfileScreen = ({ route }: any) => {
   const [isPublic, setIsPublic] = useState(true);
   const [privacyUpdating, setPrivacyUpdating] = useState(false);
   const [reactionsEnabled, setReactionsEnabled] = useState(true);
+  const [myRelationship, setMyRelationship] = useState<any | null>(null);
+  const [relationshipActionLoading, setRelationshipActionLoading] = useState(false);
 
   // Arkadaş profil modalı
   const [selectedFriend, setSelectedFriend] = useState<FriendEntry | null>(null);
@@ -310,6 +313,17 @@ const SosyalProfileScreen = ({ route }: any) => {
 
       setSnapCount(snaps ?? 0);
 
+      // İlişki durumunu çek (eğer başkasının profiliyse)
+      if (!isOwnProfile && currentUserProfile?.userId) {
+        const { data: rel } = await supabase
+          .from('friendships')
+          .select('*')
+          .or(`and(sender_id.eq.${currentUserProfile.userId},receiver_id.eq.${viewingUserId}),and(sender_id.eq.${viewingUserId},receiver_id.eq.${currentUserProfile.userId})`)
+          .neq('status', 'rejected')
+          .maybeSingle();
+        setMyRelationship(rel || null);
+      }
+
       // Arkadaşlık listesi
       const { data: friendships } = await supabase
         .from('friendships')
@@ -361,7 +375,7 @@ const SosyalProfileScreen = ({ route }: any) => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [viewingUserId, isOwnProfile]);
+  }, [viewingUserId, isOwnProfile, currentUserProfile?.userId]);
 
   const handleRemoveFriend = useCallback(async (friendshipId: string, friendName: string) => {
     Alert.alert(
@@ -422,6 +436,121 @@ const SosyalProfileScreen = ({ route }: any) => {
       ]
     );
   }, [fetchData]);
+
+  const handleSendFriendRequest = async () => {
+    if (!currentUserProfile?.userId || !viewingUserId) return;
+    setRelationshipActionLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('friendships')
+        .insert({
+          sender_id: currentUserProfile.userId,
+          receiver_id: viewingUserId,
+          status: 'pending'
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      setMyRelationship(data);
+      
+      // Alıcıya bildirim gönder
+      const myName = currentUserProfile?.name || currentUserProfile?.username || tr('sosyalMain.biri');
+      try {
+        const { notify } = require('@/lib/notifications');
+        notify.friendRequest(viewingUserId, myName).catch(() => {});
+      } catch {}
+
+      Alert.alert(tr('sosyalMain.istekGonderildiUnlem') || 'İsteyiniz İletildi', tr('sosyalMain.arkadaslikIstegiGonderildi', { name: profile?.name || profile?.username }) || 'Arkadaşlık isteği gönderildi.');
+    } catch (e: any) {
+      Alert.alert(tr('common.error'), e.message || tr('sosyalMain.birHataOlustu'));
+    } finally {
+      setRelationshipActionLoading(false);
+    }
+  };
+
+  const handleAcceptFriendRequest = async () => {
+    if (!myRelationship) return;
+    setRelationshipActionLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('friendships')
+        .update({ status: 'accepted' })
+        .eq('id', myRelationship.id)
+        .select()
+        .single();
+      if (error) throw error;
+      setMyRelationship(data);
+      fetchData(); // Arkadaş listesini yenile
+      Alert.alert(tr('sendSnap.basarili'), tr('sosyalMain.istekKabulEdildi', { name: profile?.name || profile?.username }) || 'Arkadaşlık isteği kabul edildi.');
+    } catch (e: any) {
+      Alert.alert(tr('common.error'), e.message || tr('sosyalMain.birHataOlustu'));
+    } finally {
+      setRelationshipActionLoading(false);
+    }
+  };
+
+  const handleRemoveFriendOnProfile = async () => {
+    if (!myRelationship) return;
+    Alert.alert(
+      tr('sosyalProfile.arkadasiCikar') || 'Arkadaşı Çıkar',
+      tr('sosyalProfile.arkadasiCikarOnay', { name: profile?.name || profile?.username }) || 'Bu kişiyi arkadaşlarınızdan çıkarmak istediğinize emin misiniz?',
+      [
+        { text: tr('common.cancel'), style: 'cancel' },
+        {
+          text: tr('sosyalProfile.cikar') || 'Çıkar',
+          style: 'destructive',
+          onPress: async () => {
+            setRelationshipActionLoading(true);
+            try {
+              const { error } = await supabase
+                .from('friendships')
+                .delete()
+                .eq('id', myRelationship.id);
+              if (error) throw error;
+              setMyRelationship(null);
+              fetchData();
+              Alert.alert(tr('sendSnap.basarili'), tr('sosyalProfile.arkadasCikarildi') || 'Arkadaş çıkarıldı.');
+            } catch (e: any) {
+              Alert.alert(tr('common.error'), e.message || tr('sosyalProfile.arkadasCikarilamadi'));
+            } finally {
+              setRelationshipActionLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleCancelRequestOnProfile = async () => {
+    if (!myRelationship) return;
+    Alert.alert(
+      tr('sosyalProfile.istegiGeriAl') || 'İsteği Geri Al',
+      tr('sosyalProfile.istegiGeriAlOnay', { name: profile?.name || profile?.username }) || 'Arkadaşlık isteğini geri almak istiyor musunuz?',
+      [
+        { text: tr('common.cancel'), style: 'cancel' },
+        {
+          text: tr('sosyalProfile.geriAl') || 'Geri Al',
+          style: 'destructive',
+          onPress: async () => {
+            setRelationshipActionLoading(true);
+            try {
+              const { error } = await supabase
+                .from('friendships')
+                .delete()
+                .eq('id', myRelationship.id);
+              if (error) throw error;
+              setMyRelationship(null);
+              Alert.alert(tr('sendSnap.basarili'), tr('sosyalProfile.istekGeriAlindi') || 'İstek geri alındı.');
+            } catch (e: any) {
+              Alert.alert(tr('common.error'), e.message || tr('sosyalProfile.istekGeriAlinamadi') || 'İstek geri alınamadı.');
+            } finally {
+              setRelationshipActionLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const handleAvatarPress = useCallback(() => {
     Alert.alert(tr('sosyalProfile.profilFotografi'), tr('sosyalProfile.nasilYuklemekIstersin'), [
@@ -655,6 +784,114 @@ const SosyalProfileScreen = ({ route }: any) => {
               <Star size={11} color={amber} strokeWidth={2.5} fill={amber} />
               <Text style={[styles.platformBadgeText, { color: txt1 }]}>{tr('sosyalProfile.sanliSosyalUyesi')}</Text>
             </View>
+
+            {/* İlişki Durumu Durum Butonları (Başka kullanıcının profilindeyken) */}
+            {!isOwnProfile && (
+              <View style={{ width: '100%', marginTop: 16, gap: 8 }}>
+                {relationshipActionLoading ? (
+                  <ActivityIndicator color={txt1} style={{ paddingVertical: 12 }} />
+                ) : !myRelationship ? (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={handleSendFriendRequest}
+                    style={styles.sheetMsgBtn}
+                  >
+                    <LinearGradient
+                      colors={isDark ? ['#3A2A1A', '#2F2418'] : [Editorial.ink, Editorial.coffee]}
+                      style={styles.sheetMsgGradient}
+                    >
+                      <UserPlus size={18} color="#fff" strokeWidth={2.5} />
+                      <Text style={styles.sheetMsgText}>{tr('sosyalMain.arkadasEkle') || 'Arkadaş Ekle'}</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                ) : myRelationship.status === 'accepted' ? (
+                  <View style={{ gap: 8, width: '100%' }}>
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() => {
+                        navigation.navigate('Chat', {
+                          userId: profile.userId || viewingUserId,
+                          userName: profile.name,
+                          userAvatar: profile.avatarUrl || '',
+                          username: profile.username || ''
+                        });
+                      }}
+                      style={styles.sheetMsgBtn}
+                    >
+                      <LinearGradient
+                        colors={isDark ? ['#3A2A1A', '#2F2418'] : [Editorial.ink, Editorial.coffee]}
+                        style={styles.sheetMsgGradient}
+                      >
+                        <MessageCircle size={18} color="#fff" strokeWidth={2.5} />
+                        <Text style={styles.sheetMsgText}>{tr('sosyalProfile.mesajGonder') || 'Mesaj Gönder'}</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={handleRemoveFriendOnProfile}
+                      style={[styles.sheetRemoveBtn, { 
+                        backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(17,17,20,0.04)', 
+                        borderColor: isDark ? 'rgba(255,255,255,0.18)' : '#111114',
+                        marginTop: 4
+                      }]}
+                    >
+                      <X size={16} color={isDark ? '#F5F5F7' : '#111114'} strokeWidth={2.5} />
+                      <Text style={[styles.sheetRemoveText, { color: isDark ? '#F5F5F7' : '#111114' }]}>{tr('sosyalProfile.arkadasiCikar') || 'Arkadaşı Çıkar'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : myRelationship.sender_id === currentUserProfile?.userId ? (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={handleCancelRequestOnProfile}
+                    style={[styles.sheetRemoveBtn, { 
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(17,17,20,0.04)', 
+                      borderColor: isDark ? 'rgba(255,255,255,0.18)' : '#111114',
+                      marginTop: 4
+                    }]}
+                  >
+                    <X size={16} color="#fb923c" strokeWidth={2.5} />
+                    <Text style={[styles.sheetRemoveText, { color: '#fb923c' }]}>{tr('sosyalProfile.istegiGeriAl') || 'İsteği Geri Al'}</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={{ flexDirection: 'row', gap: 8, width: '100%', marginTop: 4 }}>
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={handleAcceptFriendRequest}
+                      style={{ flex: 1, height: 48, borderRadius: 16, overflow: 'hidden' }}
+                    >
+                      <LinearGradient
+                        colors={['#10b981', '#059669']}
+                        style={{ flex: 1, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}
+                      >
+                        <Check color="#fff" size={16} strokeWidth={2.5} />
+                        <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>{tr('sosyalMain.kabulEt') || 'Kabul Et'}</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={handleCancelRequestOnProfile}
+                      style={{ 
+                        flex: 1, 
+                        height: 48, 
+                        borderRadius: 16, 
+                        borderWidth: 1, 
+                        borderColor: isDark ? 'rgba(239,68,68,0.3)' : 'rgba(239,68,68,0.18)',
+                        backgroundColor: isDark ? 'rgba(239,68,68,0.15)' : 'rgba(239,68,68,0.08)',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexDirection: 'row',
+                        gap: 6
+                      }}
+                    >
+                      <X color="#ef4444" size={16} strokeWidth={2.5} />
+                      <Text style={{ color: '#ef4444', fontSize: 14, fontWeight: '700' }}>{tr('sosyalMain.reddet') || 'Reddet'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
 
           {/* Gizlilik Ayarı - Sadece kendi profilinde */}
@@ -963,7 +1200,7 @@ const SosyalProfileScreen = ({ route }: any) => {
             {selectedFriend.status === 'accepted' ? (
               <TouchableOpacity
                 activeOpacity={0.88}
-                style={[styles.sheetMsgBtn, { backgroundColor: ctaBg }]}
+                style={styles.sheetMsgBtn}
                 onPress={() => {
                   setSelectedFriend(null);
                   navigation.navigate('Chat', {
@@ -974,10 +1211,13 @@ const SosyalProfileScreen = ({ route }: any) => {
                   });
                 }}
               >
-                <View style={styles.sheetMsgGradient}>
-                  <MessageCircle size={18} color={ctaTxt} strokeWidth={2} />
-                  <Text style={[styles.sheetMsgText, { color: ctaTxt }]}>{tr('sosyalProfile.mesajGonder')}</Text>
-                </View>
+                <LinearGradient
+                  colors={isDark ? ['#3A2A1A', '#2F2418'] : [Editorial.ink, Editorial.coffee]}
+                  style={styles.sheetMsgGradient}
+                >
+                  <MessageCircle size={18} color="#fff" strokeWidth={2.5} />
+                  <Text style={styles.sheetMsgText}>{tr('sosyalProfile.mesajGonder')}</Text>
+                </LinearGradient>
               </TouchableOpacity>
             ) : (
               <View style={[styles.sheetMsgBtn, { opacity: 0.45 }]}>
@@ -996,21 +1236,27 @@ const SosyalProfileScreen = ({ route }: any) => {
                 {selectedFriend.status === 'accepted' && (
                   <TouchableOpacity
                     activeOpacity={0.88}
-                    style={[styles.sheetRemoveBtn, { backgroundColor: isDark ? 'rgba(239,68,68,0.15)' : 'rgba(239,68,68,0.1)', borderColor: isDark ? 'rgba(239,68,68,0.3)' : 'rgba(239,68,68,0.2)' }]}
+                    style={[styles.sheetRemoveBtn, { 
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(17,17,20,0.04)', 
+                      borderColor: isDark ? 'rgba(255,255,255,0.18)' : '#111114' 
+                    }]}
                     onPress={() => handleRemoveFriend(selectedFriend.id, selectedFriend.other_name)}
                   >
-                    <UserPlus size={16} color="#ef4444" strokeWidth={2} />
-                    <Text style={[styles.sheetRemoveText, { color: '#ef4444' }]}>{tr('sosyalProfile.arkadasiCikar')}</Text>
+                    <UserPlus size={16} color={isDark ? '#F5F5F7' : '#111114'} strokeWidth={2} />
+                    <Text style={[styles.sheetRemoveText, { color: isDark ? '#F5F5F7' : '#111114' }]}>{tr('sosyalProfile.arkadasiCikar')}</Text>
                   </TouchableOpacity>
                 )}
                 {selectedFriend.status === 'pending_sent' && (
                   <TouchableOpacity
                     activeOpacity={0.88}
-                    style={[styles.sheetRemoveBtn, { backgroundColor: isDark ? 'rgba(251,146,60,0.15)' : 'rgba(251,146,60,0.1)', borderColor: isDark ? 'rgba(251,146,60,0.3)' : 'rgba(251,146,60,0.2)' }]}
+                    style={[styles.sheetRemoveBtn, { 
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(17,17,20,0.04)', 
+                      borderColor: isDark ? 'rgba(255,255,255,0.18)' : '#111114' 
+                    }]}
                     onPress={() => handleCancelRequest(selectedFriend.id, selectedFriend.other_name)}
                   >
-                    <X size={16} color="#fb923c" strokeWidth={2} />
-                    <Text style={[styles.sheetRemoveText, { color: '#fb923c' }]}>{tr('sosyalProfile.istegiGeriAl')}</Text>
+                    <X size={16} color={isDark ? '#F5F5F7' : '#111114'} strokeWidth={2.5} />
+                    <Text style={[styles.sheetRemoveText, { color: isDark ? '#F5F5F7' : '#111114' }]}>{tr('sosyalProfile.istegiGeriAl')}</Text>
                   </TouchableOpacity>
                 )}
               </>

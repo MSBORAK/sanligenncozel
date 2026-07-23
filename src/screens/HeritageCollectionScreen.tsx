@@ -1,13 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, Dimensions } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { ArrowLeft, ChevronRight } from 'lucide-react-native';
+import { ArrowLeft } from 'lucide-react-native';
 import { RootStackParamList } from '@/types/navigation';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
-import { supabase } from '@/lib/supabase';
-import { mapKesfetRow, type KesfetRow } from '@/lib/kesfet';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { MOCK_MAGAZINES } from '@/api/mockData';
 import type { HeritageCategory } from '@/types';
@@ -26,14 +24,6 @@ const CATEGORY_META_KEYS: Record<HeritageCategory, { titleKey: string; subtitleK
   bazaar: { titleKey: 'heritageCollection.bazaarTitle', subtitleKey: 'heritageCollection.bazaarSubtitle' },
 };
 
-interface MagazineData {
-  id: number;
-  baslik: string;
-  aciklama?: string;
-  kategori?: string;
-  resim_url?: string;
-}
-
 type Nav = StackNavigationProp<RootStackParamList>;
 
 const HeritageCollectionScreen = () => {
@@ -43,45 +33,19 @@ const HeritageCollectionScreen = () => {
   const t = useAppTheme();
   const { t: tr } = useTranslation();
   const insets = useSafeAreaInsets();
-  const [items, setItems] = useState<MagazineData[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const cardBorder = t.isDark ? cardBorderDark : cardBorderLight;
 
-  useEffect(() => {
-    const fetchItems = async () => {
-      try {
-        const { data } = await supabase.from('kesfet').select('*').eq('kategori', category);
-        setItems(data ?? []);
-      } catch {
-        setItems([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchItems();
-  }, [category]);
-
   const formatted = useMemo(() => {
-    const fromSupabase = items
-      .filter((mag) => !!mag.baslik?.trim())
-      .map((mag) => {
-        const place = mapKesfetRow(mag as KesfetRow);
-        return {
-          id: place.id,
-          title: place.title,
-          description: place.description,
-          image: place.image,
-        };
-      });
+    // Sadece MOCK_MAGAZINES kullan
     const fromMock = MOCK_MAGAZINES.filter((m) => m.category === category).map((m) => ({
       id: m.id,
       title: m.title,
       description: m.description,
       image: m.image,
     }));
-    return [...fromSupabase, ...fromMock];
-  }, [items, category]);
+    return fromMock;
+  }, [category]);
 
   const metaKeys = CATEGORY_META_KEYS[category];
   const meta = metaKeys
@@ -104,11 +68,8 @@ const HeritageCollectionScreen = () => {
           <Text style={[styles.count, { color: t.txt2 }]}>{tr('heritageCollection.mekanSayisi', { count: formatted.length })}</Text>
         </View>
 
-        {loading ? (
-          <ActivityIndicator color={t.txt1} style={{ marginTop: 30 }} />
-        ) : (
-          <View style={styles.grid}>
-            {formatted.map((item, index) => (
+        <View style={styles.grid}>
+          {formatted.map((item, index) => (
               <View key={item.id} style={[styles.cardOuter, cardOuterShadow, cardBorder, { width: CARD_W, backgroundColor: t.cardBg }]}>
                 <TouchableOpacity
                   style={[styles.card, cardInnerClip]}
@@ -135,7 +96,6 @@ const HeritageCollectionScreen = () => {
               </View>
             ))}
           </View>
-        )}
       </ScrollView>
     </View>
   );

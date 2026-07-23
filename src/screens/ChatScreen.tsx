@@ -24,7 +24,8 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
 import { supabase, processImageUrl } from '@/lib/supabase';
 import { notify } from '@/lib/notifications';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
+import { Video, ResizeMode } from 'expo-av';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { Editorial } from '@/theme/colors';
@@ -117,8 +118,14 @@ const ChatScreen = () => {
   const [cameraVisible, setCameraVisible] = useState(false);
   const [cameraFacing, setCameraFacing] = useState<'front' | 'back'>('back');
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
+  const [capturedIsVideo, setCapturedIsVideo] = useState(false);
   const [cameraBusy, setCameraBusy] = useState(false);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [microphonePermission, requestMicrophonePermission] = useMicrophonePermissions();
+  const [cameraMode, setCameraMode] = useState<'photo' | 'video'>('photo');
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const cameraRef = useRef<any>(null);
   /** Tepki mesajındaki kıvılcım önizlemesi — tam ekran */
@@ -419,17 +426,27 @@ const ChatScreen = () => {
   };
 
   const handleCameraPress = async () => {
-    const perm = cameraPermission ?? await requestCameraPermission();
-    if (!perm?.granted) {
+    const camPerm = cameraPermission ?? await requestCameraPermission();
+    if (!camPerm?.granted) {
       Alert.alert(tr('chat.kameraIzni'), tr('chat.kameraIzniAciklama'));
       return;
     }
+    
+    // Video modu için mikrofon izni de gerekli
+    const micPerm = microphonePermission ?? await requestMicrophonePermission();
+    if (!micPerm?.granted) {
+      Alert.alert(tr('chat.mikrofonIzni'), tr('chat.mikrofonIzniAciklama'));
+      return;
+    }
+    
     setCapturedPhoto(null);
+    setCapturedIsVideo(false);
     setCameraFacing('back');
     setCameraVisible(true);
   };
 
   const toggleCameraFacing = () => {
+    console.log('🔄 Kamera döndürülüyor:', cameraFacing, '→', cameraFacing === 'back' ? 'front' : 'back');
     setCameraFacing(prev => prev === 'back' ? 'front' : 'back');
   };
 
@@ -450,8 +467,10 @@ const ChatScreen = () => {
             [{ flip: ImageManipulator.FlipType.Horizontal }],
             { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
           );
+          setCapturedIsVideo(false);
           setCapturedPhoto(flipped.uri);
         } else {
+          setCapturedIsVideo(false);
           setCapturedPhoto(photo.uri);
         }
       }
@@ -460,6 +479,96 @@ const ChatScreen = () => {
     } finally {
       setCameraBusy(false);
     }
+  };
+
+  const handleStartRecording = async () => {
+    if (!cameraRef.current || cameraBusy || isRecording) return;
+    
+    console.log('🎥 Video kaydı başlıyor...');
+    
+    try {
+      setIsRecording(true);
+      setRecordingDuration(0);
+      
+      // Video kayıt süresini takip et
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingDuration(prev => {
+          const newDuration = prev + 1;
+          console.log('⏱️ Kayıt süresi:', newDuration);
+          if (newDuration >= 59) {
+            // 60 saniye doldu, otomatik durdur
+            console.log('⏰ 60 saniye doldu, otomatik durduruluyor');
+            handleStopRecording();
+            return 60;
+          }
+          return newDuration;
+        });
+      }, 1000);
+      
+      console.log('📹 recordAsync başlatılıyor...');
+      // recordAsync promise döner ve kayıt bitene kadar bekler
+      const video = await cameraRef.current.recordAsync({
+        maxDuration: 60,
+      });
+      
+      console.log('✅ Video kaydedildi:', video?.uri);
+      
+      // Kayıt tamamlandı
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+        recordingIntervalRef.current = null;
+      }
+      
+      if (video?.uri) {
+        setCapturedIsVideo(true);
+        setCapturedPhoto(video.uri);
+      }
+      
+      setIsRecording(false);
+      setRecordingDuration(0);
+    } catch (e: any) {
+      console.error('❌ Video kayıt hatası:', e);
+      
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+        recordingIntervalRef.current = null;
+      }
+      setIsRecording(false);
+      setRecordingDuration(0);
+      
+      // Kullanıcı manuel durdurdu, hata gösterme
+      if (e?.message?.includes('recording') || e?.code === 'E_RECORDING_FAILED') {
+        console.log('ℹ️ Kayıt kullanıcı tarafından durduruldu');
+        return;
+      }
+      Alert.alert(tr('common.error'), tr('chat.videoKaydedilemedi'));
+    }
+  };
+
+  const handleStopRecording = () => {
+    console.log('⏹️ Video kaydı durduruluyor...');
+    if (cameraRef.current && isRecording) {
+      cameraRef.current.stopRecording();
+    }
+  };
+
+  const handleCapturePress = () => {
+    console.log('📸 Çekim butonu tıklandı. Mod:', cameraMode, 'Kayıt durumu:', isRecording);
+    if (cameraMode === 'photo') {
+      handleTakePhoto();
+    } else {
+      if (isRecording) {
+        handleStopRecording();
+      } else {
+        handleStartRecording();
+      }
+    }
+  };
+
+  const formatRecordingTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const handleConfirmSnap = () => {
@@ -559,7 +668,7 @@ const ChatScreen = () => {
         <View style={styles.messageRowOuter}>
           {wrapSwipeable(
             item,
-            <View style={[styles.messageContainer, !isMe && styles.theirMessage]}>
+            <View style={[styles.messageContainer, !isMe && styles.theirMessage, { backgroundColor: sc.darkBg }]}>
               {isMe ? <View style={styles.messageRowSpacer} /> : null}
               {!isMe && (
                 <Image
@@ -621,7 +730,7 @@ const ChatScreen = () => {
         <View style={styles.messageRowOuter}>
           {wrapSwipeable(
             item,
-            <View style={[styles.messageContainer, !isMe && styles.theirMessage]}>
+            <View style={[styles.messageContainer, !isMe && styles.theirMessage, { backgroundColor: sc.darkBg }]}>
               {isMe ? <View style={styles.messageRowSpacer} /> : null}
               {!isMe && (
                 <Image
@@ -697,7 +806,7 @@ const ChatScreen = () => {
       <View style={styles.messageRowOuter}>
         {wrapSwipeable(
           item,
-          <View style={[styles.messageContainer, !isMe && styles.theirMessage]}>
+          <View style={[styles.messageContainer, !isMe && styles.theirMessage, { backgroundColor: sc.darkBg }]}>
             {isMe ? <View style={styles.messageRowSpacer} /> : null}
             {!isMe && (
               <Image
@@ -803,20 +912,21 @@ const ChatScreen = () => {
   };
 
   /** Sağa kaydırınca yanıt (WhatsApp gibi) — ReanimatedSwipeable UI-thread'de çalışır, akıcı */
-  const wrapSwipeable = (item: Message, row: React.ReactElement) => {
+  const wrapSwipeable = useCallback((item: Message, row: React.ReactElement) => {
     const swipeableRef = React.createRef<SwipeableMethods>();
     return (
       <ReanimatedSwipeable
         ref={swipeableRef}
-        friction={1}
+        friction={2}
         leftThreshold={60}
         overshootLeft={false}
-        overshootFriction={8}
+        overshootFriction={12}
         dragOffsetFromLeftEdge={1}
         containerStyle={styles.swipeableRowContainer}
         childrenContainerStyle={styles.swipeableRowChildren}
         renderLeftActions={renderReplySwipeAction}
         onSwipeableWillOpen={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           setReplyingTo(item);
           swipeableRef.current?.close();
         }}
@@ -824,7 +934,7 @@ const ChatScreen = () => {
         {row}
       </ReanimatedSwipeable>
     );
-  };
+  }, [renderReplySwipeAction]);
 
   return (
     <GestureHandlerRootView style={styles.gestureRoot}>
@@ -874,10 +984,16 @@ const ChatScreen = () => {
             contentContainerStyle={styles.messagesList}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
-            removeClippedSubviews={false}
-            windowSize={10}
-            maxToRenderPerBatch={12}
-            initialNumToRender={15}
+            removeClippedSubviews={true}
+            windowSize={5}
+            maxToRenderPerBatch={8}
+            initialNumToRender={12}
+            updateCellsBatchingPeriod={50}
+            getItemLayout={(data, index) => ({
+              length: 80,
+              offset: 80 * index,
+              index,
+            })}
             ListEmptyComponent={
               <View style={[styles.emptyState, { transform: [{ scaleY: -1 }] }]}>
                 <Text style={[styles.emptyStateText, { color: t.txt2 }]}>
@@ -937,7 +1053,14 @@ const ChatScreen = () => {
       </KeyboardAvoidingView>
 
       {/* Kamera Modalı */}
-      <Modal visible={cameraVisible} animationType="slide" onRequestClose={() => setCameraVisible(false)}>
+      <Modal visible={cameraVisible} animationType="slide" onRequestClose={() => {
+        if (isRecording) {
+          handleStopRecording();
+        }
+        setCameraVisible(false);
+        setCapturedPhoto(null);
+        setCapturedIsVideo(false);
+      }}>
         <View style={{ flex: 1, backgroundColor: '#000' }}>
           {!capturedPhoto ? (
             <>
@@ -945,44 +1068,138 @@ const ChatScreen = () => {
                 ref={cameraRef} 
                 style={{ flex: 1 }} 
                 facing={cameraFacing}
-                mirror={false}
+                mirror={cameraFacing === 'front'}
               />
+              
+              {/* Üst kontroller */}
               <SafeAreaView edges={['top']} style={{ position: 'absolute', top: 0, right: 0, left: 0 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingTop: 16 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16 }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (isRecording) {
+                        handleStopRecording();
+                      }
+                      setCameraVisible(false);
+                      setCapturedPhoto(null);
+                      setCapturedIsVideo(false);
+                    }}
+                    style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <X color="#fff" size={22} strokeWidth={2.5} />
+                  </TouchableOpacity>
+                  
+                  {isRecording && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,0,0,0.8)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 }}>
+                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff', marginRight: 6 }} />
+                      <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>
+                        {formatRecordingTime(recordingDuration)}
+                      </Text>
+                    </View>
+                  )}
+                  
                   <TouchableOpacity
                     onPress={toggleCameraFacing}
-                    style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' }}
+                    disabled={isRecording}
+                    style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', opacity: isRecording ? 0.5 : 1 }}
                   >
-                    <RefreshCw color="#fff" size={20} strokeWidth={2} />
+                    <RefreshCw color="#fff" size={20} strokeWidth={2.5} />
                   </TouchableOpacity>
                 </View>
               </SafeAreaView>
-              <SafeAreaView edges={['bottom']} style={{ backgroundColor: '#000' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 32, paddingVertical: 20 }}>
-                  <TouchableOpacity onPress={() => setCameraVisible(false)}>
-                    <X color="#fff" size={28} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={handleTakePhoto}
-                    disabled={cameraBusy}
-                    style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: '#fff', borderWidth: 4, borderColor: 'rgba(255,255,255,0.5)', alignItems: 'center', justifyContent: 'center' }}
-                  >
-                    {cameraBusy && <ActivityIndicator color="#000" />}
-                  </TouchableOpacity>
-                  <View style={{ width: 28 }} />
+              
+              {/* Alt kontroller */}
+              <SafeAreaView edges={['bottom']} style={{ backgroundColor: 'transparent', position: 'absolute', bottom: 0, left: 0, right: 0 }}>
+                <View style={{ paddingHorizontal: 20, paddingBottom: 20 }}>
+                  {/* Mod seçici */}
+                  {!isRecording && (
+                    <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 32, marginBottom: 24 }}>
+                      <TouchableOpacity
+                        onPress={() => setCameraMode('photo')}
+                        style={{ paddingVertical: 8, paddingHorizontal: 16 }}
+                      >
+                        <Text style={{ color: cameraMode === 'photo' ? '#fff' : 'rgba(255,255,255,0.5)', fontSize: 16, fontWeight: '700' }}>
+                          {tr('chat.foto')}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => setCameraMode('video')}
+                        style={{ paddingVertical: 8, paddingHorizontal: 16 }}
+                      >
+                        <Text style={{ color: cameraMode === 'video' ? '#fff' : 'rgba(255,255,255,0.5)', fontSize: 16, fontWeight: '700' }}>
+                          {tr('chat.video')}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                  
+                  {/* Çekim butonu */}
+                  <View style={{ alignItems: 'center' }}>
+                    <TouchableOpacity
+                      onPress={handleCapturePress}
+                      onLongPress={() => {
+                        if (cameraMode === 'video' && !isRecording) {
+                          handleStartRecording();
+                        }
+                      }}
+                      delayLongPress={200}
+                      disabled={cameraBusy && !isRecording}
+                      style={{ 
+                        width: 80, 
+                        height: 80, 
+                        borderRadius: 40, 
+                        backgroundColor: isRecording ? '#FF3B30' : '#fff', 
+                        borderWidth: 5, 
+                        borderColor: isRecording ? 'rgba(255,59,48,0.5)' : 'rgba(255,255,255,0.5)', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        opacity: (cameraBusy && !isRecording) ? 0.5 : 1,
+                      }}
+                    >
+                      {cameraBusy && !isRecording ? (
+                        <ActivityIndicator color="#000" />
+                      ) : isRecording ? (
+                        <View style={{ width: 24, height: 24, backgroundColor: '#fff', borderRadius: 4 }} />
+                      ) : null}
+                    </TouchableOpacity>
+                    {cameraMode === 'video' && !isRecording && (
+                      <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 8, fontWeight: '500' }}>
+                        {tr('chat.tiklaVeyaBasiliTut')}
+                      </Text>
+                    )}
+                  </View>
                 </View>
               </SafeAreaView>
             </>
           ) : (
             <>
-              <Image source={{ uri: capturedPhoto }} style={{ flex: 1 }} resizeMode="cover" />
-              <SafeAreaView edges={['bottom']} style={{ backgroundColor: '#000' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingVertical: 20 }}>
-                  <TouchableOpacity onPress={() => setCapturedPhoto(null)} style={{ paddingHorizontal: 24, paddingVertical: 12, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 24 }}>
-                    <Text style={{ color: '#fff', fontWeight: '600' }}>{tr('chat.tekrar')}</Text>
+              {capturedIsVideo ? (
+                <Video
+                  source={{ uri: capturedPhoto! }}
+                  style={{ flex: 1, backgroundColor: '#000' }}
+                  resizeMode={ResizeMode.CONTAIN}
+                  shouldPlay
+                  isLooping
+                  useNativeControls
+                />
+              ) : (
+                <Image source={{ uri: capturedPhoto }} style={{ flex: 1 }} resizeMode="contain" />
+              )}
+              <SafeAreaView edges={['bottom']} style={{ backgroundColor: 'rgba(0,0,0,0.8)' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingVertical: 20, paddingHorizontal: 20 }}>
+                  <TouchableOpacity 
+                    onPress={() => {
+                      setCapturedPhoto(null);
+                      setCapturedIsVideo(false);
+                    }} 
+                    style={{ paddingHorizontal: 28, paddingVertical: 14, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 28, minWidth: 120, alignItems: 'center' }}
+                  >
+                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>{tr('chat.tekrar')}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={handleConfirmSnap} style={{ paddingHorizontal: 32, paddingVertical: 12, backgroundColor: sc.blue, borderRadius: 24 }}>
-                    <Text style={{ color: '#fff', fontWeight: '700' }}>{tr('common.send')}</Text>
+                  <TouchableOpacity 
+                    onPress={handleConfirmSnap} 
+                    style={{ paddingHorizontal: 32, paddingVertical: 14, backgroundColor: sc.blue, borderRadius: 28, minWidth: 120, alignItems: 'center' }}
+                  >
+                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>{tr('common.send')}</Text>
                   </TouchableOpacity>
                 </View>
               </SafeAreaView>
@@ -1104,8 +1321,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     width: 56,
+    height: '100%',
     marginRight: 8,
-    marginBottom: 16,
     borderRadius: 14,
     backgroundColor: SnapColors.blue,
   },
@@ -1256,10 +1473,12 @@ const styles = StyleSheet.create({
   },
   swipeableRowContainer: {
     width: '100%',
+    overflow: 'visible',
   },
   swipeableRowChildren: {
     width: '100%',
     flexShrink: 0,
+    backgroundColor: 'transparent',
   },
   /** FlatList satırında flex:1 kullanma — giden mesaj tek çocukken yükseklik/genişlik 0’a çökebiliyor */
   messageContainer: {
