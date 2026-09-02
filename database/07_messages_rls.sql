@@ -65,11 +65,43 @@ USING (
 CREATE POLICY "Users can send messages to their conversations"
 ON messages FOR INSERT
 WITH CHECK (
+  -- Gönderenin auth.uid() olması ve conversation'ın katılımcısı olması
   sender_id = auth.uid()
   AND EXISTS (
     SELECT 1 FROM conversation_participants
     WHERE conversation_participants.conversation_id = messages.conversation_id
-    AND conversation_participants.user_id = auth.uid()
+      AND conversation_participants.user_id = auth.uid()
+  )
+  -- Conversation içindeki diğer katılımcı ile accepted friendship olmalı (1:1 konuşma)
+  AND EXISTS (
+    SELECT 1 FROM conversation_participants cp2
+    WHERE cp2.conversation_id = messages.conversation_id
+      AND cp2.user_id <> auth.uid()
+      AND EXISTS (
+        SELECT 1 FROM friendships f
+        WHERE f.status = 'accepted'
+          AND (
+            (f.sender_id = auth.uid() AND f.receiver_id = cp2.user_id)
+            OR (f.sender_id = cp2.user_id AND f.receiver_id = auth.uid())
+          )
+      )
+  )
+  -- Hem benim, hem diğer tarafın engellemesi yok (çift yönlü kontrol)
+  AND NOT EXISTS (
+    SELECT 1 FROM blocked_users b
+    WHERE (
+      (b.blocker_id = auth.uid() AND b.blocked_id IN (
+         SELECT cp3.user_id FROM conversation_participants cp3
+         WHERE cp3.conversation_id = messages.conversation_id
+           AND cp3.user_id <> auth.uid()
+      ))
+      OR
+      (b.blocked_id = auth.uid() AND b.blocker_id IN (
+         SELECT cp4.user_id FROM conversation_participants cp4
+         WHERE cp4.conversation_id = messages.conversation_id
+           AND cp4.user_id <> auth.uid()
+      ))
+    )
   )
 );
 

@@ -2471,6 +2471,23 @@ export default function SosyalScreen() {
 
           if (!otherParticipant) return null;
 
+          // Güvenlik: sadece kabul edilmiş arkadaşların sohbetlerini göster
+          const { data: friendshipRow } = await supabase
+            .from('friendships')
+            .select('id')
+            .or(`and(sender_id.eq.${userId},receiver_id.eq.${otherParticipant.user_id}),and(sender_id.eq.${otherParticipant.user_id},receiver_id.eq.${userId})`)
+            .eq('status', 'accepted')
+            .maybeSingle();
+          if (!friendshipRow) return null;
+
+          // Engelleme varsa sohbeti gizle
+          const { data: blockRow } = await supabase
+            .from('blocked_users')
+            .select('id')
+            .or(`and(blocker_id.eq.${userId},blocked_id.eq.${otherParticipant.user_id}),and(blocker_id.eq.${otherParticipant.user_id},blocked_id.eq.${userId})`)
+            .maybeSingle();
+          if (blockRow) return null;
+
           const { data: profile } = await supabase
             .from('user_profiles')
             .select('user_id, name, username, avatar_url')

@@ -14,13 +14,14 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Pressable,
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView, TouchableOpacity } from 'react-native-gesture-handler';
 import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { ArrowLeft, Send, Camera, X, RefreshCw, Heart, Reply } from 'lucide-react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
 import { supabase, processImageUrl } from '@/lib/supabase';
@@ -88,7 +89,6 @@ const ChatScreen = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const route = useRoute();
   const params = route.params as RouteParams;
-  console.log('[Sohbet] route.params', params);
   const { t: tr } = useTranslation();
   const t = useAppTheme();
   const isDark = t.isDark;
@@ -134,6 +134,9 @@ const ChatScreen = () => {
   const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
   const [otherTyping, setOtherTyping] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [partnerName, setPartnerName] = useState(params.userName?.trim() || '');
+  const [partnerUsername, setPartnerUsername] = useState(params.username?.trim() || '');
+  const [partnerAvatar, setPartnerAvatar] = useState(params.userAvatar || '');
   const typingHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingSendThrottleRef = useRef(0);
@@ -141,6 +144,31 @@ const ChatScreen = () => {
   const { width: windowWidth } = useWindowDimensions();
   /** Swipeable + yüzde maxWidth bazen ~0 genişlik hesaplanmasına yol açıyor; sabit üst sınır metni yatay sarar */
   const maxBubbleWidth = Math.min(windowWidth * 0.78, 340);
+
+  useEffect(() => {
+    setPartnerName(params.userName?.trim() || '');
+    setPartnerUsername(params.username?.trim() || '');
+    setPartnerAvatar(params.userAvatar || '');
+  }, [params.userName, params.username, params.userAvatar]);
+
+  useEffect(() => {
+    if (!params.userId || partnerName) return;
+    let isMounted = true;
+    (async () => {
+      const { data } = await supabase
+        .from('user_profiles')
+        .select('name, username, avatar_url')
+        .eq('user_id', params.userId)
+        .maybeSingle();
+      if (!isMounted || !data) return;
+      if (data.name?.trim()) setPartnerName(data.name.trim());
+      if (data.username?.trim()) setPartnerUsername(data.username.trim());
+      if (data.avatar_url) setPartnerAvatar(processImageUrl(data.avatar_url) ?? data.avatar_url);
+    })();
+    return () => { isMounted = false; };
+  }, [params.userId, partnerName]);
+
+  const headerDisplayName = partnerName || partnerUsername || tr('common.kullanici');
 
   useEffect(() => {
     let isMounted = true;
@@ -180,6 +208,44 @@ const ChatScreen = () => {
     init();
     return () => { isMounted = false; };
   }, [params.userId]);
+
+  // Ekrana her fokus geldiğinde arkadaşlık ve engelleme durumunu tekrar doğrula
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+      (async () => {
+        if (!params.userId || !currentUserId) return;
+        try {
+          const { data: friendship } = await supabase
+            .from('friendships')
+            .select('id')
+            .or(`and(sender_id.eq.${currentUserId},receiver_id.eq.${params.userId}),and(sender_id.eq.${params.userId},receiver_id.eq.${currentUserId})`)
+            .eq('status', 'accepted')
+            .maybeSingle();
+          if (!isActive) return;
+          if (!friendship) {
+            AppAlert.alert(tr('chat.arkadasDegilsiniz'), tr('chat.arkadaslikIstegiGerekli'), [{ text: tr('sendSnap.tamam'), onPress: () => navigation.goBack() }]);
+            return;
+          }
+
+          const { data: blockRow } = await supabase
+            .from('blocked_users')
+            .select('id')
+            .or(`and(blocker_id.eq.${currentUserId},blocked_id.eq.${params.userId}),and(blocker_id.eq.${params.userId},blocked_id.eq.${currentUserId})`)
+            .maybeSingle();
+          if (!isActive) return;
+          if (blockRow) {
+            AppAlert.alert(tr('chat.engellemeVar'), tr('chat.engellemeAciklama'));
+            navigation.goBack();
+            return;
+          }
+        } catch (e) {
+          // ignore transient errors
+        }
+      })();
+      return () => { isActive = false; };
+    }, [conversationId, currentUserId, params.userId])
+  );
 
   useEffect(() => {
     if (conversationId && currentUserId) {
@@ -388,6 +454,33 @@ const ChatScreen = () => {
 
   const sendMessage = async () => {
     if (!newMessage.trim() || !conversationId || !currentUserId) return;
+
+    // Sunucu tarafı kurallarıyla uyum: tekrar arkadaşlık ve engelleme kontrolü yap
+    try {
+      const { data: friendship } = await supabase
+        .from('friendships')
+        .select('id')
+        .or(`and(sender_id.eq.${currentUserId},receiver_id.eq.${params.userId}),and(sender_id.eq.${params.userId},receiver_id.eq.${currentUserId})`)
+        .eq('status', 'accepted')
+        .maybeSingle();
+      if (!friendship) {
+        AppAlert.alert(tr('chat.arkadasDegilsiniz'), tr('chat.arkadaslikIstegiGerekli'));
+        return;
+      }
+      const { data: blockRow } = await supabase
+        .from('blocked_users')
+        .select('id')
+        .or(`and(blocker_id.eq.${currentUserId},blocked_id.eq.${params.userId}),and(blocker_id.eq.${params.userId},blocked_id.eq.${currentUserId})`)
+        .maybeSingle();
+      if (blockRow) {
+        AppAlert.alert(tr('chat.engellemeVar'), tr('chat.engellemeAciklama'));
+        return;
+      }
+    } catch (e) {
+      // Eğer kontrol sırasında hata olursa, mesaj göndermeyi durdur
+      AppAlert.alert(tr('common.error'), tr('chat.bilinmeyenHata'));
+      return;
+    }
 
     if (typingIdleTimerRef.current) {
       clearTimeout(typingIdleTimerRef.current);
@@ -971,27 +1064,28 @@ const ChatScreen = () => {
       >
         {/* Header */}
         <View style={[styles.header, { backgroundColor: t.cardBg, borderBottomColor: t.divider }]}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Pressable onPress={() => navigation.goBack()} style={styles.backButton} hitSlop={12}>
             <ArrowLeft color={t.txt1} size={24} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('SosyalProfile', { userId: params.userId })}
+          </Pressable>
+          <Pressable
             style={styles.headerUserInfo}
+            onPress={() => navigation.navigate('SosyalProfile', { userId: params.userId })}
           >
             <Image
-              source={{ uri: params.userAvatar || 'https://i.pravatar.cc/150' }}
+              source={{ uri: partnerAvatar || 'https://i.pravatar.cc/150' }}
               style={styles.headerAvatar}
             />
-            <View style={styles.headerInfo}>
-              <Text style={{ fontSize: 22, fontWeight: '900', backgroundColor: 'red', color: 'yellow' }}>TEST-{params.userName || params.username || tr('common.kullanici')}</Text>
+            <View style={styles.headerTextWrap}>
+              <Text style={[styles.headerName, { color: t.txt1 }]} numberOfLines={1}>
+                {headerDisplayName}
+              </Text>
               {otherTyping ? (
-                <Text style={[styles.headerTyping, { color: t.ctaBg }]}>{tr('chat.yaziyor')} ✍️</Text>
-              ) : (
-                <Text style={[styles.headerUsername, { color: t.txt2 }]}>@{params.username}</Text>
-              )}
+                <Text style={[styles.headerTyping, { color: t.txt2 }]} numberOfLines={1}>
+                  {tr('chat.yaziyor')}
+                </Text>
+              ) : null}
             </View>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {/* Messages */}
@@ -1300,22 +1394,26 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   headerUserInfo: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    minWidth: 0,
   },
   headerAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 10,
   },
-  headerInfo: {
+  headerTextWrap: {
     flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
   },
   headerName: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.2,
     color: SnapColors.black,
   },
   headerNameDark: {
@@ -1330,10 +1428,10 @@ const styles = StyleSheet.create({
     color: Editorial.coffeeSoft,
   },
   headerTyping: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: SnapColors.blue,
-    marginTop: 2,
+    fontSize: 12,
+    fontWeight: '500',
+    color: SnapColors.gray,
+    marginTop: 1,
   },
   headerTypingDark: {
     color: '#5ac8fa',

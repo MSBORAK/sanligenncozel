@@ -94,7 +94,50 @@ SECURITY DEFINER
 AS $$
 DECLARE
   conversation_id UUID;
+  caller UUID := auth.uid();
+  other_id UUID;
+  friendship_exists BOOLEAN;
+  blocked_exists BOOLEAN;
 BEGIN
+  -- Kim çağırdı kontrolü
+  IF caller IS NULL THEN
+    RAISE EXCEPTION 'authentication required';
+  END IF;
+
+  -- Çağıran user1 veya user2 olmalı
+  IF caller <> user1_id AND caller <> user2_id THEN
+    RAISE EXCEPTION 'caller must be one of the conversation participants';
+  END IF;
+
+  -- Diğer katılımcıyı belirle
+  IF caller = user1_id THEN
+    other_id := user2_id;
+  ELSE
+    other_id := user1_id;
+  END IF;
+
+  -- Engelleme kontrolü (her iki yön)
+  SELECT EXISTS(
+    SELECT 1 FROM blocked_users b
+    WHERE (b.blocker_id = caller AND b.blocked_id = other_id)
+       OR (b.blocker_id = other_id AND b.blocked_id = caller)
+  ) INTO blocked_exists;
+  IF blocked_exists THEN
+    RAISE EXCEPTION 'cannot create conversation: users are blocked';
+  END IF;
+
+  -- Arkadaşlık kontrolü: accepted friendship olmalı
+  SELECT EXISTS (
+    SELECT 1 FROM friendships f
+    WHERE f.status = 'accepted'
+      AND (
+        (f.sender_id = caller AND f.receiver_id = other_id)
+        OR (f.sender_id = other_id AND f.receiver_id = caller)
+      )
+  ) INTO friendship_exists;
+  IF NOT friendship_exists THEN
+    RAISE EXCEPTION 'cannot create conversation: users are not friends';
+  END IF;
   -- Mevcut sohbeti bul
   SELECT c.id INTO conversation_id
   FROM conversations c
