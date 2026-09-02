@@ -191,6 +191,7 @@ const SosyalProfileScreen = ({ route }: any) => {
   const [myRelationship, setMyRelationship] = useState<any | null>(null);
   const [relationshipActionLoading, setRelationshipActionLoading] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
+  const [isBlockedByThem, setIsBlockedByThem] = useState(false);
   const [blockActionLoading, setBlockActionLoading] = useState(false);
   const [moreMenuVisible, setMoreMenuVisible] = useState(false);
   const [reportModalVisible, setReportModalVisible] = useState(false);
@@ -340,6 +341,13 @@ const SosyalProfileScreen = ({ route }: any) => {
           .eq('blocked_id', viewingUserId)
           .maybeSingle();
         setIsBlocked(!!blockRow);
+        const { data: blockedByRow } = await supabase
+          .from('blocked_users')
+          .select('id')
+          .eq('blocker_id', viewingUserId)
+          .eq('blocked_id', currentUserProfile.userId)
+          .maybeSingle();
+        setIsBlockedByThem(!!blockedByRow);
       }
 
       // Arkadaşlık listesi
@@ -528,6 +536,23 @@ const SosyalProfileScreen = ({ route }: any) => {
       if (error) throw error;
       setMyRelationship(data);
       fetchData(); // Arkadaş listesini yenile
+      // Kabulde sohbet oluştur ve bildirim gönder
+      try {
+        const myId = currentUserProfile?.userId;
+        const otherId = viewingUserId;
+        if (myId && otherId) {
+          const { data: convId, error: convError } = await supabase.rpc('get_or_create_conversation', {
+            user1_id: myId,
+            user2_id: otherId,
+          });
+          if (convError) console.warn('Konuşma oluştururken hata:', convError);
+          const myName = currentUserProfile?.name || currentUserProfile?.username || tr('sosyalMain.biri');
+          const { notify } = require('@/lib/notifications');
+          notify.friendAccepted(otherId, myName).catch(() => {});
+        }
+      } catch (e) {
+        // sessizce devam et
+      }
       AppAlert.alert(tr('sendSnap.basarili'), tr('sosyalMain.istekKabulEdildi', { name: profile?.name || profile?.username }) || 'Arkadaşlık isteği kabul edildi.');
     } catch (e: any) {
       AppAlert.alert(tr('common.error'), e.message || tr('sosyalMain.birHataOlustu'));
@@ -546,6 +571,24 @@ const SosyalProfileScreen = ({ route }: any) => {
       if (error) throw error;
       if (!data || data.length === 0) {
         throw new Error('İstek güncellenemedi (satır bulunamadı veya yetki yok).');
+      }
+      // create conversation + notify if possible
+      try {
+        const myId = currentUserProfile?.userId;
+        const friendRow = data && data[0];
+        const otherId = friendRow && (friendRow.sender_id === myId ? friendRow.receiver_id : friendRow.sender_id);
+        if (myId && otherId) {
+          const { data: convId, error: convError } = await supabase.rpc('get_or_create_conversation', {
+            user1_id: myId,
+            user2_id: otherId,
+          });
+          if (convError) console.warn('Konuşma oluştururken hata:', convError);
+          const myName = currentUserProfile?.name || currentUserProfile?.username || tr('sosyalMain.biri');
+          const { notify } = require('@/lib/notifications');
+          notify.friendAccepted(otherId, myName).catch(() => {});
+        }
+      } catch (e) {
+        // ignore
       }
       fetchData();
     } catch (e: any) {
@@ -928,19 +971,25 @@ const SosyalProfileScreen = ({ route }: any) => {
                 {relationshipActionLoading ? (
                   <ActivityIndicator color={txt1} style={{ paddingVertical: 12 }} />
                 ) : !myRelationship ? (
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    onPress={handleSendFriendRequest}
-                    style={styles.sheetMsgBtn}
-                  >
-                    <LinearGradient
-                      colors={isDark ? ['#3A2A1A', '#2F2418'] : [Editorial.ink, Editorial.coffee]}
-                      style={styles.sheetMsgGradient}
+                  isBlockedByThem ? (
+                    <View style={[styles.sheetMsgBtn, { justifyContent: 'center', alignItems: 'center', paddingVertical: 14 }]}>
+                      <Text style={{ color: txt2, fontWeight: '700' }}>{tr('sosyalProfile.seniEngelledi') || 'Bu kullanıcı seni engelledi'}</Text>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={handleSendFriendRequest}
+                      style={styles.sheetMsgBtn}
                     >
-                      <UserPlus size={18} color="#fff" strokeWidth={2.5} />
-                      <Text style={styles.sheetMsgText}>{tr('sosyalMain.arkadasEkle') || 'Arkadaş Ekle'}</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
+                      <LinearGradient
+                        colors={isDark ? ['#3A2A1A', '#2F2418'] : [Editorial.ink, Editorial.coffee]}
+                        style={styles.sheetMsgGradient}
+                      >
+                        <UserPlus size={18} color="#fff" strokeWidth={2.5} />
+                        <Text style={styles.sheetMsgText}>{tr('sosyalMain.arkadasEkle') || 'Arkadaş Ekle'}</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  )
                 ) : myRelationship.status === 'accepted' ? (
                   <View style={{ gap: 8, width: '100%' }}>
                     <TouchableOpacity
