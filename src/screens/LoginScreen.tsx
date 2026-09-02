@@ -85,8 +85,8 @@ export const LoginScreen: React.FC = () => {
           // Eğer probe hata döndürmezse, kullanıcı zaten kayıtlı ve OTP gönderildi (giriş akışı).
           // Bu durumda kullanıcıyı uyarıp login moduna geçmesini teklif edelim.
           AppAlert.alert(
-            tr('login.hesapZatenVarBaslik') || 'Zaten kayıtlısınız',
-            tr('login.hesapZatenVarAciklama') || 'Bu e-posta ile zaten bir hesap var. Giriş yapmak ister misiniz?',
+            'Zaten kayıtlısınız',
+            'Bu e‑posta ile zaten bir hesap bulunuyor. Giriş yapmak ister misiniz?',
             [
               { text: tr('common.cancel'), style: 'cancel' },
               {
