@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { AppAlert } from '@/lib/alert';
 import {
   View,
   Text,
@@ -12,10 +13,13 @@ import {
   RefreshControl,
   Platform,
   Linking,
+  Modal,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import {
   ChevronLeft,
   Heart,
@@ -35,6 +39,9 @@ import {
   Navigation,
   MapPin,
   LucideIcon,
+  QrCode,
+  CheckCircle2,
+  X as XIcon,
 } from 'lucide-react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/types/navigation';
@@ -42,6 +49,7 @@ import { useTranslation } from 'react-i18next';
 import i18nInstance from '@/i18n';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { useFavorites } from '@/context/FavoritesContext';
+import { useUser } from '@/context/UserContext';
 import { pickLocalized } from '@/lib/localizeContent';
 import { cardOuterShadow, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { FontFamily } from '@/constants/Typography';
@@ -66,6 +74,7 @@ interface FirsatRow {
 }
 
 interface PartnerView {
+  id?: number;
   title: string;
   description: string;
   category: string;
@@ -108,6 +117,7 @@ function openInMaps(placeName: string) {
 function fromSupabase(row: FirsatRow, lang: string): PartnerView {
   const desc = pickLocalized(row as any, 'aciklama', lang).trim();
   return {
+    id: row.id,
     title: pickLocalized(row as any, 'baslik', lang),
     description: desc || i18nInstance.t('partnerDetail.aciklamaEklenmemis'),
     category: row.kategori,
@@ -136,14 +146,20 @@ const PartnerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { isDark, pageBg, cardBg, cardBdr, chipBg, txt1, txt2, accent: amber } = t;
   const insets = useSafeAreaInsets();
   const { isFavoritePartner, toggleFavorite } = useFavorites();
+  const { profile } = useUser();
   const cardBorder = isDark ? cardBorderDark : cardBorderLight;
 
   const [partner, setPartner] = useState<PartnerView | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isRedeemed, setIsRedeemed] = useState(false);
+  const [qrScanVisible, setQrScanVisible] = useState(false);
+  const [qrScanned, setQrScanned] = useState(false);
+  const [redeemLoading, setRedeemLoading] = useState(false);
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
   const loadPartner = useCallback(
-    async (fromRefresh = false) => {
+    async (fromRefresh = false, isMountedRef?: { current: boolean }) => {
       try {
         if (fromRefresh) setRefreshing(true);
         else setLoading(true);
@@ -152,28 +168,98 @@ const PartnerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         if (!Number.isNaN(numId)) {
           const { data, error } = await supabase.from('firsatlar').select('*').eq('id', numId).single();
           if (!error && data) {
-            setPartner(fromSupabase(data as FirsatRow, i18n.language));
+            if (!isMountedRef || isMountedRef.current) setPartner(fromSupabase(data as FirsatRow, i18n.language));
             return;
           }
         }
 
         const mock = fromMock(partnerId);
-        setPartner(mock);
+        if (!isMountedRef || isMountedRef.current) setPartner(mock);
       } catch (e) {
         if (__DEV__) console.log('Fırsat detay:', e);
-        setPartner(fromMock(partnerId));
+        if (!isMountedRef || isMountedRef.current) setPartner(fromMock(partnerId));
       } finally {
-        setLoading(false);
-        setRefreshing(false);
+        if (!isMountedRef || isMountedRef.current) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     },
     [partnerId, i18n.language]
   );
 
   useEffect(() => {
-    loadPartner(false);
+    const isMountedRef = { current: true };
+    loadPartner(false, isMountedRef);
+    return () => { isMountedRef.current = false; };
   }, [loadPartner]);
 
+  useEffect(() => {
+    let isMounted = true;
+    const checkRedeemed = async () => {
+      if (!partner?.id || !profile?.userId) return;
+      const { data } = await supabase
+        .from('firsat_kullanimlari')
+        .select('id')
+        .eq('user_id', profile.userId)
+        .eq('firsat_id', partner.id)
+        .maybeSingle();
+      if (isMounted) setIsRedeemed(!!data);
+    };
+    checkRedeemed();
+    return () => { isMounted = false; };
+  }, [partner?.id, profile?.userId]);
+
+  const handleQrScanned = useCallback(async ({ data: qrData }: { data: string }) => {
+    if (qrScanned) return;
+    setQrScanned(true);
+
+    // QR format: sanligencsosyal://firsat/<qr_token>
+    const match = qrData.match(/sanligencsosyal:\/\/firsat\/([0-9a-fA-F-]+)/);
+    if (!match) {
+      AppAlert.alert(tr('partnerDetail.gecersizQr'), tr('partnerDetail.qrBuFirsataAitDegil'), [
+        { text: tr('sosyalMain.tekrarDene'), onPress: () => setQrScanned(false) },
+        { text: tr('sosyalMain.kapat'), onPress: () => { setQrScanVisible(false); setQrScanned(false); } },
+      ]);
+      return;
+    }
+
+    setQrScanVisible(false);
+    setRedeemLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('redeem_firsat_qr', { p_qr_token: match[1] });
+      const result = Array.isArray(data) ? data[0] : data;
+      if (error || !result) throw error || new Error('no result');
+
+      if (result.basarili) {
+        setIsRedeemed(true);
+        AppAlert.alert(tr('sendSnap.basarili'), tr('partnerDetail.firsatKullanildiMesaj'));
+      } else if (result.mesaj === 'zaten_kullanildi') {
+        setIsRedeemed(true);
+        AppAlert.alert(tr('partnerDetail.zatenKullanildiBaslik'), tr('partnerDetail.zatenKullanildiMesaj'));
+      } else {
+        AppAlert.alert(tr('partnerDetail.gecersizQr'), tr('partnerDetail.qrBuFirsataAitDegil'));
+      }
+    } catch {
+      AppAlert.alert(tr('common.error'), tr('partnerDetail.firsatKullanilamadi'));
+    } finally {
+      setRedeemLoading(false);
+      setQrScanned(false);
+    }
+  }, [qrScanned, tr]);
+
+  const handleUseOfferPress = useCallback(async () => {
+    if (!profile?.userId) {
+      AppAlert.alert(tr('common.error'), tr('partnerDetail.firsatKullanmakIcinGirisYap'));
+      return;
+    }
+    if (!cameraPermission?.granted) {
+      const res = await requestCameraPermission();
+      if (!res.granted) return;
+    }
+    setQrScanned(false);
+    setQrScanVisible(true);
+  }, [profile?.userId, cameraPermission, requestCameraPermission, tr]);
 
   const Icon = getCategoryIcon(partner?.category || '', partner?.title);
   const isFav = isFavoritePartner(partnerId);
@@ -319,6 +405,29 @@ const PartnerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             <Text style={[styles.description, { color: txt1 }]}>{partner.description}</Text>
           </View>
 
+          {partner.id ? (
+            <TouchableOpacity
+              style={[
+                styles.mapCta,
+                { backgroundColor: isRedeemed ? chipBg : amber, borderWidth: isRedeemed ? 1 : 0, borderColor: cardBdr },
+              ]}
+              activeOpacity={0.88}
+              onPress={handleUseOfferPress}
+              disabled={isRedeemed || redeemLoading}
+            >
+              {redeemLoading ? (
+                <ActivityIndicator color={isRedeemed ? txt2 : pageBg} size="small" />
+              ) : isRedeemed ? (
+                <CheckCircle2 color={txt2} size={18} strokeWidth={2.2} />
+              ) : (
+                <QrCode color={pageBg} size={18} strokeWidth={2.2} />
+              )}
+              <Text style={[styles.mapCtaText, { color: isRedeemed ? txt2 : pageBg }]}>
+                {isRedeemed ? tr('partnerDetail.firsatKullanildi') : tr('partnerDetail.firsatiKullan')}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+
           <TouchableOpacity
             style={[styles.mapCta, { backgroundColor: txt1 }]}
             activeOpacity={0.88}
@@ -343,6 +452,57 @@ const PartnerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           ) : null}
         </View>
       </ScrollView>
+
+      <Modal
+        visible={qrScanVisible}
+        animationType="slide"
+        onRequestClose={() => { setQrScanVisible(false); setQrScanned(false); }}
+        statusBarTranslucent
+      >
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          {cameraPermission?.granted ? (
+            <CameraView
+              style={StyleSheet.absoluteFill}
+              facing="back"
+              barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+              onBarcodeScanned={qrScanned ? undefined : handleQrScanned}
+            />
+          ) : (
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, paddingHorizontal: 32 }}>
+              <QrCode color="#fff" size={40} strokeWidth={2} />
+              <Text style={{ color: '#fff', fontSize: 16, textAlign: 'center' }}>
+                {tr('sosyalMain.kameraIzniGerekiyor')}
+              </Text>
+              <TouchableOpacity onPress={requestCameraPermission} style={{ backgroundColor: amber, borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12 }}>
+                <Text style={{ color: pageBg, fontWeight: '800' }}>{tr('sosyalMain.izinVer')}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <View style={{ position: 'absolute', top: insets.top + 12, left: 0, right: 0, alignItems: 'center', paddingHorizontal: 20 }}>
+            <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700', textAlign: 'center' }}>
+              {tr('partnerDetail.isletmeQrOkut')}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            onPress={() => { setQrScanVisible(false); setQrScanned(false); }}
+            style={{
+              position: 'absolute',
+              top: insets.top + 12,
+              right: 20,
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: 'rgba(255,255,255,0.15)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <XIcon color="#fff" size={20} />
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </View>
   );
 };

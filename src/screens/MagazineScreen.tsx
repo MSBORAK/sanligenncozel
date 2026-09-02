@@ -22,6 +22,7 @@ import { useAppTheme } from '@/theme/useAppTheme';
 import { useFavorites } from '@/context/FavoritesContext';
 import { cityFallback } from '@/lib/imageFallback';
 import { MOCK_MAGAZINES } from '@/api/mockData';
+import { localizeHeritageItem } from '@/data/mockLocalization';
 import type { HeritageCategory } from '@/types';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -220,13 +221,16 @@ const MagazineScreen = () => {
 
   const formattedMagazines = useMemo(() => {
     // Sadece MOCK_MAGAZINES kullan
-    const fromMock: FormattedMag[] = MOCK_MAGAZINES.map((m) => ({
-      id: m.id,
-      title: m.title,
-      description: m.description,
-      category: (m.category as Category) || 'historic',
-      image: m.image,
-    }));
+    const fromMock: FormattedMag[] = MOCK_MAGAZINES.map((raw) => {
+      const m = localizeHeritageItem(raw, i18n.language);
+      return {
+        id: m.id,
+        title: m.title,
+        description: m.description,
+        category: (m.category as Category) || 'historic',
+        image: m.image,
+      };
+    });
     return fromMock;
   }, [i18n.language]);
 
@@ -669,16 +673,6 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  skeletonStack: {
-    gap: 12,
-    paddingHorizontal: 20,
-  },
-  skeletonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
-    marginHorizontal: 0,
   },
   emptyWrap: {
     minHeight: 200,

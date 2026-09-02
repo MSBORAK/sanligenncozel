@@ -4,22 +4,17 @@ import * as Localization from 'expo-localization';
 
 import tr from '@/locales/tr';
 import en from '@/locales/en';
-import de from '@/locales/de';
-import es from '@/locales/es';
-import fr from '@/locales/fr';
-import ar from '@/locales/ar';
 
-export const SUPPORTED_LANGUAGES = ['tr', 'en', 'de', 'es', 'fr', 'ar'] as const;
+// Almanca/İspanyolca/Fransızca/Arapça desteğinden vazgeçildi — sadece
+// Türkçe ve İngilizce. Çeviri dosyaları (de/es/fr/ar.ts) ileride tekrar
+// gerekirse diye src/locales altında duruyor, sadece burada kayıtlı değiller.
+export const SUPPORTED_LANGUAGES = ['tr', 'en'] as const;
 export type LanguageCode = (typeof SUPPORTED_LANGUAGES)[number];
-export const RTL_LANGUAGES: LanguageCode[] = ['ar'];
+export const RTL_LANGUAGES: LanguageCode[] = [];
 
 const resources = {
   tr: { translation: tr },
   en: { translation: en },
-  de: { translation: de },
-  es: { translation: es },
-  fr: { translation: fr },
-  ar: { translation: ar },
 };
 
 const deviceLanguageTag = Localization.getLocales()[0]?.languageCode ?? 'tr';

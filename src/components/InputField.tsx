@@ -5,12 +5,14 @@ import { Clean } from '@/constants/Colors';
 type Props = TextInputProps & {
   icon: string | React.ReactNode;
   containerStyle?: StyleProp<ViewStyle>;
+  /** true ise kenarlık kırmızıya döner (ör. geçersiz e-posta formatı) */
+  error?: boolean;
 };
 
 /**
  * Bordered light input with left icon and focus accent border.
  */
-export const InputField: React.FC<Props> = ({ icon, containerStyle, ...inputProps }) => {
+export const InputField: React.FC<Props> = ({ icon, containerStyle, error, ...inputProps }) => {
   const [focused, setFocused] = useState(false);
   const scale = React.useRef(new Animated.Value(1)).current;
 
@@ -29,6 +31,7 @@ export const InputField: React.FC<Props> = ({ icon, containerStyle, ...inputProp
         styles.wrapper,
         containerStyle,
         focused && styles.wrapperFocused,
+        error && styles.wrapperError,
         { transform: [{ scale }] },
       ]}
     >
@@ -59,8 +62,8 @@ const styles = StyleSheet.create({
   wrapper: {
     height: 52,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Clean.border,
+    borderWidth: 1.5,
+    borderColor: '#111114',
     backgroundColor: Clean.surface,
     paddingHorizontal: 14,
     flexDirection: 'row',
@@ -68,6 +71,9 @@ const styles = StyleSheet.create({
   },
   wrapperFocused: {
     borderColor: Clean.accent,
+  },
+  wrapperError: {
+    borderColor: '#e74c3c',
   },
   iconSlot: {
     width: 20,

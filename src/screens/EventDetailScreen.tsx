@@ -10,17 +10,15 @@ import {
   ActivityIndicator,
   Dimensions,
   RefreshControl,
-  Platform,
   Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { BlurView } from 'expo-blur';
 import { StackScreenProps } from '@react-navigation/stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, MapPin, CalendarDays, Tag } from 'lucide-react-native';
 import { RootStackParamList } from '@/types/navigation';
-import { useAppTheme } from '@/theme/useAppTheme';
+import { Clean } from '@/constants/Colors';
 import { FontFamily } from '@/constants/Typography';
 import { supabase, processImageUrl } from '@/lib/supabase';
 import { cityFallback } from '@/lib/imageFallback';
@@ -32,11 +30,6 @@ const RADIUS = 22;
 const { width: SCREEN_W } = Dimensions.get('window');
 const HERO_W = SCREEN_W - 32;
 const HERO_H = HERO_W * HERO_RATIO;
-const CATEGORY_TINTS: Record<string, { bg: string; border: string }> = {
-  Konser: { bg: 'rgba(236,72,153,0.2)', border: 'rgba(236,72,153,0.45)' },
-  Gezi: { bg: 'rgba(56,189,248,0.2)', border: 'rgba(56,189,248,0.45)' },
-  Spor: { bg: 'rgba(34,197,94,0.2)', border: 'rgba(34,197,94,0.45)' },
-};
 
 interface EventData {
   id: string;
@@ -53,9 +46,7 @@ type EventDetailScreenProps = StackScreenProps<RootStackParamList, 'EventDetail'
 
 const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation }) => {
   const { eventId } = route.params;
-  const t = useAppTheme();
   const { t: tr, i18n } = useTranslation();
-  const { isDark, pageBg, cardBg, cardBdr, chipBg, txt1, txt2, ctaBg, ctaTxt } = t;
   const insets = useSafeAreaInsets();
 
   const [event, setEvent] = useState<EventData | null>(null);
@@ -102,11 +93,11 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation
 
   if (loading && !event) {
     return (
-      <View style={[styles.screen, { backgroundColor: pageBg }]}>
-        <StatusBar style={isDark ? 'light' : 'dark'} />
+      <View style={[styles.screen, { backgroundColor: Clean.bg }]}>
+        <StatusBar style="dark" />
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={txt1} />
-          <Text style={[styles.loadingLabel, { color: txt2 }]}>{tr('eventDetail.yukleniyor')}</Text>
+          <ActivityIndicator size="large" color={Clean.textPrimary} />
+          <Text style={[styles.loadingLabel, { color: Clean.textSecondary }]}>{tr('eventDetail.yukleniyor')}</Text>
         </View>
       </View>
     );
@@ -114,16 +105,16 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation
 
   if (!event) {
     return (
-      <View style={[styles.screen, { backgroundColor: pageBg }]}>
-        <StatusBar style={isDark ? 'light' : 'dark'} />
-        <View style={[styles.simpleHeader, { paddingTop: insets.top + 8, borderBottomColor: cardBdr }]}>
+      <View style={[styles.screen, { backgroundColor: Clean.bg }]}>
+        <StatusBar style="dark" />
+        <View style={[styles.simpleHeader, { paddingTop: insets.top + 8, borderBottomColor: Clean.border }]}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backIconBtn} hitSlop={12}>
-            <ChevronLeft color={txt1} size={28} />
+            <ChevronLeft color={Clean.textPrimary} size={28} />
           </TouchableOpacity>
-          <Text style={[styles.simpleHeaderTitle, { color: txt1 }]}>{tr('eventDetail.bulunamadi')}</Text>
+          <Text style={[styles.simpleHeaderTitle, { color: Clean.textPrimary }]}>{tr('eventDetail.bulunamadi')}</Text>
         </View>
         <View style={styles.emptyBody}>
-          <Text style={[styles.emptyCopy, { color: txt2 }]}>
+          <Text style={[styles.emptyCopy, { color: Clean.textSecondary }]}>
             {tr('eventDetail.hataMetni')}
           </Text>
         </View>
@@ -132,10 +123,6 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation
   }
 
   const imageUri = processImageUrl(event.resim_url, 'etkinlik_resimleri') || cityFallback(event.id);
-  const categoryTint = CATEGORY_TINTS[event.kategori] ?? {
-    bg: 'rgba(255,248,234,0.92)',
-    border: 'rgba(58,42,26,0.18)',
-  };
   const openInMaps = async () => {
     const query = encodeURIComponent(`${event.konum} Şanlıurfa`);
     const googleAppUrl = `comgooglemaps://?q=${query}`;
@@ -155,8 +142,8 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation
   };
 
   return (
-    <View style={[styles.screen, { backgroundColor: pageBg }]}>
-      <StatusBar style="light" />
+    <View style={[styles.screen, { backgroundColor: Clean.bg }]}>
+      <StatusBar style="dark" />
       <ScrollView
         showsVerticalScrollIndicator={false}
         bounces
@@ -165,12 +152,13 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => fetchEventDetails(true)}
-            tintColor={txt2}
+            tintColor={Clean.textSecondary}
             progressViewOffset={insets.top}
           />
         }
       >
-        <View style={[styles.hero, { height: HERO_H, marginTop: insets.top + 8, backgroundColor: chipBg }]}>
+        <View style={[styles.heroOuter, { marginTop: insets.top + 8, backgroundColor: Clean.bg, borderColor: '#111114' }]}>
+        <View style={[styles.hero, { height: HERO_H, backgroundColor: Clean.surfaceSoft }]}>
           <ImageBackground
             source={{ uri: imageUri }}
             style={styles.heroImageBg}
@@ -178,88 +166,53 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation
             resizeMode="cover"
           >
           <LinearGradient
-            colors={isDark ? ['rgba(47,36,24,0.22)', 'transparent'] : ['rgba(47,36,24,0.18)', 'transparent']}
-            start={{ x: 1, y: 0 }}
-            end={{ x: 0.15, y: 0.5 }}
-            style={styles.amberSheen}
-            pointerEvents="none"
-          />
-          <LinearGradient
             colors={['transparent', 'rgba(0,0,0,0.45)']}
             style={styles.heroBottomFade}
             pointerEvents="none"
           />
 
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={[styles.backFab, { top: 14 }]}
-            activeOpacity={0.88}
-            hitSlop={8}
-          >
-            {Platform.OS === 'ios' ? (
-              <BlurView intensity={55} tint="dark" style={StyleSheet.absoluteFill} />
-            ) : null}
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: Platform.OS === 'ios' ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.45)' },
-              ]}
-            />
-            <ChevronLeft color="#ffffff" size={26} strokeWidth={2.2} />
-          </TouchableOpacity>
-
-          <View style={[styles.heroBadge, { backgroundColor: categoryTint.bg, borderColor: categoryTint.border }]}>
+          <View style={[styles.heroBadge, { backgroundColor: Clean.bg, borderColor: '#111114' }]}>
             <Text style={styles.heroBadgeText}>{event.kategori}</Text>
           </View>
           </ImageBackground>
         </View>
+        </View>
 
-        <View style={[styles.sheet, { backgroundColor: cardBg, borderColor: cardBdr }]}>
-          <View style={styles.sheetHandleWrap}>
-            <View style={[styles.sheetHandle, { backgroundColor: cardBdr }]} />
-          </View>
-
-          <Text style={[styles.eyebrow, { color: txt2 }]}>{tr('eventDetail.detay')}</Text>
-          <Text style={[styles.title, { color: txt1 }]}>{event.baslik}</Text>
+        <View style={[styles.sheet, { backgroundColor: Clean.bg }]}>
+          <Text style={[styles.eyebrow, { color: Clean.textSecondary }]}>{tr('eventDetail.detay')}</Text>
+          <Text style={[styles.title, { color: Clean.textPrimary }]} numberOfLines={3}>{event.baslik}</Text>
 
           <View style={styles.summaryRow}>
-            <View style={[styles.summaryPill, { backgroundColor: chipBg, borderColor: t.border }]}>
-              <Tag color={t.accent} size={14} strokeWidth={2} />
-              <Text style={[styles.summaryPillText, { color: txt1 }]}>{event.kategori}</Text>
+            <View style={[styles.summaryPill, { backgroundColor: Clean.surface, borderColor: '#111114' }]}>
+              <Tag color={Clean.accent} size={14} strokeWidth={2} />
+              <Text style={[styles.summaryPillText, { color: Clean.textPrimary }]}>{event.kategori}</Text>
             </View>
             {event.saat ? (
-              <View style={[styles.summaryPill, { backgroundColor: chipBg, borderColor: t.border }]}>
-                <CalendarDays color={t.accent} size={14} strokeWidth={2} />
-                <Text style={[styles.summaryPillText, { color: txt1 }]}>{event.saat}</Text>
+              <View style={[styles.summaryPill, { backgroundColor: Clean.surface, borderColor: '#111114' }]}>
+                <CalendarDays color={Clean.accent} size={14} strokeWidth={2} />
+                <Text style={[styles.summaryPillText, { color: Clean.textPrimary }]}>{event.saat}</Text>
               </View>
             ) : null}
           </View>
 
-          <View style={[styles.bentoRow, { backgroundColor: chipBg, borderColor: t.border }]}>
-            <CalendarDays color={t.accent} size={18} strokeWidth={2} />
+          <View style={[styles.bentoRow, { backgroundColor: Clean.surface, borderColor: '#111114' }]}>
+            <CalendarDays color={Clean.accent} size={18} strokeWidth={2} />
             <View style={{ flex: 1 }}>
-              <Text style={[styles.bentoLabel, { color: txt2 }]}>{tr('eventDetail.tarih')}</Text>
-              <Text style={[styles.bentoText, { color: txt1 }]}>{event.tarih}</Text>
+              <Text style={[styles.bentoLabel, { color: Clean.textSecondary }]}>{tr('eventDetail.tarih')}</Text>
+              <Text style={[styles.bentoText, { color: Clean.textPrimary }]}>{event.tarih}</Text>
             </View>
           </View>
-          <View style={[styles.bentoRow, { backgroundColor: chipBg, borderColor: t.border }]}>
-            <MapPin color={t.accent} size={18} strokeWidth={2} />
+          <View style={[styles.bentoRow, { backgroundColor: Clean.surface, borderColor: '#111114' }]}>
+            <MapPin color={Clean.accent} size={18} strokeWidth={2} />
             <View style={{ flex: 1 }}>
-              <Text style={[styles.bentoLabel, { color: txt2 }]}>{tr('eventDetail.konum')}</Text>
-              <Text style={[styles.bentoText, { color: txt1 }]}>{event.konum}</Text>
+              <Text style={[styles.bentoLabel, { color: Clean.textSecondary }]}>{tr('eventDetail.konum')}</Text>
+              <Text style={[styles.bentoText, { color: Clean.textPrimary }]}>{event.konum}</Text>
             </View>
           </View>
 
-          <View style={[styles.descCard, { backgroundColor: cardBg, borderColor: t.border }]}>
-            <LinearGradient
-              colors={isDark ? ['rgba(56,189,248,0.12)', 'transparent'] : ['rgba(241,227,203,0.84)', 'transparent']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-              pointerEvents="none"
-            />
-            <Text style={[styles.descLabel, { color: txt2 }]}>{tr('eventDetail.aciklamaBaslik')}</Text>
-            <Text style={[styles.description, { color: txt2 }]}>
+          <View style={[styles.descCard, { backgroundColor: Clean.surface, borderColor: '#111114' }]}>
+            <Text style={[styles.descLabel, { color: Clean.textSecondary }]}>{tr('eventDetail.aciklamaBaslik')}</Text>
+            <Text style={[styles.description, { color: Clean.textSecondary }]}>
               {event.aciklama?.trim() || tr('eventDetail.aciklamaYok')}
             </Text>
           </View>
@@ -267,10 +220,10 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ route, navigation
           <TouchableOpacity
             activeOpacity={0.9}
             onPress={openInMaps}
-            style={[styles.mapCta, { backgroundColor: ctaBg }]}
+            style={[styles.mapCta, { backgroundColor: Clean.ctaBg }]}
           >
-            <MapPin color={ctaTxt} size={16} strokeWidth={2} />
-            <Text style={[styles.mapCtaText, { color: ctaTxt }]}>{tr('eventDetail.haritadaAc')}</Text>
+            <MapPin color={Clean.ctaText} size={16} strokeWidth={2} />
+            <Text style={[styles.mapCtaText, { color: Clean.ctaText }]}>{tr('eventDetail.haritadaAc')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -319,9 +272,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
   },
-  hero: {
+  heroOuter: {
     width: HERO_W,
     alignSelf: 'center',
+    borderRadius: RADIUS + 8,
+    borderWidth: 1.5,
+    padding: 8,
+  },
+  hero: {
+    width: '100%',
     position: 'relative',
     borderRadius: RADIUS,
     overflow: 'hidden',
@@ -343,19 +302,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     height: 120,
   },
-  backFab: {
-    position: 'absolute',
-    left: 18,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
-  },
   heroBadge: {
     position: 'absolute',
     bottom: 20,
@@ -372,13 +318,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   sheet: {
-    marginTop: -RADIUS,
+    marginTop: 16,
     borderTopLeftRadius: RADIUS,
     borderTopRightRadius: RADIUS,
     paddingHorizontal: 22,
     paddingTop: 12,
     paddingBottom: 28,
-    borderWidth: 1,
+    borderWidth: 0,
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.06,
     shadowRadius: 16,

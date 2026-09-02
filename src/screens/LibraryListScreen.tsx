@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking } from 'react-native';
+import { AppAlert } from '@/lib/alert';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Library, MapPin, Clock, Navigation } from 'lucide-react-native';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
@@ -16,8 +17,11 @@ const LibraryListScreen = () => {
 
   const handleDirections = useCallback((library: LibraryType) => {
     const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(library.address)}`;
-    Linking.openURL(url).catch(err => console.error('Yol tarifi açılamadı:', err));
-  }, []);
+    Linking.openURL(url).catch(err => {
+      console.error('Yol tarifi açılamadı:', err);
+      AppAlert.alert(tr('common.error'), tr('pharmacy.linkAcilamadi'));
+    });
+  }, [tr]);
 
   const renderLibraryItem = useCallback(({ item }: { item: LibraryType }) => (
       <View style={[styles.libraryCardOuter, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
@@ -73,6 +77,12 @@ const LibraryListScreen = () => {
         maxToRenderPerBatch={6}
         windowSize={7}
         removeClippedSubviews
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Library color={txt2} size={32} strokeWidth={2} />
+            <Text style={[styles.emptyStateText, { color: txt2 }]}>{tr('library.sonucBulunamadi')}</Text>
+          </View>
+        }
       />
     </View>
   );
@@ -86,6 +96,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 20,
     gap: 4,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingHorizontal: 32,
+    gap: 12,
+  },
+  emptyStateText: {
+    fontSize: 15,
+    textAlign: 'center',
   },
   headerLabel: {
     fontSize: 11,

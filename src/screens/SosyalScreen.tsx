@@ -58,6 +58,7 @@ import {
   Grid3x3,
   Timer,
   Eye,
+  Trash2,
 } from 'lucide-react-native';
 import MapView, { PROVIDER_DEFAULT, PROVIDER_GOOGLE, Heatmap, Marker } from 'react-native-maps';
 import { PinchGestureHandler, State } from 'react-native-gesture-handler';
@@ -73,6 +74,7 @@ import { Editorial } from '@/theme/colors';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
+import { AppAlert } from '@/lib/alert';
 
 // ─────────────────────────────────────────────
 // TYPES
@@ -100,6 +102,7 @@ export interface SnapPost {
   expires_at: Date; // created_at + 4 saat — kesin kural
   seen: boolean;
   viewedBy?: string[]; // Görüntüleyen kullanıcı ID'leri
+  replayedBy?: string[]; // Tekrar oynatan kullanıcı ID'leri
   isPublic?: boolean; // Gizlilik ayarı: true = herkese açık, false = sadece arkadaşlar
 }
 
@@ -137,72 +140,8 @@ interface FriendRequest {
   status: 'pending' | 'accepted' | 'rejected';
   created_at: string;
   sender_profile?: UserProfile;
+  receiver_profile?: UserProfile;
 }
-
-// ─────────────────────────────────────────────
-// MOCK DATA — Gerçek backend entegrasyonuna kadar
-// ─────────────────────────────────────────────
-
-const now = new Date();
-const hoursAgo = (h: number) => new Date(now.getTime() - h * 60 * 60 * 1000);
-const hoursLater = (h: number) => new Date(now.getTime() + h * 60 * 60 * 1000);
-
-export const MOCK_SNAPS: SnapPost[] = [
-  {
-    id: '1',
-    userId: 'u1',
-    user: { id: 'u1', name: 'Merve S.', username: 'mervesudo', avatarColor: '#f59e0b' },
-    imageUri: 'https://picsum.photos/seed/urfa1/400/500',
-    location: { lat: 37.1591, lng: 38.7969, label: 'Tarihi Çarşı' },
-    created_at: hoursAgo(1),
-    expires_at: hoursLater(3),
-    seen: false,
-  },
-  {
-    id: '2',
-    userId: 'u2',
-    user: { id: 'u2', name: 'Ahmet K.', username: 'ahmetk', avatarColor: '#10b981' },
-    imageUri: 'https://picsum.photos/seed/urfa2/400/500',
-    location: { lat: 37.1678, lng: 38.7945, label: 'Balıklıgöl' },
-    created_at: hoursAgo(2),
-    expires_at: hoursLater(2),
-    seen: false,
-  },
-  {
-    id: '3',
-    userId: 'u3',
-    user: { id: 'u3', name: 'Zeynep A.', username: 'zeynepа', avatarColor: '#f472b6' },
-    imageUri: 'https://picsum.photos/seed/urfa3/400/500',
-    location: { lat: 37.1550, lng: 38.8001, label: 'Kapalıçarşı' },
-    created_at: hoursAgo(0.5),
-    expires_at: hoursLater(3.5),
-    seen: true,
-  },
-  {
-    id: '4',
-    userId: 'u4',
-    user: { id: 'u4', name: 'Yusuf D.', username: 'yusufd', avatarColor: '#8b5cf6' },
-    imageUri: 'https://picsum.photos/seed/urfa4/400/500',
-    location: { lat: 37.1620, lng: 38.7900, label: 'Atatürk Caddesi' },
-    created_at: hoursAgo(1.5),
-    expires_at: hoursLater(2.5),
-    seen: true,
-  },
-];
-
-// Şehir Radarı için anonim ısı noktaları (Şanlıurfa merkezi)
-export const MOCK_HEAT_POINTS: HeatPoint[] = [
-  { latitude: 37.1591, longitude: 38.7969, weight: 1.0 },   // Tarihi Çarşı — çok yoğun
-  { latitude: 37.1678, longitude: 38.7945, weight: 0.85 },  // Balıklıgöl
-  { latitude: 37.1550, longitude: 38.8001, weight: 0.7 },   // Kapalıçarşı
-  { latitude: 37.1620, longitude: 38.7900, weight: 0.6 },
-  { latitude: 37.1700, longitude: 38.8050, weight: 0.45 },
-  { latitude: 37.1480, longitude: 38.7850, weight: 0.3 },
-  { latitude: 37.1730, longitude: 38.7800, weight: 0.55 },
-  { latitude: 37.1600, longitude: 38.8100, weight: 0.4 },
-  { latitude: 37.1560, longitude: 38.7920, weight: 0.8 },
-  { latitude: 37.1650, longitude: 38.8000, weight: 0.65 },
-];
 
 // ─────────────────────────────────────────────
 // CONSTANTS
@@ -466,6 +405,7 @@ function SnapGroupCard({ group, onPress, isDark, currentUserId, onAvatarPress }:
   currentUserId?: string;
   onAvatarPress?: (userId: string) => void;
 }) {
+  const { t: tr } = useTranslation();
   const txt1   = isDark ? Editorial.ink : Clean.textPrimary;
   const txt2   = isDark ? Editorial.coffeeSoft : Clean.textSecondary;
   const cardBg = isDark ? Editorial.surface : Clean.surface;
@@ -476,13 +416,50 @@ function SnapGroupCard({ group, onPress, isDark, currentUserId, onAvatarPress }:
   const scrollRef = useRef<ScrollView>(null);
   const [cardWidth, setCardWidth] = useState(Math.ceil((SCREEN_W - 32 - 12) / 2));
   const cardHeight = Math.ceil(cardWidth);
+  const [viewersModalVisible, setViewersModalVisible] = useState(false);
+  const [viewersLoading, setViewersLoading] = useState(false);
+  const [viewersList, setViewersList] = useState<Array<{ id: string; name: string; username: string; avatarUrl?: string; replayed: boolean }>>([]);
 
   const activeSnap = group.snaps[activeIdx];
   const progress = getExpiryProgress(activeSnap);
   const timeLeft = formatTimeLeft(activeSnap);
 
   const viewCount = group.snaps[activeIdx]?.viewedBy?.length ?? 0;
+  const isOwnSnap = !!currentUserId && activeSnap?.userId === currentUserId;
   const isUrgent = progress > 0.75;
+
+  const handleOpenViewers = useCallback(async () => {
+    if (!isOwnSnap || !activeSnap) return;
+    const viewerIds = activeSnap.viewedBy ?? [];
+    if (viewerIds.length === 0) {
+      setViewersList([]);
+      setViewersModalVisible(true);
+      return;
+    }
+    setViewersModalVisible(true);
+    setViewersLoading(true);
+    try {
+      const { data } = await supabase
+        .from('user_profiles')
+        .select('user_id, name, username, avatar_url')
+        .in('user_id', viewerIds);
+      const replaySet = new Set(activeSnap.replayedBy ?? []);
+      const list = (data ?? []).map((p: any) => ({
+        id: p.user_id,
+        name: p.name || tr('common.kullanici'),
+        username: p.username || '',
+        avatarUrl: p.avatar_url,
+        replayed: replaySet.has(p.user_id),
+      }));
+      // Tekrar oynatanlar üstte
+      list.sort((a, b) => Number(b.replayed) - Number(a.replayed));
+      setViewersList(list);
+    } catch {
+      setViewersList([]);
+    } finally {
+      setViewersLoading(false);
+    }
+  }, [isOwnSnap, activeSnap]);
 
   return (
     <View
@@ -574,13 +551,85 @@ function SnapGroupCard({ group, onPress, isDark, currentUserId, onAvatarPress }:
               </Text>
             </TouchableOpacity>
 
-            <View style={styles.snapMetaRight}>
-              <Eye color={txt2} size={14} strokeWidth={2} />
-              <Text style={[styles.snapMetaCount, { color: txt2 }]}>{viewCount}</Text>
-            </View>
+            {isOwnSnap ? (
+              <TouchableOpacity
+                style={styles.snapMetaRight}
+                activeOpacity={0.7}
+                onPress={handleOpenViewers}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Eye color={txt2} size={14} strokeWidth={2} />
+                <Text style={[styles.snapMetaCount, { color: txt2 }]}>{viewCount}</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.snapMetaRight}>
+                <Eye color={txt2} size={14} strokeWidth={2} />
+                <Text style={[styles.snapMetaCount, { color: txt2 }]}>{viewCount}</Text>
+              </View>
+            )}
           </View>
         </View>
       </View>
+
+      {isOwnSnap && (
+        <Modal
+          visible={viewersModalVisible}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setViewersModalVisible(false)}
+        >
+          <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+            <View style={{ backgroundColor: cardBg, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '70%', paddingTop: 12 }}>
+              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: chipBg, alignSelf: 'center', marginBottom: 12 }} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 8 }}>
+                <Text style={{ fontSize: 16, fontWeight: '800', color: txt1 }}>
+                  {tr('sosyalMain.goruntuleyenler')} · {viewersList.length}
+                </Text>
+                <TouchableOpacity onPress={() => setViewersModalVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <XIcon color={txt2} size={20} />
+                </TouchableOpacity>
+              </View>
+              {viewersLoading ? (
+                <ActivityIndicator style={{ marginVertical: 24 }} color={amber} />
+              ) : viewersList.length === 0 ? (
+                <Text style={{ color: txt2, textAlign: 'center', paddingVertical: 24, paddingHorizontal: 20 }}>
+                  {tr('sosyalMain.henuzGoruntuleyenYok')}
+                </Text>
+              ) : (
+                <FlatList
+                  data={viewersList}
+                  keyExtractor={(item) => item.id}
+                  style={{ paddingHorizontal: 20 }}
+                  contentContainerStyle={{ paddingBottom: 24 }}
+                  renderItem={({ item }) => (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8 }}>
+                      <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: chipBg, alignItems: 'center', justifyContent: 'center', marginRight: 12, overflow: 'hidden' }}>
+                        {item.avatarUrl ? (
+                          <Image source={{ uri: processImageUrl(item.avatarUrl) || undefined }} style={{ width: 36, height: 36 }} />
+                        ) : (
+                          <Text style={{ color: txt1, fontWeight: '700', fontSize: 13 }}>{item.name.charAt(0).toUpperCase()}</Text>
+                        )}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: txt1, fontWeight: '600', fontSize: 14 }} numberOfLines={1}>{item.name}</Text>
+                        {!!item.username && (
+                          <Text style={{ color: txt2, fontSize: 12 }} numberOfLines={1}>@{item.username}</Text>
+                        )}
+                      </View>
+                      {item.replayed && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: chipBg, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 }}>
+                          <RefreshCw color={amber} size={12} strokeWidth={2.5} />
+                          <Text style={{ color: amber, fontSize: 11, fontWeight: '700' }}>{tr('sosyalMain.tekrarOynatti')}</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                />
+              )}
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -616,10 +665,11 @@ function RadarCompactCard({ isDark, feedFilter, friendIds, onPress }: {
   };
 
   useEffect(() => {
+    let isMounted = true;
     const fetchCount = async () => {
       try {
         const since = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
-        
+
         let radarRows: any[] = [];
 
         if (feedFilter === 'friends') {
@@ -659,11 +709,11 @@ function RadarCompactCard({ isDark, feedFilter, friendIds, onPress }: {
                 };
               });
 
-            setUserMarkers(markers);
+            if (isMounted) setUserMarkers(markers);
           }
         } else {
           // Herkes modunda kullanıcı marker'ları yok
-          setUserMarkers([]);
+          if (isMounted) setUserMarkers([]);
 
           // Herkes: Önce anonim tabloyu dene
           const { data: anonRows, error: anonErr } = await supabase
@@ -673,21 +723,28 @@ function RadarCompactCard({ isDark, feedFilter, friendIds, onPress }: {
             .not('latitude', 'is', null)
             .not('longitude', 'is', null);
 
-          if (!anonErr && anonRows && anonRows.length > 0) {
-            radarRows = anonRows;
+          if (!anonErr) {
+            // anonymous_posts sorgusu başarılıysa sonucu (boş dahi olsa) kullan —
+            // konumunu radardan gizleyen kullanıcılar zaten bu tabloya hiç
+            // eklenmiyor, bu yüzden "sonuç boş" demek "gösterilecek kimse yok"
+            // demektir, "ham social_posts'a düş" demek DEĞİLDİR (aksi hâlde
+            // radar_visible=false diyen kullanıcıların konumu yine sızardı).
+            radarRows = anonRows || [];
           } else {
-            // Anonim tablo yoksa herkese açık social_posts kullan
+            // Yalnızca GERÇEK bir sorgu hatasında (ör. tablo mevcut değil)
+            // eski/ham social_posts'a düş.
             const { data: postRows } = await supabase
               .from('social_posts')
               .select('latitude, longitude, created_at')
               .gte('created_at', since)
               .not('latitude', 'is', null)
               .not('longitude', 'is', null);
-            
+
             if (postRows) radarRows = postRows;
           }
         }
 
+        if (!isMounted) return;
         setActiveCount(radarRows.length);
 
         // Heatmap noktalarını oluştur
@@ -702,12 +759,13 @@ function RadarCompactCard({ isDark, feedFilter, friendIds, onPress }: {
           };
         });
 
-        setHeatPoints(points);
+        if (isMounted) setHeatPoints(points);
       } catch {
-        setActiveCount(null);
+        if (isMounted) setActiveCount(null);
       }
     };
     fetchCount();
+    return () => { isMounted = false; };
   }, [feedFilter, friendIds]);
 
   return (
@@ -720,6 +778,7 @@ function RadarCompactCard({ isDark, feedFilter, friendIds, onPress }: {
             provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
             initialRegion={URFA_CENTER}
             customMapStyle={Platform.OS === 'android' ? (isDark ? darkMapStyle : lightMapStyle) : []}
+            userInterfaceStyle={isDark ? 'dark' : 'light'}
             scrollEnabled={false}
             zoomEnabled={false}
             rotateEnabled={false}
@@ -825,7 +884,7 @@ function RadarCompactCard({ isDark, feedFilter, friendIds, onPress }: {
           <View style={[styles.radarCardInfoBg, { backgroundColor: cardBg }]}>
             <View style={styles.radarCardInfoTop}>
               <View style={[styles.radarIconCircleSmall, { backgroundColor: chipBg }]}>
-                <Radio size={14} color={txt1} strokeWidth={2} />
+                <Radio size={12} color={txt1} strokeWidth={2} />
               </View>
               <Text style={[styles.radarCardTitle, { color: txt1 }]}>Şehir Radarı</Text>
               <View style={[styles.radarLiveDot, { backgroundColor: '#10b981' }]} />
@@ -835,8 +894,8 @@ function RadarCompactCard({ isDark, feedFilter, friendIds, onPress }: {
               Son 4 saatte {activeCount !== null ? `${activeCount} paylaşım` : '...'}
             </Text>
           </View>
-          <View style={[styles.radarCardArrowBtn, { backgroundColor: chipBg }]}>
-            <ArrowRight size={16} color={txt1} strokeWidth={2.2} />
+          <View style={[styles.radarCardArrowBtn, styles.radarCardArrowBtnAbsolute, { backgroundColor: chipBg }]}>
+            <ArrowRight size={14} color={txt1} strokeWidth={2.2} />
           </View>
         </View>
       </TouchableOpacity>
@@ -991,20 +1050,16 @@ function FeedView({
 }) {
   const theme = isDark ? DARK : LIGHT;
   const accentColor = isDark ? NIGHT.warm : LIGHT.accent;
-  const [feedFilter, setFeedFilter] = useState<'everyone' | 'friends'>('friends');
-  
+  const feedFilter = 'friends' as const;
+
   const friendIds = useMemo(() => new Set(friends.map(f => f.user_id)), [friends]);
-  
+
   const filteredSnaps = useMemo(() => {
-    if (feedFilter === 'everyone') {
-      // Herkes sekmesi: Sadece herkese açık snap'ler (isPublic: true)
-      return snaps.filter(snap => snap.isPublic !== false);
-    }
-    // Arkadaşlar sekmesi: Arkadaşların snap'leri + kendi snap'lerin
-    return snaps.filter(snap => 
+    // ŞanlıSosyal artık sadece arkadaşlara özel — "Herkes" akışı kaldırıldı.
+    return snaps.filter(snap =>
       friendIds.has(snap.userId) || snap.userId === currentUserId
     );
-  }, [snaps, feedFilter, friendIds, currentUserId]);
+  }, [snaps, friendIds, currentUserId]);
 
   // Kullanıcı başına tek kart, kart içinde kullanıcının tüm snap'leri
   const groups = useMemo(() => groupSnapsByUser(filteredSnaps), [filteredSnaps]);
@@ -1065,13 +1120,13 @@ function FeedView({
       showsVerticalScrollIndicator={false}
       ListHeaderComponent={
         <>
-          <FeedHeader 
-            isDark={isDark} 
-            friends={friends} 
+          <FeedHeader
+            isDark={isDark}
+            friends={friends}
             onAddFriendPress={onAddFriendPress}
             feedFilter={feedFilter}
             friendIds={friendIds}
-            onFilterChange={setFeedFilter}
+            onFilterChange={() => {}}
           />
           <RadarCompactCard 
             isDark={isDark} 
@@ -1103,68 +1158,26 @@ function FeedView({
   );
 }
 
-function FeedHeader({ 
-  isDark, 
-  friends, 
-  onAddFriendPress, 
-  feedFilter,
-  friendIds,
-  onFilterChange 
-}: { 
-  isDark: boolean; 
-  friends: UserProfile[]; 
+function FeedHeader({
+  isDark,
+}: {
+  isDark: boolean;
+  friends: UserProfile[];
   onAddFriendPress: () => void;
-  feedFilter: 'everyone' | 'friends';
+  feedFilter: 'friends';
   friendIds: Set<string>;
-  onFilterChange: (filter: 'everyone' | 'friends') => void;
+  onFilterChange: (filter: 'friends') => void;
 }) {
   const { t: tr } = useTranslation();
   const txt1   = isDark ? Editorial.ink : Clean.textPrimary;
   const txt2   = isDark ? Editorial.coffeeSoft : Clean.textSecondary;
-  const ctaBg  = isDark ? Editorial.coffee : Clean.ctaBg;
-  const ctaTxt = isDark ? '#111114' : Editorial.creamText;
-  const chipBg = isDark ? Editorial.chip : Clean.bgSoft;
-  const cardBdr = isDark ? 'rgba(255,255,255,0.12)' : Editorial.border;
 
   return (
     <View style={styles.feedHeaderContainer}>
       <Text style={[styles.feedHeaderTitle, { color: txt1 }]}>{tr('socialFeed.akis')}</Text>
       <Text style={[styles.feedHeaderSub, { color: txt2 }]}>
-        {feedFilter === 'friends' ? tr('socialFeed.arkadaslarinSonSaati') : tr('sosyalMain.herkesdenSonSaat')}
+        {tr('socialFeed.arkadaslarinSonSaati')}
       </Text>
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ marginTop: 12 }}
-        contentContainerStyle={{ gap: 8 }}
-      >
-        {(['everyone', 'friends'] as const).map((f) => {
-          const active = feedFilter === f;
-          return (
-            <TouchableOpacity
-              key={f}
-              onPress={() => onFilterChange(f)}
-              style={{
-                paddingHorizontal: 20,
-                paddingVertical: 8,
-                borderRadius: 20,
-                backgroundColor: active ? ctaBg : chipBg,
-                borderWidth: active ? 0 : 1,
-                borderColor: cardBdr,
-              }}
-            >
-              <Text style={{
-                color: active ? ctaTxt : txt2,
-                fontSize: 14,
-                fontWeight: '600',
-              }}>
-                {f === 'everyone' ? tr('sosyalMain.herkes') : tr('sosyalMain.arkadaslar')}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
     </View>
   );
 }
@@ -1280,12 +1293,14 @@ interface MessagesViewProps {
   onDeleteConversation: (conversationId: string) => void;
   incomingRequests: FriendRequest[];
   onShowRequests: () => void;
+  onSearchUserPress: (user: UserProfile) => void;
+  friendIds: Set<string>;
 }
 
 function MessagesView({
   isDark, theme, conversations, searchQuery, setSearchQuery,
   isSearching, searchResults, loading, currentUserId, formatMsgTime, onNavigateChat,
-  onDeleteConversation, incomingRequests, onShowRequests,
+  onDeleteConversation, incomingRequests, onShowRequests, onSearchUserPress, friendIds,
 }: MessagesViewProps) {
   const { t: tr } = useTranslation();
   const txt1    = isDark ? Editorial.ink : Clean.textPrimary;
@@ -1300,14 +1315,7 @@ function MessagesView({
       key={user.user_id}
       style={[styles.msgItem, { borderColor: cardBdr }]}
       activeOpacity={0.75}
-      onPress={() => Alert.alert(
-        user.name,
-        tr('sosyalMain.oncelikleArkadaslikIstegi', { username: user.username }),
-        [
-          { text: tr('common.cancel'), style: 'cancel' },
-          { text: tr('sosyalMain.istekGonder'), onPress: () => onNavigateChat(user.user_id, user.name, '', user.username) },
-        ]
-      )}
+      onPress={() => onSearchUserPress(user)}
     >
       <View style={[styles.msgAvatar, { backgroundColor: chipBg }]}>
         {user.avatar_url ? (
@@ -1322,9 +1330,28 @@ function MessagesView({
         <Text style={[styles.msgName, { color: txt1 }]}>{user.name}</Text>
         <Text style={[styles.msgSub, { color: txt2 }]}>@{user.username}</Text>
       </View>
-      <UserPlus color={txt1} size={18} strokeWidth={2} />
+      {friendIds.has(user.user_id) ? (
+        <MessageCircle color={txt1} size={18} strokeWidth={2} />
+      ) : (
+        <UserPlus color={txt1} size={18} strokeWidth={2} />
+      )}
     </TouchableOpacity>
   );
+
+  const confirmDeleteConversation = (conv: Conversation) => {
+    AppAlert.alert(
+      tr('sosyalMain.sohbetiSil'),
+      tr('sosyalMain.sohbetiSilOnay', { name: conv.other_user.name }),
+      [
+        { text: tr('common.cancel'), style: 'cancel' },
+        {
+          text: tr('chat.sil'),
+          style: 'destructive',
+          onPress: () => onDeleteConversation(conv.conversation_id),
+        },
+      ]
+    );
+  };
 
   const renderConvItem = (conv: Conversation) => (
     <TouchableOpacity
@@ -1336,20 +1363,7 @@ function MessagesView({
         processImageUrl(conv.other_user.avatar_url) ?? 'https://i.pravatar.cc/150',
         conv.other_user.username,
       )}
-      onLongPress={() => {
-        Alert.alert(
-          tr('sosyalMain.sohbetiSil'),
-          tr('sosyalMain.sohbetiSilOnay', { name: conv.other_user.name }),
-          [
-            { text: tr('common.cancel'), style: 'cancel' },
-            {
-              text: tr('chat.sil'),
-              style: 'destructive',
-              onPress: () => onDeleteConversation(conv.conversation_id),
-            },
-          ]
-        );
-      }}
+      onLongPress={() => confirmDeleteConversation(conv)}
       delayLongPress={400}
     >
       <View style={[styles.msgAvatar, { backgroundColor: chipBg }]}>
@@ -1380,6 +1394,13 @@ function MessagesView({
           </View>
         )}
       </View>
+      <TouchableOpacity
+        onPress={() => confirmDeleteConversation(conv)}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        style={{ paddingLeft: 10 }}
+      >
+        <Trash2 size={17} color={txt2} strokeWidth={2} />
+      </TouchableOpacity>
     </TouchableOpacity>
   );
 
@@ -1525,10 +1546,15 @@ function RadarView({ feedFilter, friendIds }: { feedFilter: 'everyone' | 'friend
             .not('latitude', 'is', null)
             .not('longitude', 'is', null);
 
-          if (!anonErr && anonRows && anonRows.length > 0) {
-            radarRows = anonRows;
+          if (!anonErr) {
+            // anonymous_posts sorgusu başarılıysa sonucu (boş dahi olsa) kullan —
+            // radar_visible=false diyen kullanıcılar zaten bu tabloya hiç
+            // eklenmiyor, bu yüzden ham social_posts'a düşmek onların
+            // konumunu sızdırır.
+            radarRows = anonRows || [];
           } else {
-            // Anonim tablo yoksa social_posts ile devam et
+            // Yalnızca GERÇEK bir sorgu hatasında (ör. tablo mevcut değil)
+            // eski/ham social_posts'a düş.
             const { data: postRows, error: postErr } = await supabase
               .from('social_posts')
               .select('latitude, longitude, created_at, content, user_id')
@@ -1605,7 +1631,7 @@ function RadarView({ feedFilter, friendIds }: { feedFilter: 'everyone' | 'friend
         setActiveCount(points.length);
         setDistrictSummary(topDistricts.join(', '));
       } catch {
-        // Hata durumunda mock veri kalır
+        // Hata durumunda mevcut veri (varsa) ekranda kalır, sahte veri gösterilmez
       } finally {
         setLoading(false);
       }
@@ -1624,6 +1650,7 @@ function RadarView({ feedFilter, friendIds }: { feedFilter: 'everyone' | 'friend
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
         initialRegion={URFA_CENTER}
         customMapStyle={Platform.OS === 'android' ? (isDark ? darkMapStyle : lightMapStyle) : []}
+        userInterfaceStyle={isDark ? 'dark' : 'light'}
         showsUserLocation
         showsCompass={false}
         showsScale={false}
@@ -1807,6 +1834,8 @@ export default function SosyalScreen() {
   const [cameraVisible, setCameraVisible] = useState(false);
   const [friendModalVisible, setFriendModalVisible] = useState(false);
   const [friendSearchResults, setFriendSearchResults] = useState<UserProfile[]>([]);
+  const [sendingRequestTo, setSendingRequestTo] = useState<string | null>(null);
+  const [sentToUserIds, setSentToUserIds] = useState<Set<string>>(new Set());
   const [friendSearching, setFriendSearching] = useState(false);
   const [qrModalVisible, setQrModalVisible] = useState(false);
   const [qrScanVisible, setQrScanVisible] = useState(false);
@@ -1828,6 +1857,9 @@ export default function SosyalScreen() {
   const [snapGroupMode, setSnapGroupMode] = useState(false);
   const [groupRecipientIds, setGroupRecipientIds] = useState<string[]>([]);
   const [groupPickModalVisible, setGroupPickModalVisible] = useState(false);
+  const [savedGroups, setSavedGroups] = useState<{ id: string; name: string; member_user_ids: string[] }[]>([]);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [savingGroup, setSavingGroup] = useState(false);
   const [streakCurrent, setStreakCurrent] = useState(0);
   const [streakBest, setStreakBest] = useState(0);
   const [streakBuddyUserId, setStreakBuddyUserId] = useState<string | null>(null);
@@ -1937,6 +1969,7 @@ export default function SosyalScreen() {
 
   // Arkadaşlık istekleri state'leri
   const [incomingRequests, setIncomingRequests] = useState<FriendRequest[]>([]);
+  const [outgoingRequests, setOutgoingRequests] = useState<FriendRequest[]>([]);
   const [requestsModalVisible, setRequestsModalVisible] = useState(false);
   const [friends, setFriends] = useState<UserProfile[]>([]);
   const [friendCount, setFriendCount] = useState(0);
@@ -1953,7 +1986,9 @@ export default function SosyalScreen() {
     if (currentUserId) {
       fetchConversations(currentUserId);
       fetchIncomingRequests(currentUserId);
+      fetchOutgoingRequests(currentUserId);
       fetchFriends(currentUserId);
+      fetchSavedGroups(currentUserId);
     } else {
       setStreakCurrent(0);
       setStreakBest(0);
@@ -1970,10 +2005,16 @@ export default function SosyalScreen() {
         // Küçük gecikme ile yenile — ekran geçişi tamamlansın
         const timer = setTimeout(() => {
           fetchFriends(currentUserId);
+          // Bir sohbetten geri dönüldüğünde (ör. mesaj okundu işaretlendi)
+          // "Mesajlar" sekmesindeki okunmamış sayısı da güncellensin —
+          // activeTab değişmediği için önceki useEffect tek başına yetmiyordu.
+          if (activeTab === 'messages') {
+            fetchConversations(currentUserId);
+          }
         }, 500);
         return () => clearTimeout(timer);
       }
-    }, [currentUserId])
+    }, [currentUserId, activeTab])
   );
 
   // Mesajlar sekmesi açıldığında yenile
@@ -1981,13 +2022,14 @@ export default function SosyalScreen() {
     if (activeTab === 'messages' && currentUserId) {
       fetchConversations(currentUserId);
       fetchIncomingRequests(currentUserId);
+      fetchOutgoingRequests(currentUserId);
     }
   }, [activeTab, currentUserId]);
 
   // Radar modal state
   const [radarModalVisible, setRadarModalVisible] = useState(false);
-  const [feedFilter, setFeedFilter] = useState<'everyone' | 'friends'>('friends');
-  
+  const feedFilter = 'friends' as const;
+
   // friendIds hesaplama
   const friendIds = useMemo(() => new Set(friends.map(f => f.user_id)), [friends]);
 
@@ -2003,13 +2045,22 @@ export default function SosyalScreen() {
     setIsSearching(true);
     const timer = setTimeout(async () => {
       try {
-        const { data } = await supabase
-          .from('user_profiles')
-          .select('user_id, name, username, avatar_url')
-          .neq('user_id', currentUserId)
-          .or(`name.ilike.%${query}%,username.ilike.%${query}%`)
-          .limit(20);
-        setSearchResults(data ?? []);
+        const [{ data }, { data: blocks }] = await Promise.all([
+          supabase
+            .from('user_profiles')
+            .select('user_id, name, username, avatar_url')
+            .neq('user_id', currentUserId)
+            .or(`name.ilike.%${query}%,username.ilike.%${query}%`)
+            .limit(20),
+          supabase
+            .from('blocked_users')
+            .select('blocker_id, blocked_id')
+            .or(`blocker_id.eq.${currentUserId},blocked_id.eq.${currentUserId}`),
+        ]);
+        const blockedIds = new Set(
+          (blocks ?? []).map((b: any) => (b.blocker_id === currentUserId ? b.blocked_id : b.blocker_id))
+        );
+        setSearchResults((data ?? []).filter((u: any) => !blockedIds.has(u.user_id)));
       } catch {
         setSearchResults([]);
       }
@@ -2077,6 +2128,7 @@ export default function SosyalScreen() {
         .select('id, sender_id, receiver_id, status, created_at')
         .eq('receiver_id', userId)
         .eq('status', 'pending');
+      console.log('[Gelen İstekler] fetchIncomingRequests', { userId, count: data?.length, error });
       if (error || !data) return;
 
       const withProfiles = await Promise.all(data.map(async (req: any) => {
@@ -2091,6 +2143,94 @@ export default function SosyalScreen() {
     } catch {
       // sessiz hata
     }
+  };
+
+  const fetchOutgoingRequests = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('friendships')
+        .select('id, sender_id, receiver_id, status, created_at')
+        .eq('sender_id', userId)
+        .eq('status', 'pending');
+      if (error || !data) return;
+
+      const withProfiles = await Promise.all(data.map(async (req: any) => {
+        const { data: receiverProfile } = await supabase
+          .from('user_profiles')
+          .select('user_id, name, username, avatar_url')
+          .eq('user_id', req.receiver_id)
+          .single();
+        return { ...req, receiver_profile: receiverProfile };
+      }));
+      setOutgoingRequests(withProfiles);
+    } catch {
+      // sessiz hata
+    }
+  };
+
+  const handleCancelOutgoingRequest = async (requestId: string) => {
+    try {
+      const { error } = await supabase.from('friendships').delete().eq('id', requestId);
+      if (error) throw error;
+      setOutgoingRequests((prev) => prev.filter((r) => r.id !== requestId));
+    } catch {
+      AppAlert.alert(tr('common.error'), tr('sosyalProfile.islemBasarisiz'));
+    }
+  };
+
+  const fetchSavedGroups = async (userId: string) => {
+    try {
+      const { data } = await supabase
+        .from('snap_groups')
+        .select('id, name, member_user_ids')
+        .eq('owner_id', userId)
+        .order('created_at', { ascending: false });
+      setSavedGroups(data ?? []);
+    } catch {
+      // sessiz hata
+    }
+  };
+
+  const handleSaveGroup = async () => {
+    const userId = profile?.userId;
+    const name = newGroupName.trim();
+    if (!userId || !name) return;
+    if (groupRecipientIds.length < GROUP_KIVILCIM_MIN || groupRecipientIds.length > GROUP_KIVILCIM_MAX) return;
+    setSavingGroup(true);
+    try {
+      const { error } = await supabase.from('snap_groups').insert({
+        owner_id: userId,
+        name,
+        member_user_ids: groupRecipientIds,
+      });
+      if (error) {
+        AppAlert.alert(tr('common.error'), error.message);
+        return;
+      }
+      setNewGroupName('');
+      await fetchSavedGroups(userId);
+    } catch (e: any) {
+      AppAlert.alert(tr('common.error'), e?.message ?? '');
+    } finally {
+      setSavingGroup(false);
+    }
+  };
+
+  const handleDeleteGroup = async (groupId: string) => {
+    const userId = profile?.userId;
+    if (!userId) return;
+    try {
+      await supabase.from('snap_groups').delete().eq('id', groupId).eq('owner_id', userId);
+      setSavedGroups(prev => prev.filter(g => g.id !== groupId));
+    } catch {
+      // sessiz hata
+    }
+  };
+
+  const handlePickSavedGroup = (group: { member_user_ids: string[] }) => {
+    const validIds = new Set(friendsRef.current.map(f => f.user_id));
+    const stillValid = group.member_user_ids.filter(id => validIds.has(id));
+    setGroupRecipientIds(stillValid.slice(0, GROUP_KIVILCIM_MAX));
   };
 
   const fetchFriends = async (userId: string) => {
@@ -2109,6 +2249,9 @@ export default function SosyalScreen() {
 
       if (friendIds.length === 0) {
         setFriends([]);
+        friendsRef.current = [];
+        // Arkadaş yok ama herkese açık profillerin snap'leri hâlâ görünmeli
+        await fetchFriendSnaps();
         await loadStreakData(userId);
         return;
       }
@@ -2120,8 +2263,8 @@ export default function SosyalScreen() {
       if (profiles) {
         setFriends(profiles);
         friendsRef.current = profiles;
-        // Arkadaşların snap'lerini de çek
-        await fetchFriendSnaps([userId, ...friendIds]);
+        // Arkadaşların + herkese açık profillerin snap'lerini çek
+        await fetchFriendSnaps();
       }
       await loadStreakData(userId);
     } catch {
@@ -2129,17 +2272,18 @@ export default function SosyalScreen() {
     }
   };
 
-  const fetchFriendSnaps = async (userIds: string[]) => {
+  const fetchFriendSnaps = async () => {
     setSnapsLoading(true);
     const userId = profile?.userId;
     try {
       const expiryThreshold = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
 
       // Snap'leri çek — son 4 saat; foto (image_url) veya video (video_url)
+      // Kimin görebileceği (kendi + arkadaşlar + herkese açık profiller) zaten
+      // database/28_social_privacy_rls.sql politikası tarafından belirleniyor.
       const { data: posts, error } = await supabase
         .from('social_posts')
-        .select('id, user_id, image_url, video_url, content, latitude, longitude, created_at, expires_at, viewed_by, recipient_user_ids')
-        .in('user_id', userIds)
+        .select('id, user_id, image_url, video_url, content, latitude, longitude, created_at, expires_at, viewed_by, replayed_by, recipient_user_ids')
         .or('image_url.not.is.null,video_url.not.is.null')
         .gte('created_at', expiryThreshold)
         .order('created_at', { ascending: false })
@@ -2211,6 +2355,7 @@ export default function SosyalScreen() {
           expires_at: expiresAt,
           seen: false,
           viewedBy: Array.isArray(post.viewed_by) ? post.viewed_by : [],
+          replayedBy: Array.isArray(post.replayed_by) ? post.replayed_by : [],
           isPublic: prof?.is_public ?? true, // Gizlilik ayarı
         };
       });
@@ -2226,16 +2371,24 @@ export default function SosyalScreen() {
     const userId = profile?.userId;
     if (!userId) return;
     try {
-      await supabase
+      const { error: updateError, data: updateData } = await supabase
         .from('friendships')
         .update({ status: 'accepted', updated_at: new Date().toISOString() })
-        .eq('id', requestId);
+        .eq('id', requestId)
+        .select();
+      if (updateError) throw updateError;
+      if (!updateData || updateData.length === 0) {
+        throw new Error('İstek güncellenemedi (satır bulunamadı veya yetki yok).');
+      }
 
       // Kabul edince sohbet oluştur
-      await supabase.rpc('get_or_create_conversation', {
+      const { data: convId, error: convError } = await supabase.rpc('get_or_create_conversation', {
         user1_id: currentUserId,
         user2_id: senderId,
       });
+      console.log('[Arkadaşlık Kabul] konuşma oluştur sonucu', { convId, convError });
+      if (convError) throw convError;
+      if (!convId) throw new Error('Konuşma oluşturulamadı');
 
       // Gönderene "isteğin kabul edildi" bildirimi gönder
       const myName = profile?.name || profile?.username || tr('sosyalMain.biri');
@@ -2244,9 +2397,9 @@ export default function SosyalScreen() {
       await fetchIncomingRequests(userId);
       await fetchConversations(userId);
       await fetchFriends(userId);
-      Alert.alert(tr('sosyalMain.arkadasEklendi'), tr('sosyalMain.artikMesajlasabilirsiniz'));
+      AppAlert.alert(tr('sosyalMain.arkadasEklendi'), tr('sosyalMain.artikMesajlasabilirsiniz'));
     } catch (e: any) {
-      Alert.alert(tr('common.error'), e.message);
+      AppAlert.alert(tr('common.error'), e.message);
     }
   };
 
@@ -2254,13 +2407,14 @@ export default function SosyalScreen() {
     const userId = profile?.userId;
     if (!userId) return;
     try {
-      await supabase
+      const { error: rejectError } = await supabase
         .from('friendships')
-        .update({ status: 'rejected', updated_at: new Date().toISOString() })
+        .delete()
         .eq('id', requestId);
+      if (rejectError) throw rejectError;
       await fetchIncomingRequests(userId);
     } catch (e: any) {
-      Alert.alert(tr('common.error'), e.message);
+      AppAlert.alert(tr('common.error'), e.message);
     }
   };
 
@@ -2268,17 +2422,25 @@ export default function SosyalScreen() {
     const userId = profile?.userId;
     if (!userId) return;
     try {
-      // Sadece bu kullanıcı için gizle (veritabanından silme)
-      await supabase
+      // Sadece bu kullanıcı için gizle + sıfırlama noktası koy (veritabanından silme değil,
+      // ama bu kullanıcı için silme anından önceki mesajlar bir daha görünmez)
+      const { data, error } = await supabase
         .from('conversation_participants')
-        .update({ hidden: true })
+        .update({ hidden: true, hidden_at: new Date().toISOString() })
         .eq('conversation_id', conversationId)
-        .eq('user_id', userId);
-      
+        .eq('user_id', userId)
+        .select();
+      console.log('[Sohbeti Sil] update sonucu', { conversationId, userId, data, error });
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('Sohbet gizlenemedi (satır güncellenmedi — yetki sorunu olabilir).');
+      }
+
       // Listeden kaldır
       setConversations(prev => prev.filter(c => c.conversation_id !== conversationId));
-    } catch {
-      Alert.alert(tr('common.error'), tr('sosyalMain.sohbetGizlenemedi'));
+    } catch (e: any) {
+      console.error('[Sohbeti Sil] HATA', e);
+      AppAlert.alert(tr('common.error'), e.message || tr('sosyalMain.sohbetGizlenemedi'));
     }
   }, [profile?.userId]);
 
@@ -2287,16 +2449,19 @@ export default function SosyalScreen() {
     try {
       const { data: participantData, error } = await supabase
         .from('conversation_participants')
-        .select('conversation_id')
+        .select('conversation_id, hidden_at')
         .eq('user_id', userId)
         .or('hidden.is.null,hidden.eq.false'); // null veya false olanları getir
       if (error || !participantData) { setMessagesLoading(false); return; }
 
       const convIds = participantData.map((p: any) => p.conversation_id);
       if (convIds.length === 0) { setConversations([]); setMessagesLoading(false); return; }
+      const hiddenAtMap = new Map(participantData.map((p: any) => [p.conversation_id, p.hidden_at]));
 
       const convPromises = convIds.map(async (convId: string) => {
         try {
+          const hiddenAt: string | null = hiddenAtMap.get(convId) ?? null;
+
           const { data: otherParticipant } = await supabase
             .from('conversation_participants')
             .select('user_id')
@@ -2312,24 +2477,30 @@ export default function SosyalScreen() {
             .eq('user_id', otherParticipant.user_id)
             .single();
 
-          const { data: lastMsgData } = await supabase
+          let lastMsgQuery = supabase
             .from('messages')
             .select('content, created_at, sender_id, is_snap')
-            .eq('conversation_id', convId)
+            .eq('conversation_id', convId);
+          if (hiddenAt) lastMsgQuery = lastMsgQuery.gt('created_at', hiddenAt);
+          const { data: lastMsgData } = await lastMsgQuery
             .order('created_at', { ascending: false })
             .limit(1)
             .single();
 
-          const { count: unreadCount } = await supabase
+          let unreadQuery = supabase
             .from('messages')
             .select('id', { count: 'exact', head: true })
             .eq('conversation_id', convId)
             .neq('sender_id', userId)
             .eq('is_read', false);
+          if (hiddenAt) unreadQuery = unreadQuery.gt('created_at', hiddenAt);
+          const { count: unreadCount } = await unreadQuery;
 
           return {
             conversation_id: convId,
-            other_user: profile || { user_id: otherParticipant.user_id, name: tr('common.kullanici'), username: '' },
+            other_user: profile
+              ? { ...profile, name: profile.name || profile.username || tr('common.kullanici') }
+              : { user_id: otherParticipant.user_id, name: tr('common.kullanici'), username: '' },
             last_message: lastMsgData || null,
             unread_count: unreadCount || 0,
           } as Conversation;
@@ -2363,6 +2534,13 @@ export default function SosyalScreen() {
 
   const switchTab = useCallback((tab: Tab) => {
     setActiveTab(tab);
+    // "Mesajlar" sekmesine her geçişte listeyi tazele — eskiden sadece ekran
+    // odağı değiştiğinde (navigation focus) yenileniyordu, aynı ekran
+    // içindeki sekme geçişinde (ör. Kıvılcım'dan dönüp Mesajlar'a tıklamak)
+    // hiç tazelenmiyordu, bu yüzden az önce gelen/gönderilen mesaj görünmüyordu.
+    if (tab === 'messages' && currentUserId) {
+      fetchConversations(currentUserId);
+    }
     const toValue = tab === 'feed' ? 0 : 1;
     Animated.spring(tabAnim, {
       toValue,
@@ -2370,7 +2548,7 @@ export default function SosyalScreen() {
       damping: 18,
       stiffness: 200,
     }).start();
-  }, [tabAnim]);
+  }, [tabAnim, currentUserId]);
 
   const createLocalSnap = useCallback((uri: string, isVideo = false): SnapPost => ({
     id: `local-${Date.now()}`,
@@ -2416,7 +2594,7 @@ export default function SosyalScreen() {
     if (!isRecordingVideo) {
       const mic = microphonePermission ?? await requestMicrophonePermission();
       if (!mic?.granted) {
-        Alert.alert(tr('sosyalMain.mikrofon'), tr('sosyalMain.mikrofonIzniAciklama'));
+        AppAlert.alert(tr('sosyalMain.mikrofon'), tr('sosyalMain.mikrofonIzniAciklama'));
         return;
       }
       try {
@@ -2427,7 +2605,7 @@ export default function SosyalScreen() {
         setIsRecordingVideo(true);
       } catch (e: any) {
         recordingPromiseRef.current = null;
-        Alert.alert(tr('sosyalMain.video'), e?.message ?? tr('sosyalMain.kayitBaslatilamadi'));
+        AppAlert.alert(tr('sosyalMain.video'), e?.message ?? tr('sosyalMain.kayitBaslatilamadi'));
       } finally {
         setCameraBusy(false);
       }
@@ -2444,7 +2622,7 @@ export default function SosyalScreen() {
         setCapturedIsVideo(true);
         setCapturedPhotoUri(result.uri);
       } else {
-        Alert.alert(tr('sosyalMain.video'), tr('sosyalMain.kayitDosyasiAlinamadi'));
+        AppAlert.alert(tr('sosyalMain.video'), tr('sosyalMain.kayitDosyasiAlinamadi'));
       }
     } catch (e: any) {
       recordingPromiseRef.current = null;
@@ -2475,7 +2653,7 @@ export default function SosyalScreen() {
       const { data: { session } } = await supabase.auth.getSession();
       const authToken = session?.access_token;
       if (!authToken) {
-        Alert.alert(tr('sosyalMain.oturumHatasi'), tr('sosyalMain.lutfenTekrarGiris'));
+        AppAlert.alert(tr('sosyalMain.oturumHatasi'), tr('sosyalMain.lutfenTekrarGiris'));
         return;
       }
 
@@ -2487,12 +2665,12 @@ export default function SosyalScreen() {
 
       const fetchResp = await fetch(mediaUri);
       if (!fetchResp.ok) {
-        Alert.alert(tr('sosyalMain.dosyaHatasi'), `${tr('sosyalMain.medyaOkunamadi')}: ${fetchResp.status}`);
+        AppAlert.alert(tr('sosyalMain.dosyaHatasi'), `${tr('sosyalMain.medyaOkunamadi')}: ${fetchResp.status}`);
         return;
       }
       const blob = await fetchResp.blob();
       if (blob.size === 0) {
-        Alert.alert(tr('sosyalMain.dosyaHatasi'), tr('sosyalMain.dosyaBosGeldi'));
+        AppAlert.alert(tr('sosyalMain.dosyaHatasi'), tr('sosyalMain.dosyaBosGeldi'));
         return;
       }
 
@@ -2509,7 +2687,7 @@ export default function SosyalScreen() {
 
       if (!uploadResp.ok) {
         const errText = await uploadResp.text();
-        Alert.alert(tr('sosyalProfile.yuklemeHatasi'), `${uploadResp.status}: ${errText}`);
+        AppAlert.alert(tr('sosyalProfile.yuklemeHatasi'), `${uploadResp.status}: ${errText}`);
         return;
       }
 
@@ -2517,16 +2695,18 @@ export default function SosyalScreen() {
       const { data: urlData } = supabase.storage.from('snaps').getPublicUrl(fileName);
       const publicUrl = urlData.publicUrl;
 
-      // 4. Konum al (sessizce, hata olursa varsayılan)
-      let latitude: number = 37.1591 + (Math.random() - 0.5) * 0.04;
-      let longitude: number = 38.7969 + (Math.random() - 0.5) * 0.04;
+      // 4. Konum al — izin yoksa/alınamazsa UYDURMA, null bırak (Şehir Radarı sadece gerçek konumları gösterir)
+      let latitude: number | null = null;
+      let longitude: number | null = null;
       let locationLabel = 'Şanlıurfa';
+      let hasRealLocation = false;
       try {
         const locPerm = await Location.getForegroundPermissionsAsync();
         if (locPerm.status === 'granted') {
           const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
           latitude = loc.coords.latitude;
           longitude = loc.coords.longitude;
+          hasRealLocation = true;
           // Koordinatları mahalle/ilçe adına çevir
           const [geo] = await Location.reverseGeocodeAsync({ latitude, longitude });
           if (geo) {
@@ -2534,7 +2714,7 @@ export default function SosyalScreen() {
             locationLabel = parts.join(', ') || 'Şanlıurfa';
           }
         }
-      } catch { /* konum alınamazsa varsayılan kullan */ }
+      } catch { /* konum alınamazsa null kalır, sahte konum uydurulmaz */ }
 
       // 5. Veritabanına kaydet
       const expiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
@@ -2558,17 +2738,29 @@ export default function SosyalScreen() {
       const { error: insertError } = await supabase.from('social_posts').insert(row);
 
       if (insertError) {
-        Alert.alert(tr('sosyalMain.kayitHatasi'), insertError.message);
+        AppAlert.alert(tr('sosyalMain.kayitHatasi'), insertError.message);
         return;
       }
 
-      // Radar anonim veri kaynağı: kimliksiz nokta kaydı (tablo yoksa sessizce geç)
-      await supabase.from('anonymous_posts').insert({
-        latitude,
-        longitude,
-        district: locationLabel,
-        created_at: new Date().toISOString(),
-      });
+      // Radar anonim veri kaynağı: sadece gerçek konum varsa VE kullanıcı
+      // "Şehir Radarımda Konumumu Göster" ayarını kapatmamışsa ekle
+      // (sahte konum uydurulmaz; kapatan kullanıcının konumu kimliksiz
+      // bile olsa Şehir Radarı'nda hiç görünmemeli — gizlilik tercihine saygı)
+      if (hasRealLocation) {
+        const { data: ownProfile } = await supabase
+          .from('user_profiles')
+          .select('radar_visible')
+          .eq('user_id', userId)
+          .maybeSingle();
+        if (ownProfile?.radar_visible !== false) {
+          await supabase.from('anonymous_posts').insert({
+            latitude,
+            longitude,
+            district: locationLabel,
+            created_at: new Date().toISOString(),
+          });
+        }
+      }
 
       const { error: rpcErr } = await supabase.rpc('refresh_snap_streak', { p_user_id: userId });
       if (rpcErr) {
@@ -2600,17 +2792,17 @@ export default function SosyalScreen() {
         }
       });
     } catch (e: any) {
-      Alert.alert(tr('sosyalMain.beklenmeyenHata'), e?.message ?? tr('sosyalMain.kivilcimKaydedilemedi'));
+      AppAlert.alert(tr('sosyalMain.beklenmeyenHata'), e?.message ?? tr('sosyalMain.kivilcimKaydedilemedi'));
     }
   }, [profile, loadStreakData]);
 
   const handleConfirmPhoto = useCallback(async () => {
     if (!capturedPhotoUri) {
-      Alert.alert(tr('common.error'), tr('sosyalMain.medyaBulunamadi'));
+      AppAlert.alert(tr('common.error'), tr('sosyalMain.medyaBulunamadi'));
       return;
     }
     if (!profile?.userId) {
-      Alert.alert(
+      AppAlert.alert(
         tr('sosyalMain.girisGerekiyor'),
         tr('sosyalMain.kivilcimPaylasmakIcinGiris'),
         [{ text: tr('sendSnap.tamam'), style: 'default' }]
@@ -2625,14 +2817,14 @@ export default function SosyalScreen() {
 
     if (snapGroupMode) {
       if (friends.length < GROUP_KIVILCIM_MIN) {
-        Alert.alert(
+        AppAlert.alert(
           tr('sosyalMain.grupKivilcimi'),
           tr('sosyalMain.grupKivilcimiEnAz', { count: GROUP_KIVILCIM_MIN }),
         );
         return;
       }
       if (groupRecipientIds.length < GROUP_KIVILCIM_MIN) {
-        Alert.alert(
+        AppAlert.alert(
           tr('sosyalMain.grupKivilcimi'),
           tr('sosyalMain.enAzEnFazlaArkadas', { min: GROUP_KIVILCIM_MIN, max: GROUP_KIVILCIM_MAX }),
         );
@@ -2694,15 +2886,24 @@ export default function SosyalScreen() {
     try {
       const cleanInput = query.trim().toLowerCase().replace('@', '');
 
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('user_id, name, username, avatar_url')
-        .or(`username.ilike.%${cleanInput}%,name.ilike.%${cleanInput}%`)
-        .limit(10);
+      const [{ data, error }, { data: blocks }] = await Promise.all([
+        supabase
+          .from('user_profiles')
+          .select('user_id, name, username, avatar_url')
+          .or(`username.ilike.%${cleanInput}%,name.ilike.%${cleanInput}%`)
+          .limit(10),
+        supabase
+          .from('blocked_users')
+          .select('blocker_id, blocked_id')
+          .or(`blocker_id.eq.${currentUserId},blocked_id.eq.${currentUserId}`),
+      ]);
 
       if (!error && data) {
-        // Kendini filtrele
-        const filtered = data.filter((u: any) => u.user_id !== currentUserId);
+        const blockedIds = new Set(
+          (blocks ?? []).map((b: any) => (b.blocker_id === currentUserId ? b.blocked_id : b.blocker_id))
+        );
+        // Kendini ve engellenenleri filtrele
+        const filtered = data.filter((u: any) => u.user_id !== currentUserId && !blockedIds.has(u.user_id));
         setFriendSearchResults(filtered);
       } else {
         setFriendSearchResults([]);
@@ -2715,71 +2916,116 @@ export default function SosyalScreen() {
   }, [currentUserId]);
 
   const handleSelectFriendFromSearch = useCallback(async (selectedUser: UserProfile) => {
+    if (sendingRequestTo) return; // çift tıklamayı engelle
+    setSendingRequestTo(selectedUser.user_id);
     try {
       const userId = profile?.userId;
       if (!userId) return;
 
       // Zaten arkadaş veya istek var mı kontrol et
-      const { data: existing } = await supabase
+      const { data: existingRows, error: existingError } = await supabase
         .from('friendships')
         .select('id, status')
-        .or(`and(sender_id.eq.${userId},receiver_id.eq.${selectedUser.user_id}),and(sender_id.eq.${selectedUser.user_id},receiver_id.eq.${userId})`)
-        .single();
+        .or(`and(sender_id.eq.${userId},receiver_id.eq.${selectedUser.user_id}),and(sender_id.eq.${selectedUser.user_id},receiver_id.eq.${userId})`);
+      console.log('[Arkadaşlık İsteği - arama] mevcut kayıt kontrolü', { userId, target: selectedUser.user_id, existingRows, existingError });
+      const existing = existingRows && existingRows.length > 0 ? existingRows[0] : null;
 
       if (existing) {
         if (existing.status === 'accepted') {
-          Alert.alert(
+          // Aramadan yanlışlıkla arkadaşlıktan çıkarma riskini önlemek için
+          // burada sadece bilgilendiriyoruz — gerçek çıkarma işlemi kişinin
+          // profilinden bilinçli olarak yapılır.
+          AppAlert.alert(
             tr('sosyalMain.zatenArkadassiniz') || 'Zaten Arkadaşsınız',
-            tr('sosyalMain.arkadasiCikarmakIstiyorMusunuz', { name: selectedUser.name || selectedUser.username }) || `${selectedUser.name || selectedUser.username} isimli kişiyi arkadaşlarınızdan çıkarmak istiyor musunuz?`,
-            [
-              { text: tr('common.cancel') || 'İptal', style: 'cancel' },
-              {
-                text: tr('sosyalProfile.cikar') || 'Çıkar',
-                style: 'destructive',
-                onPress: async () => {
-                  try {
-                    const { error } = await supabase
-                      .from('friendships')
-                      .delete()
-                      .eq('id', existing.id);
-                    if (error) throw error;
-                    Alert.alert(tr('sendSnap.basarili') || 'Başarılı', tr('sosyalProfile.arkadasCikarildi') || 'Arkadaş çıkarıldı.');
-                    setFriendPhone('');
-                    setFriendSearchResults([]);
-                    setFriendModalVisible(false);
-                    if (userId) fetchFriends(userId);
-                  } catch (err: any) {
-                    Alert.alert(tr('common.error') || 'Hata', err.message || tr('sosyalProfile.arkadasCikarilamadi') || 'Arkadaş çıkarılamadı.');
-                  }
-                }
-              }
-            ]
+            tr('sosyalMain.ileZatenArkadassiniz', { name: selectedUser.name || selectedUser.username }) || `${selectedUser.name || selectedUser.username} ile zaten arkadaşsınız.`
           );
+          return;
         } else if (existing.status === 'pending') {
-          Alert.alert(tr('sosyalMain.istekGonderildi') || 'İstek İletildi', tr('sosyalMain.zatenIstekGonderilmis', { name: selectedUser.name || selectedUser.username }) || 'Bu kişiye zaten bir arkadaşlık isteği gönderilmiş.');
+          AppAlert.alert(tr('sosyalMain.istekGonderildi') || 'İstek İletildi', tr('sosyalMain.zatenIstekGonderilmis', { name: selectedUser.name || selectedUser.username }) || 'Bu kişiye zaten bir arkadaşlık isteği gönderilmiş.');
+          return;
+        } else {
+          // 'rejected' (veya beklenmeyen bir durum) — eski kaydı temizleyip
+          // yeni bir istek gönderilmesine izin ver, sessizce hiçbir şey
+          // yapmadan çıkma (önceki hata buydu).
+          console.log('[Arkadaşlık İsteği - arama] eski/rejected kayıt temizleniyor', existing);
+          const { error: cleanupError } = await supabase.from('friendships').delete().eq('id', existing.id);
+          if (cleanupError) throw cleanupError;
         }
-        return;
       }
 
       // Arkadaşlık isteği gönder
-      const { error: insertError } = await supabase
+      const { data: insertData, error: insertError } = await supabase
         .from('friendships')
-        .insert({ sender_id: userId, receiver_id: selectedUser.user_id, status: 'pending' });
+        .insert({ sender_id: userId, receiver_id: selectedUser.user_id, status: 'pending' })
+        .select();
+      console.log('[Arkadaşlık İsteği - arama] insert sonucu', { insertData, insertError });
 
       if (insertError) throw insertError;
+      if (!insertData || insertData.length === 0) {
+        throw new Error('İstek kaydedilemedi (satır dönmedi).');
+      }
 
       // Alıcıya bildirim gönder
       const myName = profile?.name || profile?.username || tr('sosyalMain.biri');
       notify.friendRequest(selectedUser.user_id, myName).catch(() => {});
 
-      setFriendPhone('');
-      setFriendSearchResults([]);
-      setFriendModalVisible(false);
-      Alert.alert(tr('sosyalMain.istekGonderildiUnlem'), tr('sosyalMain.arkadaslikIstegiGonderildi', { name: selectedUser.name || selectedUser.username }));
+      // Satırda hemen bir "✓ gönderildi" tik göster, sonra kapat
+      setSentToUserIds((prev) => new Set(prev).add(selectedUser.user_id));
+      if (currentUserId) fetchOutgoingRequests(currentUserId);
+      setTimeout(() => {
+        setFriendPhone('');
+        setFriendSearchResults([]);
+        setFriendModalVisible(false);
+      }, 900);
     } catch (e: any) {
-      Alert.alert(tr('common.error'), e.message || tr('sosyalMain.birHataOlustu'));
+      AppAlert.alert(tr('common.error'), e.message || tr('sosyalMain.birHataOlustu'));
+    } finally {
+      setSendingRequestTo(null);
     }
-  }, [profile, currentUserId]);
+  }, [profile, currentUserId, sendingRequestTo]);
+
+  // Mesajlar sekmesindeki "Kullanıcı ara" kutusunda bir sonuca dokunulduğunda
+  // çalışır. Önceki hata: gerçek arkadaşlık durumuna hiç bakmadan her zaman
+  // "önce istek gönder" uyarısı gösteriyordu — arkadaş olsalar bile. Şimdi
+  // gerçek durumu kontrol ediyor: zaten arkadaşsa direkt sohbete gidiyor,
+  // değilse gerçek bir istek gönderiyor (buton artık gerçekten çalışıyor).
+  const handleMessagesSearchUserPress = useCallback(async (user: UserProfile) => {
+    const userId = profile?.userId;
+    if (!userId || sendingRequestTo) return;
+    try {
+      const { data: existingRows, error: existingError } = await supabase
+        .from('friendships')
+        .select('id, status')
+        .or(`and(sender_id.eq.${userId},receiver_id.eq.${user.user_id}),and(sender_id.eq.${user.user_id},receiver_id.eq.${userId})`);
+      console.log('[Mesajlar Arama] mevcut kayıt kontrolü', { userId, target: user.user_id, existingRows, existingError });
+      const existing = existingRows && existingRows.length > 0 ? existingRows[0] : null;
+
+      if (existing && existing.status === 'accepted') {
+        navigation.navigate('Chat', { userId: user.user_id, userName: user.name, userAvatar: user.avatar_url || '', username: user.username });
+        return;
+      }
+
+      if (existing && existing.status === 'pending') {
+        AppAlert.alert(
+          tr('sosyalMain.istekGonderildi') || 'İstek İletildi',
+          tr('sosyalMain.zatenIstekGonderilmis', { name: user.name || user.username }) || 'Bu kişiye zaten bir arkadaşlık isteği gönderilmiş.'
+        );
+        return;
+      }
+
+      // Arkadaş değiller: gerçekten istek gönder mi diye sor.
+      AppAlert.alert(
+        user.name,
+        tr('sosyalMain.oncelikleArkadaslikIstegi', { username: user.username }),
+        [
+          { text: tr('common.cancel'), style: 'cancel' },
+          { text: tr('sosyalMain.istekGonder'), onPress: () => handleSelectFriendFromSearch(user) },
+        ]
+      );
+    } catch (e: any) {
+      AppAlert.alert(tr('common.error'), e.message || tr('sosyalMain.birHataOlustu'));
+    }
+  }, [profile, sendingRequestTo, handleSelectFriendFromSearch, navigation]);
 
   const handleQrScanned = useCallback(async ({ data: qrData }: { data: string }) => {
     if (qrScanned) return;
@@ -2788,7 +3034,7 @@ export default function SosyalScreen() {
     // QR format: sanligencsosyal://add/<username>
     const match = qrData.match(/sanligencsosyal:\/\/add\/(.+)/);
     if (!match) {
-      Alert.alert(tr('sosyalMain.gecersizQr'), tr('sosyalMain.qrAitDegil'), [
+      AppAlert.alert(tr('sosyalMain.gecersizQr'), tr('sosyalMain.qrAitDegil'), [
         { text: tr('sosyalMain.tekrarDene'), onPress: () => setQrScanned(false) },
         { text: tr('sosyalMain.kapat'), onPress: () => { setQrScanVisible(false); setQrScanned(false); } },
       ]);
@@ -2806,7 +3052,7 @@ export default function SosyalScreen() {
         .single();
 
       if (error || !data) {
-        Alert.alert(tr('sosyalMain.bulunamadi'), tr('sosyalMain.qrKullaniciBulunamadi'));
+        AppAlert.alert(tr('sosyalMain.bulunamadi'), tr('sosyalMain.qrKullaniciBulunamadi'));
         setQrScanned(false);
         return;
       }
@@ -2814,40 +3060,53 @@ export default function SosyalScreen() {
       const userId = profile?.userId;
       if (!userId) { setQrScanned(false); return; }
       if (data.user_id === userId) {
-        Alert.alert(tr('sosyalMain.buSeninQrKodun'), tr('sosyalMain.kendiQrKoduOkutamaz'));
+        AppAlert.alert(tr('sosyalMain.buSeninQrKodun'), tr('sosyalMain.kendiQrKoduOkutamaz'));
         setQrScanned(false);
         return;
       }
 
-      const { data: existing } = await supabase
+      const { data: existingQrRows } = await supabase
         .from('friendships')
         .select('id, status')
-        .or(`and(sender_id.eq.${currentUserId},receiver_id.eq.${data.user_id}),and(sender_id.eq.${data.user_id},receiver_id.eq.${currentUserId})`)
-        .maybeSingle();
+        .or(`and(sender_id.eq.${currentUserId},receiver_id.eq.${data.user_id}),and(sender_id.eq.${data.user_id},receiver_id.eq.${currentUserId})`);
+      const existing = existingQrRows && existingQrRows.length > 0 ? existingQrRows[0] : null;
+      console.log('[Arkadaşlık İsteği - QR] mevcut kayıt kontrolü', existing);
 
       if (existing) {
         if (existing.status === 'accepted') {
-          Alert.alert(tr('sosyalMain.zatenArkadassiniz'), tr('sosyalMain.ileZatenArkadassiniz', { name: `@${data.username}` }));
+          AppAlert.alert(tr('sosyalMain.zatenArkadassiniz'), tr('sosyalMain.ileZatenArkadassiniz', { name: `@${data.username}` }));
+          setQrScanned(false);
+          return;
+        } else if (existing.status === 'pending') {
+          AppAlert.alert(tr('sosyalMain.istekMevcut'), tr('sosyalMain.zatenIstekGonderilmis', { name: `@${data.username}` }));
+          setQrScanned(false);
+          return;
         } else {
-          Alert.alert(tr('sosyalMain.istekMevcut'), tr('sosyalMain.zatenIstekGonderilmis', { name: `@${data.username}` }));
+          // 'rejected' — eski kaydı temizleyip yeni isteğe izin ver
+          const { error: cleanupError } = await supabase.from('friendships').delete().eq('id', existing.id);
+          if (cleanupError) throw cleanupError;
         }
-        setQrScanned(false);
-        return;
       }
 
-      const { error: insertError } = await supabase
+      const { data: qrInsertData, error: insertError } = await supabase
         .from('friendships')
-        .insert({ sender_id: currentUserId, receiver_id: data.user_id, status: 'pending' });
+        .insert({ sender_id: currentUserId, receiver_id: data.user_id, status: 'pending' })
+        .select();
+      console.log('[Arkadaşlık İsteği - QR] insert sonucu', { qrInsertData, insertError });
 
       if (insertError) throw insertError;
+      if (!qrInsertData || qrInsertData.length === 0) {
+        throw new Error('İstek kaydedilemedi (satır dönmedi).');
+      }
 
       // Alıcıya bildirim gönder
       const myName = profile?.name || profile?.username || tr('sosyalMain.biri');
       notify.friendRequest(data.user_id, myName).catch(() => {});
 
-      Alert.alert(tr('sosyalMain.istekGonderildiUnlem'), tr('sosyalMain.arkadaslikIstegiGonderildi', { name: `@${data.username}` }));
+      if (currentUserId) fetchOutgoingRequests(currentUserId);
+      AppAlert.alert(tr('sosyalMain.istekGonderildiUnlem'), tr('sosyalMain.arkadaslikIstegiGonderildi', { name: `@${data.username}` }));
     } catch (e: any) {
-      Alert.alert(tr('common.error'), e.message || tr('sosyalMain.birHataOlustu'));
+      AppAlert.alert(tr('common.error'), e.message || tr('sosyalMain.birHataOlustu'));
     } finally {
       setQrScanned(false);
     }
@@ -2872,13 +3131,8 @@ export default function SosyalScreen() {
       if (error) throw error;
       setStreakBuddyModalVisible(false);
       await loadStreakData(userId);
-    } catch (e: any) {
-      const msg = e?.message ?? '';
-      const schemaHint =
-        /schema cache|could not find|column/i.test(msg)
-          ? '\n\nSupabase SQL Editor’da database/14_streak_and_group_snap.sql dosyasını çalıştırın. Sonra Dashboard → Project Settings → Data API → Reload schema (veya birkaç dakika bekleyin).'
-          : '';
-      Alert.alert(tr('common.error'), (msg || tr('sosyalMain.kaydedilemedi')) + schemaHint);
+    } catch {
+      AppAlert.alert(tr('common.error'), tr('sosyalMain.kaydedilemedi'));
     }
   }, [profile?.userId, streakBuddyPickId, loadStreakData]);
 
@@ -2904,14 +3158,24 @@ export default function SosyalScreen() {
 
   const handleSnapReply = useCallback(async (text: string) => {
     const userId = profile?.userId;
-    if (!selectedSnap || !userId || !text.trim()) return;
+    console.log('[Kıvılcım Tepki] handleSnapReply çağrıldı', {
+      text, userId, hasSelectedSnap: !!selectedSnap,
+      snapUserId: selectedSnap?.user?.id, currentUserId,
+    });
+    if (!selectedSnap || !userId || !text.trim()) {
+      console.log('[Kıvılcım Tepki] erken çıkış — selectedSnap/userId/text eksik');
+      return;
+    }
     const recipientId = selectedSnap.user.id;
-    if (recipientId === userId) return; // Kendi snap'ine yanıt yok
+    if (recipientId === userId) {
+      console.log('[Kıvılcım Tepki] erken çıkış — kendi snap\'i');
+      return; // Kendi snap'ine yanıt yok
+    }
 
     setSnapReplySending(true);
     try {
       const trimmed = text.trim();
-      const isQuickReaction = /^(❤️|🔥|😂|😮|👏)$/.test(trimmed);
+      const isQuickReaction = /^(🔥|❤️|😍|😂|👏|⚡)$/.test(trimmed);
       const created = selectedSnap.created_at instanceof Date
         ? selectedSnap.created_at
         : new Date(selectedSnap.created_at);
@@ -2935,10 +3199,12 @@ export default function SosyalScreen() {
         : `${tr('chat.yanitlaniyor')}: ${trimmed}\n────────\n${snapRefBlock}`;
 
       // Konuşmayı bul veya oluştur
-      const { data: convData } = await supabase.rpc('get_or_create_conversation', {
+      const { data: convData, error: convError } = await supabase.rpc('get_or_create_conversation', {
         user1_id: currentUserId,
         user2_id: recipientId,
       });
+      console.log('[Kıvılcım Tepki] konuşma sonucu', { convData, convError });
+      if (convError) throw convError;
       const convId = convData;
       if (!convId) throw new Error(tr('sosyalMain.konusmaOlusturulamadi'));
 
@@ -2949,18 +3215,24 @@ export default function SosyalScreen() {
           : null;
 
       // Mesajı gönder (görsel önizleme = hangi kıvılcıma tepki)
-      await supabase.from('messages').insert({
+      const { data: msgData, error: msgError } = await supabase.from('messages').insert({
         conversation_id: convId,
         sender_id: currentUserId,
         content: messageContent,
         ...(previewUrl ? { image_url: previewUrl } : {}),
-      });
+      }).select();
+      console.log('[Kıvılcım Tepki] mesaj insert sonucu', { msgData, msgError });
+      if (msgError) throw msgError;
+      if (!msgData || msgData.length === 0) {
+        throw new Error(tr('sosyalMain.yanitGonderilemedi'));
+      }
 
       setSnapReplyText('');
       // Snap'i kapat
       handleCloseSnapViewer();
-    } catch {
-      Alert.alert(tr('common.error'), tr('sosyalMain.yanitGonderilemedi'));
+    } catch (e: any) {
+      console.error('[Kıvılcım Tepki] HATA', e);
+      AppAlert.alert(tr('common.error'), tr('sosyalMain.yanitGonderilemedi'));
     } finally {
       setSnapReplySending(false);
     }
@@ -3078,6 +3350,8 @@ export default function SosyalScreen() {
             onNavigateChat={(userId, userName, userAvatar, username) =>
               navigation.navigate('Chat', { userId, userName, userAvatar, username })
             }
+            onSearchUserPress={handleMessagesSearchUserPress}
+            friendIds={friendIds}
           />
         )}
       </View>
@@ -3261,7 +3535,7 @@ export default function SosyalScreen() {
                     activeOpacity={0.85}
                     onPress={() => {
                       if (friends.length < GROUP_KIVILCIM_MIN) {
-                        Alert.alert(
+                        AppAlert.alert(
                           tr('sosyalMain.grupKivilcimi'),
                           tr('sosyalMain.grupKivilcimiEnAz', { count: GROUP_KIVILCIM_MIN }),
                         );
@@ -3665,6 +3939,7 @@ export default function SosyalScreen() {
                           style={styles.snapReactionBtn}
                           activeOpacity={0.7}
                           onPress={() => {
+                            console.log('[Kıvılcım Tepki] emoji butonuna basıldı', { emoji, snapUserId: selectedSnap.user.id, currentUserId });
                             if (selectedSnap.user.id !== currentUserId) handleSnapReply(emoji);
                           }}
                         >
@@ -3722,6 +3997,51 @@ export default function SosyalScreen() {
             <Text style={{ color: theme.textSub, fontSize: 13, marginBottom: 12, paddingHorizontal: 4 }}>
               {tr('sosyalMain.kisiSecGorurBildirim', { min: GROUP_KIVILCIM_MIN, max: GROUP_KIVILCIM_MAX })}
             </Text>
+
+            {savedGroups.length > 0 && (
+              <View style={{ marginBottom: 14 }}>
+                <Text style={{ color: theme.textSub, fontSize: 12, fontWeight: '700', marginBottom: 8, paddingHorizontal: 4, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                  {tr('sosyalMain.kayitliGruplar')}
+                </Text>
+                {savedGroups.map((g) => (
+                  <View
+                    key={g.id}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      paddingVertical: 10,
+                      paddingHorizontal: 12,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: theme.border,
+                      marginBottom: 8,
+                    }}
+                  >
+                    <TouchableOpacity
+                      activeOpacity={0.75}
+                      onPress={() => handlePickSavedGroup(g)}
+                      style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
+                    >
+                      <Users color={isDark ? NIGHT.warm : LIGHT.accent} size={18} strokeWidth={2} />
+                      <View style={{ marginLeft: 10, flex: 1 }}>
+                        <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700' }}>{g.name}</Text>
+                        <Text style={{ color: theme.textSub, fontSize: 12 }}>
+                          {tr('sosyalMain.kisiSayisi', { count: g.member_user_ids.length })}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      activeOpacity={0.75}
+                      onPress={() => handleDeleteGroup(g.id)}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <XIcon color={theme.textSub} size={16} strokeWidth={2} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+
             <ScrollView showsVerticalScrollIndicator={false}>
               {friends.map((f) => {
                 const on = groupRecipientIds.includes(f.user_id);
@@ -3761,6 +4081,40 @@ export default function SosyalScreen() {
                 );
               })}
             </ScrollView>
+
+            {groupRecipientIds.length >= GROUP_KIVILCIM_MIN && groupRecipientIds.length <= GROUP_KIVILCIM_MAX && (
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: theme.border }}>
+                <TextInput
+                  value={newGroupName}
+                  onChangeText={setNewGroupName}
+                  placeholder={tr('sosyalMain.grupAdiPlaceholder')}
+                  placeholderTextColor={theme.textSub}
+                  style={{
+                    flex: 1,
+                    borderWidth: 1,
+                    borderColor: theme.border,
+                    borderRadius: 10,
+                    paddingHorizontal: 12,
+                    paddingVertical: 9,
+                    color: theme.text,
+                    fontSize: 14,
+                  }}
+                />
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  disabled={!newGroupName.trim() || savingGroup}
+                  onPress={handleSaveGroup}
+                  style={{
+                    paddingHorizontal: 16,
+                    borderRadius: 10,
+                    justifyContent: 'center',
+                    backgroundColor: !newGroupName.trim() || savingGroup ? theme.border : (isDark ? NIGHT.warm : LIGHT.accent),
+                  }}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>{tr('sosyalMain.grubuKaydet')}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </View>
       </Modal>
@@ -3888,7 +4242,8 @@ export default function SosyalScreen() {
                   <TouchableOpacity
                     key={user.user_id}
                     onPress={() => handleSelectFriendFromSearch(user)}
-                    style={[styles.searchResultItem, { borderBottomColor: theme.border }]}
+                    disabled={sendingRequestTo === user.user_id || sentToUserIds.has(user.user_id)}
+                    style={[styles.searchResultItem, { borderBottomColor: theme.border, opacity: sendingRequestTo === user.user_id ? 0.5 : 1 }]}
                   >
                     <View style={[styles.msgAvatar, { backgroundColor: isDark ? NIGHT.glow : 'rgba(255,69,0,0.12)' }]}>
                       {user.avatar_url ? (
@@ -3903,7 +4258,13 @@ export default function SosyalScreen() {
                       <Text style={[styles.msgName, { color: theme.text }]}>{user.name}</Text>
                       <Text style={[styles.msgSub, { color: theme.textSub }]}>@{user.username}</Text>
                     </View>
-                    <UserPlus size={20} color={isDark ? NIGHT.warm : LIGHT.accent} strokeWidth={2} />
+                    {sendingRequestTo === user.user_id ? (
+                      <ActivityIndicator size="small" color={isDark ? NIGHT.warm : LIGHT.accent} />
+                    ) : sentToUserIds.has(user.user_id) ? (
+                      <Check size={20} color="#10b981" strokeWidth={2.5} />
+                    ) : (
+                      <UserPlus size={20} color={isDark ? NIGHT.warm : LIGHT.accent} strokeWidth={2} />
+                    )}
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -3929,37 +4290,75 @@ export default function SosyalScreen() {
               </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
-              {incomingRequests.length === 0 ? (
+              {incomingRequests.length === 0 && outgoingRequests.length === 0 ? (
                 <View style={{ alignItems: 'center', paddingVertical: 32 }}>
                   <Text style={[styles.msgsEmptyText, { color: theme.textSub }]}>{tr('sosyalMain.bekleyenIstekYok')}</Text>
                 </View>
-              ) : incomingRequests.map((req) => (
-                <View key={req.id} style={[styles.msgItem, { borderColor: theme.border }]}>
-                  <View style={[styles.msgAvatar, { backgroundColor: isDark ? NIGHT.glow : 'rgba(255,69,0,0.12)' }]}>
-                    <Text style={[styles.msgAvatarText, { color: isDark ? NIGHT.warm : LIGHT.accent }]}>
-                      {(req.sender_profile?.name || '?').charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                  <View style={[styles.msgInfo, { flex: 1 }]}>
-                    <Text style={[styles.msgName, { color: theme.text }]}>{req.sender_profile?.name || tr('common.kullanici')}</Text>
-                    <Text style={[styles.msgSub, { color: theme.textSub }]}>@{req.sender_profile?.username || ''}</Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <TouchableOpacity
-                      onPress={() => handleAcceptRequest(req.id, req.sender_id)}
-                      style={{ backgroundColor: isDark ? NIGHT.vivid : '#10b981', borderRadius: 20, padding: 8 }}
-                    >
-                      <Check color="#fff" size={18} strokeWidth={2.5} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => handleRejectRequest(req.id)}
-                      style={{ backgroundColor: isDark ? '#374151' : '#f3f4f6', borderRadius: 20, padding: 8 }}
-                    >
-                      <XIcon color={theme.textSub} size={18} strokeWidth={2.5} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))}
+              ) : (
+                <>
+                  {incomingRequests.length > 0 && (
+                    <>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: theme.textSub, marginBottom: 6, marginTop: 4 }}>
+                        {tr('sosyalMain.gelenIstekler')}
+                      </Text>
+                      {incomingRequests.map((req) => (
+                        <View key={req.id} style={[styles.msgItem, { borderColor: theme.border }]}>
+                          <View style={[styles.msgAvatar, { backgroundColor: isDark ? NIGHT.glow : 'rgba(255,69,0,0.12)' }]}>
+                            <Text style={[styles.msgAvatarText, { color: isDark ? NIGHT.warm : LIGHT.accent }]}>
+                              {(req.sender_profile?.name || '?').charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                          <View style={[styles.msgInfo, { flex: 1 }]}>
+                            <Text style={[styles.msgName, { color: theme.text }]}>{req.sender_profile?.name || tr('common.kullanici')}</Text>
+                            <Text style={[styles.msgSub, { color: theme.textSub }]}>@{req.sender_profile?.username || ''}</Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', gap: 8 }}>
+                            <TouchableOpacity
+                              onPress={() => handleAcceptRequest(req.id, req.sender_id)}
+                              style={{ backgroundColor: isDark ? NIGHT.vivid : '#10b981', borderRadius: 20, padding: 8 }}
+                            >
+                              <Check color="#fff" size={18} strokeWidth={2.5} />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={() => handleRejectRequest(req.id)}
+                              style={{ backgroundColor: isDark ? '#374151' : '#f3f4f6', borderRadius: 20, padding: 8 }}
+                            >
+                              <XIcon color={theme.textSub} size={18} strokeWidth={2.5} />
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      ))}
+                    </>
+                  )}
+
+                  {outgoingRequests.length > 0 && (
+                    <>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: theme.textSub, marginBottom: 6, marginTop: 16 }}>
+                        {tr('sosyalMain.gonderilenIstekler')}
+                      </Text>
+                      {outgoingRequests.map((req) => (
+                        <View key={req.id} style={[styles.msgItem, { borderColor: theme.border }]}>
+                          <View style={[styles.msgAvatar, { backgroundColor: isDark ? NIGHT.glow : 'rgba(255,69,0,0.12)' }]}>
+                            <Text style={[styles.msgAvatarText, { color: isDark ? NIGHT.warm : LIGHT.accent }]}>
+                              {(req.receiver_profile?.name || '?').charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                          <View style={[styles.msgInfo, { flex: 1 }]}>
+                            <Text style={[styles.msgName, { color: theme.text }]}>{req.receiver_profile?.name || tr('common.kullanici')}</Text>
+                            <Text style={[styles.msgSub, { color: theme.textSub }]}>@{req.receiver_profile?.username || ''}</Text>
+                          </View>
+                          <TouchableOpacity
+                            onPress={() => handleCancelOutgoingRequest(req.id)}
+                            style={{ backgroundColor: isDark ? '#374151' : '#f3f4f6', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8 }}
+                          >
+                            <Text style={{ fontSize: 12, fontWeight: '700', color: theme.textSub }}>{tr('sosyalProfile.geriAl')}</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </>
+                  )}
+                </>
+              )}
             </ScrollView>
           </View>
         </View>
@@ -4939,7 +5338,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
-    height: 160,
+    height: 130,
   },
   radarCardBlur: {
     flex: 1,
@@ -4959,36 +5358,41 @@ const styles = StyleSheet.create({
     bottom: 0,
     flexDirection: 'row',
     alignItems: 'flex-end',
+    justifyContent: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 12,
-    gap: 10,
+    paddingVertical: 9,
+    gap: 8,
   },
   radarCardInfoBg: {
-    flex: 1,
-    padding: 10,
-    borderRadius: 12,
-    gap: 4,
+    padding: 8,
+    borderRadius: 10,
+    gap: 3,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.08)',
   },
   radarCardInfoTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
   radarIconCircleSmall: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   radarCardArrowBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  radarCardArrowBtnAbsolute: {
+    position: 'absolute',
+    right: 12,
+    bottom: 9,
   },
   radarCardLeft: {
     alignItems: 'center',

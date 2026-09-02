@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { AppAlert } from '@/lib/alert';
 import {
   View,
   Text,
@@ -13,10 +14,11 @@ import {
   Platform,
   Alert,
   Switch,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Users, Camera, Clock, Star, UserCheck, UserPlus, Hourglass, MessageCircle, X, Globe, Lock, Check } from 'lucide-react-native';
+import { ArrowLeft, Users, Camera, Clock, Star, UserCheck, UserPlus, Hourglass, MessageCircle, X, Check, Flame, ShieldOff, ShieldCheck, MoreHorizontal, Flag, ChevronRight } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
@@ -181,14 +183,20 @@ const SosyalProfileScreen = ({ route }: any) => {
 
   const [friends, setFriends] = useState<FriendEntry[]>([]);
   const [snapCount, setSnapCount] = useState(0);
+  const [streakCount, setStreakCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
-  const [isPublic, setIsPublic] = useState(true);
-  const [privacyUpdating, setPrivacyUpdating] = useState(false);
   const [reactionsEnabled, setReactionsEnabled] = useState(true);
   const [myRelationship, setMyRelationship] = useState<any | null>(null);
   const [relationshipActionLoading, setRelationshipActionLoading] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [blockActionLoading, setBlockActionLoading] = useState(false);
+  const [moreMenuVisible, setMoreMenuVisible] = useState(false);
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [reportReason, setReportReason] = useState<string | null>(null);
+  const [reportDetail, setReportDetail] = useState('');
+  const [reportSubmitting, setReportSubmitting] = useState(false);
 
   // Arkadaş profil modalı
   const [selectedFriend, setSelectedFriend] = useState<FriendEntry | null>(null);
@@ -198,6 +206,7 @@ const SosyalProfileScreen = ({ route }: any) => {
   const [friendsFriends, setFriendsFriends] = useState<FriendEntry[]>([]);
   const [showFriendsFriends, setShowFriendsFriends] = useState(false);
   const [showOwnFriends, setShowOwnFriends] = useState(false);
+  const [showPendingRequests, setShowPendingRequests] = useState(false);
 
   const handleFriendPress = useCallback(async (entry: FriendEntry) => {
     setSelectedFriend(entry);
@@ -280,7 +289,7 @@ const SosyalProfileScreen = ({ route }: any) => {
       if (!isOwnProfile) {
         const { data: profileData } = await supabase
           .from('user_profiles')
-          .select('user_id, name, username, avatar_url, is_public')
+          .select('user_id, name, username, avatar_url, is_public, snap_streak_current')
           .eq('user_id', viewingUserId)
           .single();
 
@@ -291,17 +300,18 @@ const SosyalProfileScreen = ({ route }: any) => {
             username: profileData.username,
             avatarUrl: profileData.avatar_url,
           });
+          setStreakCount(profileData.snap_streak_current ?? 0);
         }
       } else {
-        // Kendi profilimiz için is_public değerini çek
+        // Kendi profilimiz için is_public ve seri değerini çek
         const { data: profileData } = await supabase
           .from('user_profiles')
-          .select('is_public')
+          .select('snap_streak_current')
           .eq('user_id', viewingUserId)
           .single();
 
         if (profileData) {
-          setIsPublic(profileData.is_public ?? true);
+          setStreakCount(profileData.snap_streak_current ?? 0);
         }
       }
 
@@ -322,14 +332,23 @@ const SosyalProfileScreen = ({ route }: any) => {
           .neq('status', 'rejected')
           .maybeSingle();
         setMyRelationship(rel || null);
+
+        const { data: blockRow } = await supabase
+          .from('blocked_users')
+          .select('id')
+          .eq('blocker_id', currentUserProfile.userId)
+          .eq('blocked_id', viewingUserId)
+          .maybeSingle();
+        setIsBlocked(!!blockRow);
       }
 
       // Arkadaşlık listesi
-      const { data: friendships } = await supabase
+      const { data: friendships, error: friendshipsError } = await supabase
         .from('friendships')
         .select('id, sender_id, receiver_id, status')
         .or(`sender_id.eq.${viewingUserId},receiver_id.eq.${viewingUserId}`)
         .neq('status', 'rejected');
+      console.log('[SosyalProfile fetchData] friendships sorgusu', { viewingUserId, friendships, friendshipsError });
 
       if (friendships && friendships.length > 0) {
         // Karşı taraf user_id'lerini topla
@@ -378,7 +397,7 @@ const SosyalProfileScreen = ({ route }: any) => {
   }, [viewingUserId, isOwnProfile, currentUserProfile?.userId]);
 
   const handleRemoveFriend = useCallback(async (friendshipId: string, friendName: string) => {
-    Alert.alert(
+    AppAlert.alert(
       tr('sosyalProfile.arkadasiCikar'),
       tr('sosyalProfile.arkadasiCikarOnay', { name: friendName }),
       [
@@ -395,11 +414,11 @@ const SosyalProfileScreen = ({ route }: any) => {
 
               if (error) throw error;
 
-              Alert.alert(tr('sendSnap.basarili'), tr('sosyalProfile.arkadasCikarildi'));
+              AppAlert.alert(tr('sendSnap.basarili'), tr('sosyalProfile.arkadasCikarildi'));
               setSelectedFriend(null);
               fetchData();
             } catch (e: any) {
-              Alert.alert(tr('common.error'), e.message || tr('sosyalProfile.arkadasCikarilamadi'));
+              AppAlert.alert(tr('common.error'), e.message || tr('sosyalProfile.arkadasCikarilamadi'));
             }
           },
         },
@@ -408,7 +427,7 @@ const SosyalProfileScreen = ({ route }: any) => {
   }, [fetchData]);
 
   const handleCancelRequest = useCallback(async (friendshipId: string, friendName: string) => {
-    Alert.alert(
+    AppAlert.alert(
       tr('sosyalProfile.istegiGeriAl'),
       tr('sosyalProfile.istegiGeriAlOnay', { name: friendName }),
       [
@@ -425,11 +444,11 @@ const SosyalProfileScreen = ({ route }: any) => {
 
               if (error) throw error;
 
-              Alert.alert(tr('sendSnap.basarili'), tr('sosyalProfile.istekGeriAlindi'));
+              AppAlert.alert(tr('sendSnap.basarili'), tr('sosyalProfile.istekGeriAlindi'));
               setSelectedFriend(null);
               fetchData();
             } catch (e: any) {
-              Alert.alert(tr('common.error'), e.message || tr('sosyalProfile.istekGeriAlinamadi'));
+              AppAlert.alert(tr('common.error'), e.message || tr('sosyalProfile.istekGeriAlinamadi'));
             }
           },
         },
@@ -438,9 +457,31 @@ const SosyalProfileScreen = ({ route }: any) => {
   }, [fetchData]);
 
   const handleSendFriendRequest = async () => {
-    if (!currentUserProfile?.userId || !viewingUserId) return;
+    console.log('[Arkadaşlık İsteği] handleSendFriendRequest çağrıldı', {
+      sender: currentUserProfile?.userId,
+      receiver: viewingUserId,
+    });
+    if (!currentUserProfile?.userId || !viewingUserId) {
+      console.warn('[Arkadaşlık İsteği] sender veya receiver eksik, işlem iptal', {
+        sender: currentUserProfile?.userId,
+        receiver: viewingUserId,
+      });
+      return;
+    }
     setRelationshipActionLoading(true);
     try {
+      // Aramızda 'rejected' durumunda eski bir kayıt kalmış olabilir (unique
+      // kısıtlama nedeniyle yeni isteği sessizce engelleyebilir) — önce temizle.
+      const { data: staleRows } = await supabase
+        .from('friendships')
+        .select('id, status')
+        .or(`and(sender_id.eq.${currentUserProfile.userId},receiver_id.eq.${viewingUserId}),and(sender_id.eq.${viewingUserId},receiver_id.eq.${currentUserProfile.userId})`)
+        .eq('status', 'rejected');
+      if (staleRows && staleRows.length > 0) {
+        console.log('[Arkadaşlık İsteği] eski/rejected kayıt(lar) temizleniyor', staleRows);
+        await supabase.from('friendships').delete().in('id', staleRows.map((r: any) => r.id));
+      }
+
       const { data, error } = await supabase
         .from('friendships')
         .insert({
@@ -450,6 +491,7 @@ const SosyalProfileScreen = ({ route }: any) => {
         })
         .select()
         .single();
+      console.log('[Arkadaşlık İsteği] insert sonucu', { data, error });
       if (error) throw error;
       setMyRelationship(data);
       
@@ -457,12 +499,17 @@ const SosyalProfileScreen = ({ route }: any) => {
       const myName = currentUserProfile?.name || currentUserProfile?.username || tr('sosyalMain.biri');
       try {
         const { notify } = require('@/lib/notifications');
-        notify.friendRequest(viewingUserId, myName).catch(() => {});
-      } catch {}
+        notify.friendRequest(viewingUserId, myName).catch((err: unknown) => {
+          if (__DEV__) console.warn('Arkadaşlık bildirimi gönderilemedi:', err);
+        });
+      } catch (err) {
+        if (__DEV__) console.warn('Bildirim modülü yüklenemedi:', err);
+      }
 
-      Alert.alert(tr('sosyalMain.istekGonderildiUnlem') || 'İsteyiniz İletildi', tr('sosyalMain.arkadaslikIstegiGonderildi', { name: profile?.name || profile?.username }) || 'Arkadaşlık isteği gönderildi.');
+      AppAlert.alert(tr('sosyalMain.istekGonderildiUnlem') || 'İsteyiniz İletildi', tr('sosyalMain.arkadaslikIstegiGonderildi', { name: profile?.name || profile?.username }) || 'Arkadaşlık isteği gönderildi.');
     } catch (e: any) {
-      Alert.alert(tr('common.error'), e.message || tr('sosyalMain.birHataOlustu'));
+      console.error('[Arkadaşlık İsteği] HATA', e);
+      AppAlert.alert(tr('common.error'), e.message || tr('sosyalMain.birHataOlustu'));
     } finally {
       setRelationshipActionLoading(false);
     }
@@ -481,17 +528,126 @@ const SosyalProfileScreen = ({ route }: any) => {
       if (error) throw error;
       setMyRelationship(data);
       fetchData(); // Arkadaş listesini yenile
-      Alert.alert(tr('sendSnap.basarili'), tr('sosyalMain.istekKabulEdildi', { name: profile?.name || profile?.username }) || 'Arkadaşlık isteği kabul edildi.');
+      AppAlert.alert(tr('sendSnap.basarili'), tr('sosyalMain.istekKabulEdildi', { name: profile?.name || profile?.username }) || 'Arkadaşlık isteği kabul edildi.');
     } catch (e: any) {
-      Alert.alert(tr('common.error'), e.message || tr('sosyalMain.birHataOlustu'));
+      AppAlert.alert(tr('common.error'), e.message || tr('sosyalMain.birHataOlustu'));
     } finally {
       setRelationshipActionLoading(false);
     }
   };
 
+  const handleAcceptPendingById = useCallback(async (friendshipId: string) => {
+    try {
+      const { error, data } = await supabase
+        .from('friendships')
+        .update({ status: 'accepted' })
+        .eq('id', friendshipId)
+        .select();
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('İstek güncellenemedi (satır bulunamadı veya yetki yok).');
+      }
+      fetchData();
+    } catch (e: any) {
+      AppAlert.alert(tr('common.error'), e.message || tr('sosyalMain.birHataOlustu'));
+    }
+  }, [fetchData]);
+
+  const handleToggleBlock = () => {
+    if (!currentUserProfile?.userId || !viewingUserId) return;
+    const targetName = profile?.name || profile?.username || tr('common.kullanici');
+
+    if (isBlocked) {
+      AppAlert.alert(
+        tr('sosyalProfile.engeliKaldir'),
+        tr('sosyalProfile.engeliKaldirOnay', { name: targetName }),
+        [
+          { text: tr('common.cancel'), style: 'cancel' },
+          {
+            text: tr('sosyalProfile.engeliKaldir'),
+            onPress: async () => {
+              setBlockActionLoading(true);
+              try {
+                const { error } = await supabase
+                  .from('blocked_users')
+                  .delete()
+                  .eq('blocker_id', currentUserProfile.userId)
+                  .eq('blocked_id', viewingUserId);
+                if (error) throw error;
+                setIsBlocked(false);
+                AppAlert.alert(tr('sendSnap.basarili'), tr('sosyalProfile.engelKaldirildi'));
+              } catch {
+                AppAlert.alert(tr('common.error'), tr('sosyalProfile.islemBasarisiz'));
+              } finally {
+                setBlockActionLoading(false);
+              }
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    AppAlert.alert(
+      tr('sosyalProfile.kullaniciyiEngelle'),
+      tr('sosyalProfile.kullaniciyiEngelleOnay', { name: targetName }),
+      [
+        { text: tr('common.cancel'), style: 'cancel' },
+        {
+          text: tr('sosyalProfile.engelle'),
+          style: 'destructive',
+          onPress: async () => {
+            setBlockActionLoading(true);
+            try {
+              const { error } = await supabase.rpc('block_user', { p_blocked_id: viewingUserId });
+              if (error) throw error;
+              setIsBlocked(true);
+              setMyRelationship(null);
+              AppAlert.alert(tr('sendSnap.basarili'), tr('sosyalProfile.kullaniciEngellendi', { name: targetName }));
+            } catch {
+              AppAlert.alert(tr('common.error'), tr('sosyalProfile.islemBasarisiz'));
+            } finally {
+              setBlockActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const REPORT_REASONS = [
+    { key: 'spam', label: tr('sosyalProfile.sebepSpam') },
+    { key: 'taciz', label: tr('sosyalProfile.sebepTaciz') },
+    { key: 'uygunsuz_icerik', label: tr('sosyalProfile.sebepUygunsuzIcerik') },
+    { key: 'sahte_hesap', label: tr('sosyalProfile.sebepSahteHesap') },
+    { key: 'diger', label: tr('sosyalProfile.sebepDiger') },
+  ];
+
+  const handleSubmitReport = async () => {
+    if (!currentUserProfile?.userId || !viewingUserId || !reportReason) return;
+    setReportSubmitting(true);
+    try {
+      const { error } = await supabase.from('kullanici_sikayetleri').insert({
+        sikayet_eden_id: currentUserProfile.userId,
+        sikayet_edilen_id: viewingUserId,
+        sebep: reportReason,
+        aciklama: reportDetail.trim() || null,
+      });
+      if (error) throw error;
+      setReportModalVisible(false);
+      setReportReason(null);
+      setReportDetail('');
+      AppAlert.alert(tr('sosyalProfile.sikayetGonderildi'), tr('sosyalProfile.sikayetGonderildiMesaj'));
+    } catch {
+      AppAlert.alert(tr('common.error'), tr('sosyalProfile.islemBasarisiz'));
+    } finally {
+      setReportSubmitting(false);
+    }
+  };
+
   const handleRemoveFriendOnProfile = async () => {
     if (!myRelationship) return;
-    Alert.alert(
+    AppAlert.alert(
       tr('sosyalProfile.arkadasiCikar') || 'Arkadaşı Çıkar',
       tr('sosyalProfile.arkadasiCikarOnay', { name: profile?.name || profile?.username }) || 'Bu kişiyi arkadaşlarınızdan çıkarmak istediğinize emin misiniz?',
       [
@@ -509,9 +665,9 @@ const SosyalProfileScreen = ({ route }: any) => {
               if (error) throw error;
               setMyRelationship(null);
               fetchData();
-              Alert.alert(tr('sendSnap.basarili'), tr('sosyalProfile.arkadasCikarildi') || 'Arkadaş çıkarıldı.');
+              AppAlert.alert(tr('sendSnap.basarili'), tr('sosyalProfile.arkadasCikarildi') || 'Arkadaş çıkarıldı.');
             } catch (e: any) {
-              Alert.alert(tr('common.error'), e.message || tr('sosyalProfile.arkadasCikarilamadi'));
+              AppAlert.alert(tr('common.error'), e.message || tr('sosyalProfile.arkadasCikarilamadi'));
             } finally {
               setRelationshipActionLoading(false);
             }
@@ -523,7 +679,7 @@ const SosyalProfileScreen = ({ route }: any) => {
 
   const handleCancelRequestOnProfile = async () => {
     if (!myRelationship) return;
-    Alert.alert(
+    AppAlert.alert(
       tr('sosyalProfile.istegiGeriAl') || 'İsteği Geri Al',
       tr('sosyalProfile.istegiGeriAlOnay', { name: profile?.name || profile?.username }) || 'Arkadaşlık isteğini geri almak istiyor musunuz?',
       [
@@ -540,9 +696,9 @@ const SosyalProfileScreen = ({ route }: any) => {
                 .eq('id', myRelationship.id);
               if (error) throw error;
               setMyRelationship(null);
-              Alert.alert(tr('sendSnap.basarili'), tr('sosyalProfile.istekGeriAlindi') || 'İstek geri alındı.');
+              AppAlert.alert(tr('sendSnap.basarili'), tr('sosyalProfile.istekGeriAlindi') || 'İstek geri alındı.');
             } catch (e: any) {
-              Alert.alert(tr('common.error'), e.message || tr('sosyalProfile.istekGeriAlinamadi') || 'İstek geri alınamadı.');
+              AppAlert.alert(tr('common.error'), e.message || tr('sosyalProfile.istekGeriAlinamadi') || 'İstek geri alınamadı.');
             } finally {
               setRelationshipActionLoading(false);
             }
@@ -553,7 +709,7 @@ const SosyalProfileScreen = ({ route }: any) => {
   };
 
   const handleAvatarPress = useCallback(() => {
-    Alert.alert(tr('sosyalProfile.profilFotografi'), tr('sosyalProfile.nasilYuklemekIstersin'), [
+    AppAlert.alert(tr('sosyalProfile.profilFotografi'), tr('sosyalProfile.nasilYuklemekIstersin'), [
       {
         text: tr('sosyalProfile.galeridenSec'),
         onPress: () => pickAvatar('gallery'),
@@ -573,7 +729,7 @@ const SosyalProfileScreen = ({ route }: any) => {
     if (source === 'camera') {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert(tr('sosyalProfile.izinGerekli'), tr('sosyalProfile.kameraIzinVer'));
+        AppAlert.alert(tr('sosyalProfile.izinGerekli'), tr('sosyalProfile.kameraIzinVer'));
         return;
       }
       result = await ImagePicker.launchCameraAsync({
@@ -585,7 +741,7 @@ const SosyalProfileScreen = ({ route }: any) => {
     } else {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert(tr('sosyalProfile.izinGerekli'), tr('sosyalProfile.galeriIzinVer'));
+        AppAlert.alert(tr('sosyalProfile.izinGerekli'), tr('sosyalProfile.galeriIzinVer'));
         return;
       }
       result = await ImagePicker.launchImageLibraryAsync({
@@ -657,41 +813,13 @@ const SosyalProfileScreen = ({ route }: any) => {
 
       // UserContext'i yenile
       await refreshProfile();
-      Alert.alert(tr('sendSnap.basarili'), tr('sosyalProfile.fotografGuncellendi'));
+      AppAlert.alert(tr('sendSnap.basarili'), tr('sosyalProfile.fotografGuncellendi'));
     } catch (e: any) {
-      Alert.alert(tr('common.error'), e.message || tr('sosyalProfile.fotografYuklenemedi'));
+      AppAlert.alert(tr('common.error'), e.message || tr('sosyalProfile.fotografYuklenemedi'));
     } finally {
       setAvatarUploading(false);
     }
   }, [profile?.userId, refreshProfile]);
-
-  const handlePrivacyToggle = useCallback(async (value: boolean) => {
-    if (!profile?.userId) return;
-    
-    setPrivacyUpdating(true);
-    try {
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({ is_public: value })
-        .eq('user_id', profile.userId);
-
-      if (error) throw error;
-
-      setIsPublic(value);
-      Alert.alert(
-        tr('sosyalProfile.gizlilikGuncellendi'),
-        value
-          ? tr('sosyalProfile.artikHerkeseAcik')
-          : tr('sosyalProfile.artikOzel')
-      );
-    } catch (e: any) {
-      Alert.alert(tr('common.error'), e.message || tr('sosyalProfile.gizlilikGuncellenemedi'));
-      // Hata durumunda eski değere geri dön
-      setIsPublic(!value);
-    } finally {
-      setPrivacyUpdating(false);
-    }
-  }, [profile?.userId]);
 
   useEffect(() => {
     fetchData();
@@ -716,7 +844,16 @@ const SosyalProfileScreen = ({ route }: any) => {
             <ArrowLeft size={22} color={txt1} strokeWidth={2} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: txt1 }]}>{tr('sosyalProfile.headerTitle')}</Text>
-          <View style={{ width: 38 }} />
+          {!isOwnProfile ? (
+            <TouchableOpacity
+              onPress={() => setMoreMenuVisible(true)}
+              style={[styles.backBtn, { backgroundColor: chipBg }]}
+            >
+              <MoreHorizontal size={22} color={txt1} strokeWidth={2} />
+            </TouchableOpacity>
+          ) : (
+            <View style={{ width: 38 }} />
+          )}
         </View>
 
         <ScrollView
@@ -772,10 +909,10 @@ const SosyalProfileScreen = ({ route }: any) => {
               )}
             </TouchableOpacity>
 
-            <Text style={[styles.profileName, { color: txt1 }]}>
+            <Text style={[styles.profileName, { color: txt1 }]} numberOfLines={1}>
               {profile?.name ?? tr('common.kullanici')}
             </Text>
-            <Text style={[styles.profileUsername, { color: txt2 }]}>
+            <Text style={[styles.profileUsername, { color: txt2 }]} numberOfLines={1}>
               @{profile?.username ?? ''}
             </Text>
 
@@ -810,10 +947,10 @@ const SosyalProfileScreen = ({ route }: any) => {
                       activeOpacity={0.85}
                       onPress={() => {
                         navigation.navigate('Chat', {
-                          userId: profile.userId || viewingUserId,
-                          userName: profile.name,
-                          userAvatar: profile.avatarUrl || '',
-                          username: profile.username || ''
+                          userId: profile?.userId || viewingUserId,
+                          userName: profile?.name,
+                          userAvatar: profile?.avatarUrl || '',
+                          username: profile?.username || ''
                         });
                       }}
                       style={styles.sheetMsgBtn}
@@ -894,49 +1031,10 @@ const SosyalProfileScreen = ({ route }: any) => {
             )}
           </View>
 
-          {/* Gizlilik Ayarı - Sadece kendi profilinde */}
+          {/* Gizlilik ayarı kaldırıldı — ŞanlıSosyal artık tamamen arkadaş bazlı,
+              "herkese açık" seçeneği yok, bu yüzden ayrı bir gizlilik anahtarına gerek kalmadı. */}
           {isOwnProfile && (
             <>
-            <View
-              style={[
-                styles.privacyCard,
-                cardOuterShadow,
-                cardBorder,
-                { backgroundColor: cardBg },
-              ]}
-            >
-              <View style={styles.privacyRow}>
-                <View style={styles.privacyLeft}>
-                  {isPublic ? (
-                    <Globe size={20} color={txt1} strokeWidth={2} />
-                  ) : (
-                    <Lock size={20} color={txt1} strokeWidth={2} />
-                  )}
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.privacyTitle, { color: txt1 }]}>
-                      {isPublic ? tr('sosyalProfile.herkeseAcik') : tr('sosyalProfile.sadeceArkadaslar')}
-                    </Text>
-                    <Text style={[styles.privacyDesc, { color: txt2 }]}>
-                      {isPublic
-                        ? tr('sosyalProfile.herkesGorebilir')
-                        : tr('sosyalProfile.sadeceArkadaslarGorebilir')}
-                    </Text>
-                  </View>
-                </View>
-                <Switch
-                  value={isPublic}
-                  onValueChange={handlePrivacyToggle}
-                  disabled={privacyUpdating}
-                  trackColor={{
-                    false: isDark ? '#2c2c2e' : '#e2e8f0',
-                    true: amber
-                  }}
-                  thumbColor="#fff"
-                  ios_backgroundColor={isDark ? '#2c2c2e' : '#e2e8f0'}
-                />
-              </View>
-            </View>
-
             {/* Tepki Ayarı */}
             <View
               style={[
@@ -1003,21 +1101,110 @@ const SosyalProfileScreen = ({ route }: any) => {
               </View>
 
               <View style={styles.bentoRow}>
-                <BentoCard
-                  icon={<Clock size={20} color={isDark ? '#a78bfa' : '#8b5cf6'} strokeWidth={2} />}
-                  value={pendingCount}
-                  label={tr('sosyalProfile.bekleyenIstek')}
-                  isDark={isDark}
-                  accent={isDark ? '#a78bfa' : '#8b5cf6'}
-                />
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  disabled={!isOwnProfile}
+                  onPress={() => setShowPendingRequests(!showPendingRequests)}
+                  style={{ flex: 1 }}
+                >
+                  <BentoCard
+                    icon={<Clock size={20} color={isDark ? '#a78bfa' : '#8b5cf6'} strokeWidth={2} />}
+                    value={pendingCount}
+                    label={tr('sosyalProfile.bekleyenIstek')}
+                    isDark={isDark}
+                    accent={isDark ? '#a78bfa' : '#8b5cf6'}
+                  />
+                </TouchableOpacity>
                 <View style={{ width: 10 }} />
                 <BentoCard
-                  icon={<Star size={20} color={txt1} strokeWidth={2} />}
-                  value={tr('sosyalProfile.anlik')}
-                  label={tr('sosyalProfile.icerikModu')}
+                  icon={<Flame size={20} color={isDark ? '#fb923c' : '#ea580c'} strokeWidth={2} />}
+                  value={streakCount}
+                  label={tr('sosyalProfile.kivilcimSerisi')}
                   isDark={isDark}
+                  accent={isDark ? '#fb923c' : '#ea580c'}
                 />
               </View>
+
+              {/* Bekleyen İstekler Listesi */}
+              {showPendingRequests && isOwnProfile && (
+                <View style={[styles.friendsFriendsContainer, cardOuterShadow, cardBorder, { backgroundColor: cardBg, marginTop: 16 }]}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                      <Clock size={18} color={txt1} strokeWidth={2} />
+                      <Text style={[styles.friendsFriendsTitle, { color: txt1 }]}>{tr('sosyalProfile.bekleyenIstek')}</Text>
+                      <View style={[styles.countPill, { backgroundColor: chipBg }]}>
+                        <Text style={[styles.countPillText, { color: txt1 }]}>{pendingCount}</Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity onPress={() => setShowPendingRequests(false)}>
+                      <X size={20} color={txt2} strokeWidth={2} />
+                    </TouchableOpacity>
+                  </View>
+                  {friends.filter(f => f.status !== 'accepted').length === 0 ? (
+                    <Text style={{ color: txt2, fontSize: 13, textAlign: 'center', paddingVertical: 12 }}>
+                      {tr('sosyalMain.bekleyenIstekYok')}
+                    </Text>
+                  ) : friends.filter(f => f.status !== 'accepted').map(entry => (
+                    <View key={entry.id} style={[styles.friendRow, { borderBottomColor: cardBdr }]}>
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          setShowPendingRequests(false);
+                          navigation.navigate('SosyalProfile', { userId: entry.other_user_id });
+                        }}
+                        style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                      >
+                        <View style={[styles.friendAvatar, { backgroundColor: chipBg }]}>
+                          {entry.other_avatar ? (
+                            <Image
+                              source={{ uri: processImageUrl(entry.other_avatar) ?? undefined }}
+                              style={styles.friendAvatarImg}
+                            />
+                          ) : (
+                            <Text style={[styles.friendAvatarText, { color: txt1 }]}>
+                              {entry.other_name.charAt(0).toUpperCase()}
+                            </Text>
+                          )}
+                        </View>
+                        <View style={styles.friendInfo}>
+                          <Text style={[styles.friendName, { color: txt1 }]}>{entry.other_name}</Text>
+                          <Text style={[styles.friendUsername, { color: txt2 }]}>
+                            {entry.status === 'pending_received' ? tr('sosyalProfile.istekVar') : tr('sosyalProfile.bekliyor')}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      {entry.status === 'pending_received' ? (
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                          <TouchableOpacity
+                            activeOpacity={0.7}
+                            onPress={() => handleAcceptPendingById(entry.id)}
+                            style={{ backgroundColor: '#10b981', borderRadius: 20, padding: 8 }}
+                          >
+                            <Check size={16} color="#fff" strokeWidth={2.5} />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            activeOpacity={0.7}
+                            onPress={() => handleRemoveFriend(entry.id, entry.other_name)}
+                            style={{ backgroundColor: 'rgba(239,68,68,0.15)', borderRadius: 20, padding: 8 }}
+                          >
+                            <X size={16} color="#ef4444" strokeWidth={2.5} />
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          activeOpacity={0.7}
+                          onPress={() => handleRemoveFriend(entry.id, entry.other_name)}
+                          style={[styles.removeFriendBtn, { backgroundColor: 'rgba(239,68,68,0.15)', borderColor: 'rgba(239,68,68,0.3)' }]}
+                        >
+                          <X size={14} color="#ef4444" strokeWidth={2.5} />
+                          <Text style={[styles.removeFriendText, { color: '#ef4444' }]}>{tr('sosyalProfile.geriAl')}</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )}
 
               {/* Kendi Arkadaş Listesi Modal */}
               {showOwnFriends && isOwnProfile && (
@@ -1082,6 +1269,123 @@ const SosyalProfileScreen = ({ route }: any) => {
           <View style={{ height: 40 }} />
         </ScrollView>
       </SafeAreaView>
+
+      {/* ── "⋯" Daha Fazla Menüsü ── */}
+      <Modal
+        visible={moreMenuVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setMoreMenuVisible(false)}
+      >
+        <TouchableOpacity
+          style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}
+          activeOpacity={1}
+          onPress={() => setMoreMenuVisible(false)}
+        >
+          <View style={{ backgroundColor: cardBg, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 12, paddingBottom: 24 }}>
+            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: chipBg, alignSelf: 'center', marginBottom: 12 }} />
+
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, gap: 14 }}
+              onPress={() => { setMoreMenuVisible(false); setReportModalVisible(true); }}
+            >
+              <Flag size={20} color={txt1} strokeWidth={2} />
+              <Text style={{ flex: 1, fontSize: 16, fontWeight: '600', color: txt1 }}>{tr('sosyalProfile.sikayetEt')}</Text>
+              <ChevronRight size={18} color={txt2} strokeWidth={2} />
+            </TouchableOpacity>
+
+            <View style={{ height: 1, backgroundColor: cardBdr, marginHorizontal: 20 }} />
+
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, gap: 14 }}
+              disabled={blockActionLoading}
+              onPress={() => { setMoreMenuVisible(false); handleToggleBlock(); }}
+            >
+              {isBlocked ? (
+                <ShieldCheck size={20} color={txt1} strokeWidth={2} />
+              ) : (
+                <ShieldOff size={20} color="#e74c3c" strokeWidth={2} />
+              )}
+              <Text style={{ flex: 1, fontSize: 16, fontWeight: '600', color: isBlocked ? txt1 : '#e74c3c' }}>
+                {isBlocked ? tr('sosyalProfile.engeliKaldir') : tr('sosyalProfile.kullaniciyiEngelle')}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{ marginTop: 8, marginHorizontal: 20, paddingVertical: 14, borderRadius: 14, backgroundColor: chipBg, alignItems: 'center' }}
+              onPress={() => setMoreMenuVisible(false)}
+            >
+              <Text style={{ fontSize: 15, fontWeight: '700', color: txt1 }}>{tr('common.cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* ── Şikayet Et Modalı ── */}
+      <Modal
+        visible={reportModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setReportModalVisible(false)}
+      >
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+          <View style={{ backgroundColor: cardBg, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 16, paddingHorizontal: 20, paddingBottom: 32, maxHeight: '85%' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <Text style={{ fontSize: 17, fontWeight: '800', color: txt1 }}>{tr('sosyalProfile.sikayetEt')}</Text>
+              <TouchableOpacity onPress={() => setReportModalVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <X size={22} color={txt2} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{ fontSize: 13, fontWeight: '700', color: txt2, marginBottom: 10 }}>{tr('sosyalProfile.sikayetSebebi')}</Text>
+            {REPORT_REASONS.map((r) => (
+              <TouchableOpacity
+                key={r.key}
+                style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 12 }}
+                onPress={() => setReportReason(r.key)}
+              >
+                <View style={{
+                  width: 20, height: 20, borderRadius: 10, borderWidth: 2,
+                  borderColor: reportReason === r.key ? amber : cardBdr,
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {reportReason === r.key && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: amber }} />}
+                </View>
+                <Text style={{ fontSize: 15, color: txt1, fontWeight: reportReason === r.key ? '700' : '500' }}>{r.label}</Text>
+              </TouchableOpacity>
+            ))}
+
+            <Text style={{ fontSize: 13, fontWeight: '700', color: txt2, marginTop: 8, marginBottom: 8 }}>{tr('sosyalProfile.sikayetDetayIsteğeBagli')}</Text>
+            <TextInput
+              value={reportDetail}
+              onChangeText={setReportDetail}
+              placeholder={tr('sosyalProfile.sikayetDetayPlaceholder')}
+              placeholderTextColor={txt2}
+              multiline
+              numberOfLines={3}
+              style={{
+                borderWidth: 1, borderColor: cardBdr, borderRadius: 14, padding: 12,
+                minHeight: 80, textAlignVertical: 'top', color: txt1, fontSize: 14, marginBottom: 16,
+              }}
+            />
+
+            <TouchableOpacity
+              style={{
+                backgroundColor: reportReason ? '#e74c3c' : chipBg,
+                borderRadius: 14, paddingVertical: 15, alignItems: 'center',
+              }}
+              disabled={!reportReason || reportSubmitting}
+              onPress={handleSubmitReport}
+            >
+              {reportSubmitting ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={{ fontSize: 15, fontWeight: '800', color: reportReason ? '#fff' : txt2 }}>{tr('sosyalProfile.sikayetiGonder')}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* ── Arkadaş Profil Modalı ── */}
       <Modal

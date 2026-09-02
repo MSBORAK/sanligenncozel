@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { AppAlert } from '@/lib/alert';
 import Animated, { useAnimatedStyle, interpolate, Extrapolation, type SharedValue } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import {
@@ -87,6 +88,7 @@ const ChatScreen = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const route = useRoute();
   const params = route.params as RouteParams;
+  console.log('[Sohbet] route.params', params);
   const { t: tr } = useTranslation();
   const t = useAppTheme();
   const isDark = t.isDark;
@@ -125,7 +127,7 @@ const ChatScreen = () => {
   const [cameraMode, setCameraMode] = useState<'photo' | 'video'>('photo');
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
-  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const cameraRef = useRef<any>(null);
   /** Tepki mesajındaki kıvılcım önizlemesi — tam ekran */
@@ -141,11 +143,13 @@ const ChatScreen = () => {
   const maxBubbleWidth = Math.min(windowWidth * 0.78, 340);
 
   useEffect(() => {
+    let isMounted = true;
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
+      if (!isMounted) return;
       if (user) {
         if (!params.userId || params.userId === '') {
-          Alert.alert(tr('common.error'), tr('chat.kullaniciBilgisiBulunamadi'));
+          AppAlert.alert(tr('common.error'), tr('chat.kullaniciBilgisiBulunamadi'));
           navigation.goBack();
           return;
         }
@@ -157,10 +161,11 @@ const ChatScreen = () => {
           .eq('status', 'accepted')
           .or(`and(sender_id.eq.${user.id},receiver_id.eq.${params.userId}),and(sender_id.eq.${params.userId},receiver_id.eq.${user.id})`);
 
+        if (!isMounted) return;
         const isFriend = friendships && friendships.length > 0;
 
         if (!isFriend) {
-          Alert.alert(
+          AppAlert.alert(
             tr('chat.arkadasDegilsiniz'),
             tr('chat.arkadaslikIstegiGerekli'),
             [{ text: tr('sendSnap.tamam'), onPress: () => navigation.goBack() }]
@@ -173,7 +178,8 @@ const ChatScreen = () => {
       }
     };
     init();
-  }, []);
+    return () => { isMounted = false; };
+  }, [params.userId]);
 
   useEffect(() => {
     if (conversationId && currentUserId) {
@@ -323,7 +329,7 @@ const ChatScreen = () => {
       setConversationId(data);
     } catch (err: any) {
       const detail = err?.message || err?.details || JSON.stringify(err) || tr('chat.bilinmeyenHata');
-      Alert.alert(tr('chat.sohbetBaslatilamadi'), detail);
+      AppAlert.alert(tr('chat.sohbetBaslatilamadi'), detail);
       navigation.goBack();
     }
   };
@@ -333,13 +339,30 @@ const ChatScreen = () => {
 
     try {
       setLoading(true);
-      const { data, error } = await supabase
+
+      // Sohbet daha önce "sil"inmişse (hidden_at damgası varsa), o tarihten
+      // ÖNCEKİ mesajlar bu kullanıcı için bir daha görünmemeli.
+      let hiddenAt: string | null = null;
+      if (currentUserId) {
+        const { data: participantRow, error: participantError } = await supabase
+          .from('conversation_participants')
+          .select('hidden_at')
+          .eq('conversation_id', conversationId)
+          .eq('user_id', currentUserId)
+          .maybeSingle();
+        console.log('[Sohbet Mesajları] hidden_at sorgusu', { conversationId, currentUserId, participantRow, participantError });
+        hiddenAt = participantRow?.hidden_at ?? null;
+      }
+
+      let messagesQuery = supabase
         .from('messages')
         .select(
           'id, conversation_id, sender_id, content, image_url, is_read, is_snap, snap_opened_at, snap_expires_at, created_at, reply_to_id, reply_snippet, heart_user_ids'
         )
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
+        .eq('conversation_id', conversationId);
+      if (hiddenAt) messagesQuery = messagesQuery.gt('created_at', hiddenAt);
+      const { data, error } = await messagesQuery.order('created_at', { ascending: true });
+      console.log('[Sohbet Mesajları] mesaj sorgusu sonucu', { hiddenAt, count: data?.length, error });
 
       if (error) throw error;
       if (data) {
@@ -354,8 +377,10 @@ const ChatScreen = () => {
           p_user_id: currentUserId,
         });
       }
-    } catch {
-      // sessiz hata — kullanıcı deneyimini bozmaz
+    } catch (e: any) {
+      console.error('[Sohbet Mesajları] HATA', e);
+      // Hata varsa mesaj listesi boş görünecek ve kullanıcı kaynaktan habersiz kalacak.
+      // Daha iyi: bir retry prompt gösterilmeli, ama şimdilik loglayıp farkında olalım.
     } finally {
       setLoading(false);
     }
@@ -410,7 +435,7 @@ const ChatScreen = () => {
       }, 200);
     } catch (err: any) {
       const detail = err?.message || err?.details || JSON.stringify(err) || tr('chat.bilinmeyenHata');
-      Alert.alert(tr('chat.mesajGonderilemedi'), detail);
+      AppAlert.alert(tr('chat.mesajGonderilemedi'), detail);
       setNewMessage(messageContent);
       setReplyingTo(replyTarget);
     } finally {
@@ -428,14 +453,14 @@ const ChatScreen = () => {
   const handleCameraPress = async () => {
     const camPerm = cameraPermission ?? await requestCameraPermission();
     if (!camPerm?.granted) {
-      Alert.alert(tr('chat.kameraIzni'), tr('chat.kameraIzniAciklama'));
+      AppAlert.alert(tr('chat.kameraIzni'), tr('chat.kameraIzniAciklama'));
       return;
     }
     
     // Video modu için mikrofon izni de gerekli
     const micPerm = microphonePermission ?? await requestMicrophonePermission();
     if (!micPerm?.granted) {
-      Alert.alert(tr('chat.mikrofonIzni'), tr('chat.mikrofonIzniAciklama'));
+      AppAlert.alert(tr('chat.mikrofonIzni'), tr('chat.mikrofonIzniAciklama'));
       return;
     }
     
@@ -475,7 +500,7 @@ const ChatScreen = () => {
         }
       }
     } catch (e) {
-      Alert.alert(tr('common.error'), tr('chat.fotografCekilemedi'));
+      AppAlert.alert(tr('common.error'), tr('chat.fotografCekilemedi'));
     } finally {
       setCameraBusy(false);
     }
@@ -541,7 +566,7 @@ const ChatScreen = () => {
         console.log('ℹ️ Kayıt kullanıcı tarafından durduruldu');
         return;
       }
-      Alert.alert(tr('common.error'), tr('chat.videoKaydedilemedi'));
+      AppAlert.alert(tr('common.error'), tr('chat.videoKaydedilemedi'));
     }
   };
 
@@ -599,7 +624,7 @@ const ChatScreen = () => {
     if (message.snap_expires_at) {
       const expiresAt = new Date(message.snap_expires_at);
       if (now > expiresAt) {
-        Alert.alert(tr('chat.kivilcimSuresiDoldu'), tr('chat.kivilcimGoruntulenemiyor'));
+        AppAlert.alert(tr('chat.kivilcimSuresiDoldu'), tr('chat.kivilcimGoruntulenemiyor'));
         return;
       }
     }
@@ -628,7 +653,7 @@ const ChatScreen = () => {
     const isMe = item.sender_id === currentUserId;
     if (!isMe) return; // Sadece kendi mesajlarını silebilir
 
-    Alert.alert(
+    AppAlert.alert(
       tr('chat.mesajiSil'),
       tr('chat.mesajiSilOnay'),
       [
@@ -642,7 +667,7 @@ const ChatScreen = () => {
               .delete()
               .eq('id', item.id);
             if (error) {
-              Alert.alert(tr('common.error'), tr('chat.mesajSilinemedi'));
+              AppAlert.alert(tr('common.error'), tr('chat.mesajSilinemedi'));
             } else {
               setMessages(prev => prev.filter(m => m.id !== item.id));
             }
@@ -959,7 +984,7 @@ const ChatScreen = () => {
               style={styles.headerAvatar}
             />
             <View style={styles.headerInfo}>
-              <Text style={[styles.headerName, { color: t.txt1 }]}>{params.userName}</Text>
+              <Text style={{ fontSize: 22, fontWeight: '900', backgroundColor: 'red', color: 'yellow' }}>TEST-{params.userName || params.username || tr('common.kullanici')}</Text>
               {otherTyping ? (
                 <Text style={[styles.headerTyping, { color: t.ctaBg }]}>{tr('chat.yaziyor')} ✍️</Text>
               ) : (

@@ -107,4 +107,13 @@ export const notify = {
       `${senderName} seni ve ${Math.max(0, totalRecipients - 1)} kişiyi seçti.`,
       { type: 'group_snap' }
     ),
+
+  /** Biri kıvılcımını tekrar oynattığında gönderene bildir (Snapchat replay tarzı) */
+  snapReplayed: (recipientId: string, viewerName: string) =>
+    sendPushNotification(
+      recipientId,
+      'Tekrar İzlendi',
+      `${viewerName} kıvılcımını tekrar izledi!`,
+      { type: 'snap_replayed' }
+    ),
 };

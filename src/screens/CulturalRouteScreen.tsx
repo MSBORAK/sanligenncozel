@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { MOCK_WEEKEND_PLANS, WeekendPlan } from '@/api/mockData';
+import { localizeWeekendPlan } from '@/data/mockLocalization';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { RootStackParamList } from '@/types/navigation';
 import { cityFallback } from '@/lib/imageFallback';
@@ -56,7 +57,7 @@ const getRouteDistanceKm = (plan: WeekendPlan) => {
 
 const CulturalRouteScreen = () => {
   const t = useAppTheme();
-  const { t: tr } = useTranslation();
+  const { t: tr, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
   const [durationFilter, setDurationFilter] = useState<DurationFilter>('hepsi');
@@ -65,19 +66,27 @@ const CulturalRouteScreen = () => {
   const currentHour = new Date().getHours();
   const isHotHours = currentHour >= 11 && currentHour <= 17;
 
-  const filteredPlans = useMemo(() => {
+  // isHeatFriendly Türkçe anahtar kelimelerle çalışıyor, bu yüzden çeviriden ÖNCEKİ orijinal metinle hesaplanır
+  const filteredPlansOriginal = useMemo(() => {
     return MOCK_WEEKEND_PLANS.filter((item) => {
       if (durationFilter !== 'hepsi' && item.category !== durationFilter) return false;
       return true;
     });
   }, [durationFilter]);
 
+  const filteredPlans = useMemo(
+    () => filteredPlansOriginal.map((plan) => localizeWeekendPlan(plan, i18n.language)),
+    [filteredPlansOriginal, i18n.language]
+  );
+
   const recommendedPlan = useMemo(() => {
-    if (filteredPlans.length === 0) return null;
-    if (isHotHours) return filteredPlans.find((p) => isHeatFriendly(p)) ?? filteredPlans[0];
-    if (currentHour >= 18) return filteredPlans.find((p) => p.category === 'akşam') ?? filteredPlans[0];
-    return filteredPlans[0];
-  }, [filteredPlans, isHotHours, currentHour]);
+    if (filteredPlansOriginal.length === 0) return null;
+    let recommendedId: string;
+    if (isHotHours) recommendedId = (filteredPlansOriginal.find((p) => isHeatFriendly(p)) ?? filteredPlansOriginal[0]).id;
+    else if (currentHour >= 18) recommendedId = (filteredPlansOriginal.find((p) => p.category === 'akşam') ?? filteredPlansOriginal[0]).id;
+    else recommendedId = filteredPlansOriginal[0].id;
+    return filteredPlans.find((p) => p.id === recommendedId) ?? filteredPlans[0];
+  }, [filteredPlansOriginal, filteredPlans, isHotHours, currentHour]);
 
   const listBottomPad = Math.max(insets.bottom, 20);
 

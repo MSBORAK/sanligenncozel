@@ -1,14 +1,14 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, ImageBackground } from 'react-native';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, ImageBackground, ActivityIndicator } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MapPin, Wifi, Heart } from 'lucide-react-native';
+import { MapPin, Wifi, Heart, Coffee, Utensils, Film, Shirt, Smartphone, Tag } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Colors } from '@/constants/Colors';
 import { GencKartCardTheme } from '@/theme/colors';
 import { cardOuterShadow, cardInnerClip } from '@/constants/Shadows';
 import { FontFamily } from '@/constants/Typography';
 import AnimatedListItem from '@/components/AnimatedListItem';
-import { MOCK_USER, MOCK_PARTNERS } from '@/api/mockData';
+import { MOCK_USER } from '@/api/mockData';
 import { DiscountPartner } from '@/types';
 import { useNavigation } from '@react-navigation/native';
 import type { RootStackParamList } from '@/types/navigation';
@@ -18,6 +18,24 @@ import { useFavorites } from '@/context/FavoritesContext';
 import { useUser } from '@/context/UserContext';
 import { useThemeMode } from '@/context/ThemeContext';
 import { useTranslation } from 'react-i18next';
+import { supabase } from '@/lib/supabase';
+import { pickLocalized } from '@/lib/localizeContent';
+
+/** Kategoriye/isme göre uygun ikon seçer (PartnerDetailScreen ile aynı mantık) */
+function getCategoryIcon(kategori: string, name?: string): React.ComponentType<any> {
+  const nm = (name || '').toLowerCase();
+  if (nm.includes('kahve') || nm.includes('kafe') || nm.includes('çay')) return Coffee;
+  if (nm.includes('restoran') || nm.includes('lokanta') || nm.includes('kebap') || nm.includes('yemek')) return Utensils;
+  if (nm.includes('sinema') || nm.includes('film')) return Film;
+  if (nm.includes('giyim') || nm.includes('moda') || nm.includes('mağaza')) return Shirt;
+  if (nm.includes('teknoloji') || nm.includes('telefon')) return Smartphone;
+  const k = (kategori || '').toLowerCase();
+  if (k.includes('yiyecek') || k.includes('içecek') || k.includes('icecek') || k.includes('kafe') || k.includes('kahve')) return Coffee;
+  if (k.includes('giyim') || k.includes('moda')) return Shirt;
+  if (k.includes('teknoloji') || k.includes('elektronik')) return Smartphone;
+  if (k.includes('sinema') || k.includes('film')) return Film;
+  return Tag;
+}
 
 type Nav = StackNavigationProp<RootStackParamList>;
 
@@ -147,31 +165,71 @@ function VenueTicketCard({
 
 const GencKartScreen = () => {
   const navigation = useNavigation<Nav>();
-  const { t: tr } = useTranslation();
+  const { t: tr, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
   const { isDark, pageBg, cardBg, cardBdr, txt1, txt2, ctaBg, ctaTxt, chipBg, accent } = useAppTheme();
   const { mode } = useThemeMode();
   const { isFavoritePartner, toggleFavorite, favoritePartnerIds } = useFavorites();
-  const { profile } = useUser();
+  const { profile, isGuest } = useUser();
   const [selectedCategory, setSelectedCategory] = useState<Category>('Tümü');
+  const [partners, setPartners] = useState<DiscountPartner[]>([]);
+  const [loadingPartners, setLoadingPartners] = useState(true);
   const isInverse = mode === 'inverse';
   const cardTheme =
     mode === 'light'
-      ? GencKartCardTheme.editorial
+      ? GencKartCardTheme.clean
       : mode === 'inverse'
         ? GencKartCardTheme.inverse
-        : GencKartCardTheme.clean;
+        : GencKartCardTheme.editorial;
   const amber = accent;
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchFirsatlar = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('firsatlar')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (!isMounted) return;
+        if (!error && data) {
+          const mapped: DiscountPartner[] = data.map((row: any) => {
+            const name = pickLocalized(row, 'baslik', i18n.language) || row.baslik || '';
+            const offer = (pickLocalized(row, 'aciklama', i18n.language) || row.aciklama || '').trim();
+            return {
+              id: String(row.id),
+              name,
+              icon: getCategoryIcon(row.kategori, name),
+              iconColor: '#111114',
+              bgColor: 'transparent',
+              offer: offer || row.kategori || '',
+              description: offer || row.kategori || '',
+              imageUrl: row.resim_url || undefined,
+              url: '',
+              category: row.kategori || undefined,
+            };
+          });
+          setPartners(mapped);
+        }
+      } catch (e) {
+        if (__DEV__) console.log('Fırsatlar yüklenemedi:', e);
+      } finally {
+        if (isMounted) setLoadingPartners(false);
+      }
+    };
+    fetchFirsatlar();
+    return () => { isMounted = false; };
+  }, [i18n.language]);
 
   const filteredPartners = useMemo(() => {
     if (selectedCategory === 'Tümü') {
-      return MOCK_PARTNERS;
+      return partners;
     }
     if (selectedCategory === 'Favoriler') {
-      return MOCK_PARTNERS.filter(partner => favoritePartnerIds.includes(partner.id));
+      return partners.filter(partner => favoritePartnerIds.includes(partner.id));
     }
-    return MOCK_PARTNERS.filter(partner => partner.category === selectedCategory);
-  }, [selectedCategory, favoritePartnerIds]);
+    return partners.filter(partner => partner.category === selectedCategory);
+  }, [selectedCategory, favoritePartnerIds, partners]);
 
   const renderCategoryChip = useCallback(
     (category: Category) => {
@@ -244,7 +302,7 @@ const GencKartScreen = () => {
                 <View style={styles.cardBottom}>
                     <View>
                         <Text style={[styles.cardHolderLabel, { color: cardTheme.holderLabel }]}>{tr('gencKart.cardHolder')}</Text>
-                        <Text style={styles.cardHolderName}>{(profile?.name || MOCK_USER.name).toUpperCase()}</Text>
+                        <Text style={styles.cardHolderName}>{(profile?.name || (isGuest ? tr('common.misafir') : MOCK_USER.name)).toUpperCase()}</Text>
                     </View>
                 </View>
             </ImageBackground>
@@ -278,7 +336,11 @@ const GencKartScreen = () => {
               </ScrollView>
             </View>
 
-            {selectedCategory === 'Favoriler' && filteredPartners.length === 0 ? (
+            {loadingPartners ? (
+              <View style={styles.emptyFav}>
+                <ActivityIndicator size="large" color={txt2} />
+              </View>
+            ) : selectedCategory === 'Favoriler' && filteredPartners.length === 0 ? (
               <View style={styles.emptyFav}>
                 <View style={[styles.emptyFavIcon, { backgroundColor: chipBg }]}>
                   <Heart color={txt2} size={26} strokeWidth={2} />
@@ -287,6 +349,13 @@ const GencKartScreen = () => {
                 <Text style={[styles.emptyFavDesc, { color: txt2 }]}>
                   Beğendiğin mekanların kalbine dokun, buradan kolayca ulaş.
                 </Text>
+              </View>
+            ) : filteredPartners.length === 0 ? (
+              <View style={styles.emptyFav}>
+                <View style={[styles.emptyFavIcon, { backgroundColor: chipBg }]}>
+                  <Tag color={txt2} size={26} strokeWidth={2} />
+                </View>
+                <Text style={[styles.emptyFavTitle, { color: txt1 }]}>{tr('gencKart.henuzFirsatYok')}</Text>
               </View>
             ) : (
             <View style={styles.venuesGrid}>

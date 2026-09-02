@@ -1,12 +1,14 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, KeyboardAvoidingView, LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { AppAlert } from '@/lib/alert';
+import { Alert, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { CommonActions } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
+import { Mail, KeyRound } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { InputField } from '@/components/InputField';
 import { PrimaryButton } from '@/components/PrimaryButton';
-import { SecondaryButton } from '@/components/SecondaryButton';
 import type { RootStackParamList } from '@/types/navigation';
 import type { OnboardingStackParamList } from '../navigation/OnboardingNavigator';
 import { Clean } from '@/constants/Colors';
@@ -18,6 +20,8 @@ type AuthMode = 'login' | 'register';
 type NestedNav = StackNavigationProp<OnboardingStackParamList, 'Login'>;
 type AuthStep = 'email' | 'code';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 /**
  * Light, segmented login/register screen — matches onboarding's Clean palette.
  */
@@ -26,34 +30,19 @@ export const LoginScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { setGuestMode } = useUser();
   const { t: tr } = useTranslation();
-  const [mode, setMode] = useState<AuthMode>('login');
+  const [mode, setMode] = useState<AuthMode>('register');
   const [step, setStep] = useState<AuthStep>('email');
   const [email, setEmail] = useState('');
   const [otpCode, setOtpCode] = useState('');
-  const [segmentWidth, setSegmentWidth] = useState(0);
-  const indicatorTranslateX = useRef(new Animated.Value(0)).current;
+  const [submitting, setSubmitting] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
+
+  const emailInvalid = emailTouched && email.trim().length > 0 && !EMAIL_REGEX.test(email.trim());
 
   const onModeChange = (next: AuthMode) => {
     setMode(next);
     setStep('email');
     setOtpCode('');
-  };
-
-  const indicatorWidth = segmentWidth > 0 ? (segmentWidth - 8) / 2 : 0;
-
-  useEffect(() => {
-    Animated.spring(indicatorTranslateX, {
-      toValue: mode === 'register' ? indicatorWidth : 0,
-      useNativeDriver: true,
-      damping: 18,
-      stiffness: 220,
-      mass: 0.7,
-    }).start();
-  }, [mode, indicatorWidth, indicatorTranslateX]);
-
-  const onSegmentLayout = (event: LayoutChangeEvent) => {
-    const { width } = event.nativeEvent.layout;
-    if (width > 0) setSegmentWidth(width);
   };
 
   const goToMain = (asGuest = false) => {
@@ -74,10 +63,16 @@ export const LoginScreen: React.FC = () => {
   };
 
   const sendOtpCode = async () => {
+    if (submitting) return;
     if (!email.trim()) {
-      Alert.alert(tr('login.eksikBilgi'), tr('login.epostaGirin'));
+      AppAlert.alert(tr('login.eksikBilgi'), tr('login.epostaGirin'));
       return;
     }
+    if (!EMAIL_REGEX.test(email.trim())) {
+      AppAlert.alert(tr('login.eksikBilgi'), tr('login.epostaGecersiz'));
+      return;
+    }
+    setSubmitting(true);
     try {
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
@@ -87,18 +82,22 @@ export const LoginScreen: React.FC = () => {
       });
       if (error) throw error;
       setStep('code');
-      Alert.alert(tr('login.kodGonderildi'), tr('login.dogrulamaKoduGir'));
+      AppAlert.alert(tr('login.kodGonderildi'), tr('login.dogrulamaKoduGir'));
     } catch (error) {
       const message = error instanceof Error ? error.message : tr('login.birHataOlustu');
-      Alert.alert(tr('common.error'), message);
+      AppAlert.alert(tr('common.error'), message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const verifyOtpCode = async () => {
+    if (submitting) return;
     if (!email.trim() || !otpCode.trim()) {
-      Alert.alert(tr('login.eksikBilgi'), tr('login.epostaVeKodGirin'));
+      AppAlert.alert(tr('login.eksikBilgi'), tr('login.epostaVeKodGirin'));
       return;
     }
+    setSubmitting(true);
     try {
       const { error } = await supabase.auth.verifyOtp({
         email: email.trim(),
@@ -106,22 +105,57 @@ export const LoginScreen: React.FC = () => {
         type: 'email',
       });
       if (error) throw error;
-      goToMain();
+      if (mode === 'register') {
+        const parent = navigation.getParent<StackNavigationProp<RootStackParamList>>();
+        if (parent) {
+          parent.replace('CompleteProfile');
+        } else {
+          navigation.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [{ name: 'CompleteProfile' as never }],
+            })
+          );
+        }
+      } else {
+        goToMain();
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : tr('login.kodDogrulanamadi');
-      Alert.alert(tr('login.dogrulamaHatasi'), message);
+      AppAlert.alert(tr('login.dogrulamaHatasi'), message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: Clean.bg, paddingTop: insets.top + 24 }]}>
+    <View style={[styles.root, { backgroundColor: Clean.bg }]}>
+      <LinearGradient
+        colors={[Clean.accentSoft, Clean.bg]}
+        style={[styles.topGlow, { height: insets.top + 280 }]}
+        pointerEvents="none"
+      />
+      <View style={{ flex: 1, paddingTop: insets.top + 24 }}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
         <View style={styles.card}>
           <View style={styles.header}>
+            <View style={styles.logoRing}>
+              <Image
+                source={require('@/assets/SanliGencLogo.jpeg')}
+                style={styles.logo}
+              />
+            </View>
             <View style={styles.badge}>
               <Text style={styles.badgeText}>ŞANLIURFA</Text>
             </View>
-            <Text style={styles.title}>Şanlı Genç</Text>
+            <Text style={styles.title}>
+              {mode === 'login' ? tr('login.girisYap') : tr('login.kayitOl')}
+            </Text>
             <Text style={styles.subtitle}>
               {step === 'email'
                 ? mode === 'login'
@@ -131,35 +165,22 @@ export const LoginScreen: React.FC = () => {
             </Text>
           </View>
 
-          <View style={styles.segmentWrap} onLayout={onSegmentLayout}>
-            <Animated.View
-              style={[
-                styles.indicator,
-                {
-                  width: indicatorWidth,
-                  transform: [{ translateX: indicatorTranslateX }],
-                },
-              ]}
-            />
-            <Pressable style={styles.segmentButton} onPress={() => onModeChange('login')}>
-              <Text style={[styles.segmentLabel, mode === 'login' && styles.segmentLabelActive]}>{tr('login.girisYap')}</Text>
-            </Pressable>
-            <Pressable style={styles.segmentButton} onPress={() => onModeChange('register')}>
-              <Text style={[styles.segmentLabel, mode === 'register' && styles.segmentLabelActive]}>{tr('login.kayitOl')}</Text>
-            </Pressable>
-          </View>
-
           <InputField
-            icon="✉️"
+            icon={<Mail size={18} color={Clean.textSecondary} />}
             placeholder={tr('login.epostaAdresiniz')}
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(t) => { setEmail(t); if (!emailTouched) setEmailTouched(true); }}
+            onBlur={() => setEmailTouched(true)}
             keyboardType="email-address"
             editable={step === 'email'}
+            error={emailInvalid}
           />
+          {emailInvalid && (
+            <Text style={styles.emailErrorText}>{tr('login.epostaGecersiz')}</Text>
+          )}
           {step === 'code' ? (
             <InputField
-              icon="🔐"
+              icon={<KeyRound size={18} color={Clean.textSecondary} />}
               placeholder={tr('login.dogrulamaKodu')}
               value={otpCode}
               onChangeText={setOtpCode}
@@ -178,24 +199,67 @@ export const LoginScreen: React.FC = () => {
           <PrimaryButton
             label={step === 'email' ? tr('login.kodGonder') : tr('login.koduDogrula')}
             onPress={step === 'email' ? sendOtpCode : verifyOtpCode}
-            style={styles.buttonSpacing}
+            style={[styles.buttonSpacing, styles.primaryButtonNarrow]}
+            disabled={submitting}
           />
-          <SecondaryButton label={tr('login.misafirOlarakDevam')} onPress={() => goToMain(true)} style={styles.buttonSpacing} />
+          <Pressable style={styles.guestLink} onPress={() => goToMain(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Text style={styles.guestLinkText}>{tr('login.misafirOlarakDevam')}</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.switchModeWrap}
+            onPress={() => onModeChange(mode === 'login' ? 'register' : 'login')}
+          >
+            <Text style={styles.switchModeText}>
+              {mode === 'login' ? tr('login.hesabinYokMu') : tr('login.hesabinVarMi')}{' '}
+              <Text style={styles.switchModeLink}>
+                {mode === 'login' ? tr('login.kayitOl') : tr('login.girisYap')}
+              </Text>
+            </Text>
+          </Pressable>
 
           <Text style={styles.finePrint}>{tr('login.gizlilikOnay')}</Text>
         </View>
+        </ScrollView>
       </KeyboardAvoidingView>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  flex: { flex: 1, justifyContent: 'center' },
+  flex: { flex: 1 },
+  topGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+  scrollContent: { flexGrow: 1, justifyContent: 'flex-start', paddingTop: 24 },
   card: {
     paddingHorizontal: 24,
   },
-  header: { alignItems: 'center', marginBottom: 24 },
+  header: { alignItems: 'center', marginBottom: 28 },
+  logoRing: {
+    width: 88,
+    height: 88,
+    borderRadius: 24,
+    backgroundColor: Clean.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
+  },
+  logo: {
+    width: 72,
+    height: 72,
+    borderRadius: 18,
+  },
   badge: {
     height: 22,
     borderRadius: 11,
@@ -207,29 +271,34 @@ const styles = StyleSheet.create({
   badgeText: { color: Clean.accent, fontSize: 10, letterSpacing: 1.4, fontWeight: '700' },
   title: { color: Clean.textPrimary, fontSize: 28, fontWeight: '800', marginBottom: 6 },
   subtitle: { color: Clean.textSecondary, fontSize: 13, textAlign: 'center' },
-  segmentWrap: {
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: Clean.chipBg,
-    marginBottom: 18,
-    padding: 4,
-    flexDirection: 'row',
-  },
-  indicator: {
-    position: 'absolute',
-    left: 4,
-    top: 4,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: Clean.ctaBg,
-  },
-  segmentButton: { flex: 1, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
-  segmentLabel: { fontSize: 13, fontWeight: '600', color: Clean.textSecondary },
-  segmentLabelActive: { color: Clean.ctaText },
   inputSpacing: { marginTop: 10 },
+  emailErrorText: { color: '#e74c3c', fontSize: 12, fontWeight: '600', marginTop: 6, marginLeft: 4 },
   forgotWrap: { alignSelf: 'flex-end', marginTop: 8, marginBottom: 12 },
   forgotText: { color: Clean.accent, fontSize: 12, fontWeight: '600' },
   buttonSpacing: { marginTop: 10 },
+  primaryButtonNarrow: { width: '76%', alignSelf: 'center' },
+  guestLink: {
+    marginTop: 18,
+    alignSelf: 'center',
+    paddingVertical: 4,
+  },
+  guestLinkText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Clean.textSecondary,
+  },
+  switchModeWrap: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  switchModeText: {
+    fontSize: 13,
+    color: Clean.textSecondary,
+  },
+  switchModeLink: {
+    color: Clean.ctaBg,
+    fontWeight: '700',
+  },
   finePrint: {
     marginTop: 14,
     textAlign: 'center',

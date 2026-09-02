@@ -31,7 +31,7 @@ export interface DiscountPartner {
   description: string;
   imageUrl?: string; // Add this line
   url: string;
-  category?: 'Kafe' | 'Sinema' | 'Giyim' | 'Yiyecek' | 'Diğer';
+  category?: string;
 }
 
 export interface ChatMessage {

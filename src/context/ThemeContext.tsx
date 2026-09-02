@@ -18,20 +18,28 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const [mode, setMode] = useState<ThemeMode>('light');
 
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((v) => {
-      if (v === 'dark' || v === 'light' || v === 'inverse') setMode(v);
-    });
+    AsyncStorage.getItem(STORAGE_KEY)
+      .then((v) => {
+        if (v === 'dark' || v === 'light' || v === 'inverse') setMode(v);
+      })
+      .catch((e) => {
+        if (__DEV__) console.warn('Tema tercihi okunamadı:', e);
+      });
   }, []);
 
   const setThemeMode = useCallback((next: ThemeMode) => {
     setMode(next);
-    AsyncStorage.setItem(STORAGE_KEY, next);
+    AsyncStorage.setItem(STORAGE_KEY, next).catch((e) => {
+      if (__DEV__) console.warn('Tema tercihi kaydedilemedi:', e);
+    });
   }, []);
 
   const toggleTheme = useCallback(() => {
     setMode((prev) => {
       const next = prev === 'light' ? 'dark' : prev === 'dark' ? 'inverse' : 'light';
-      AsyncStorage.setItem(STORAGE_KEY, next);
+      AsyncStorage.setItem(STORAGE_KEY, next).catch((e) => {
+        if (__DEV__) console.warn('Tema tercihi kaydedilemedi:', e);
+      });
       return next;
     });
   }, []);

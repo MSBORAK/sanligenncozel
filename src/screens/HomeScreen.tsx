@@ -15,6 +15,7 @@ import { CommonActions, useFocusEffect, useNavigation } from '@react-navigation/
 import { useTranslation } from 'react-i18next';
 import Skeleton from '@/components/Skeleton';
 import { MOCK_BUSES, MOCK_MAGAZINES } from '@/api/mockData';
+import { localizeHeritageItem, CURATED_LANDMARK_TRANSLATIONS } from '@/data/mockLocalization';
 import { HomeScreenProps, MainTabParamList } from '@/types/navigation';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { useUser } from '@/context/UserContext';
@@ -34,12 +35,6 @@ interface FirsatData { id:number; baslik:string; aciklama:string; tarih?:string;
 interface CalendarEventItem { id:string; title:string; date:string; location:string; category:string; }
 
 // ─── Static data ──────────────────────────────────────────────────────────────
-const QUICK_ACCESS = [
-  { name:'Etkinlik',    screen:'Events',       lottie:require('@/assets/images/El calendario.json'),      grad:['#5B21B6','#7C3AED'] as const },
-  { name:'Keşfet',      screen:'Magazine',     lottie:require('@/assets/images/Map pin location.json'),   grad:['#1D4ED8','#3B82F6'] as const },
-  { name:'Eczane',      screen:'PharmacyList', lottie:require('@/assets/images/AR Tablet.json'),          grad:['#9D174D','#EC4899'] as const },
-  { name:'Kütüphane',   screen:'LibraryList',  lottie:require('@/assets/images/Books.json'),              grad:['#065F46','#10B981'] as const },
-];
 
 // Elle düzenlenmiş, daha zengin metinli 4 öne çıkan yer
 const CURATED_LANDMARK_META: Record<string, { year: string; desc: string; tag: string }> = {
@@ -57,17 +52,19 @@ const LANDMARK_CATEGORY_LABEL: Record<string, string> = {
   bazaar: 'Tarihi Çarşı',
 };
 
-const LANDMARKS = MOCK_MAGAZINES.map((m) => {
-  const curated = CURATED_LANDMARK_META[m.id];
-  return {
-    id: m.id,
-    name: m.title,
-    year: curated?.year ?? '',
-    desc: curated?.desc ?? (m.description ?? ''),
-    tag: curated?.tag ?? (LANDMARK_CATEGORY_LABEL[m.category ?? 'historic'] ?? 'Keşfet'),
-    image: m.image,
-  };
-});
+const getLandmarks = (lang: string) =>
+  MOCK_MAGAZINES.map((raw) => {
+    const m = localizeHeritageItem(raw, lang);
+    const curated = lang === 'tr' ? CURATED_LANDMARK_META[m.id] : CURATED_LANDMARK_TRANSLATIONS[lang]?.[m.id];
+    return {
+      id: m.id,
+      name: m.title,
+      year: curated?.year ?? '',
+      desc: curated?.desc ?? (m.description ?? ''),
+      tag: curated?.tag ?? (LANDMARK_CATEGORY_LABEL[m.category ?? 'historic'] ?? 'Keşfet'),
+      image: m.image,
+    };
+  });
 
 const MONTHS = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
 // Editoryal, sıcak-krem "The Lunch Box" ilham temasında büyük başlıklar için serif — yeni font indirmeden, sistem serif'i
@@ -210,6 +207,7 @@ export default function HomeScreen() {
   const isDark = homeTheme.isDark;
 
   const [promoModalVisible,setPromoModalVisible]           = useState(false);
+  const [promoOffer,setPromoOffer]                         = useState<{ baslik: string; aciklama: string; kategori: string } | null>(null);
   const [newOfferToastVisible, setNewOfferToastVisible]    = useState(false);
   const [promoSize,setPromoSize]                           = useState({width:300,height:220});
   const [promoNotchY,setPromoNotchY]                       = useState(110);
@@ -301,6 +299,11 @@ export default function HomeScreen() {
             // İlk kurulumda mevcut fırsatı "görülmüş" kabul et; sadece yeni girilende göster.
             await AsyncStorage.setItem(PROMO_LAST_SEEN_OFFER_ID_KEY, latestId);
           } else if (lastSeenId !== latestId) {
+            setPromoOffer({
+              baslik: pickLocalized(latestOffer, 'baslik', i18n.language) || latestOffer.baslik || '',
+              aciklama: pickLocalized(latestOffer, 'aciklama', i18n.language) || latestOffer.aciklama || '',
+              kategori: latestOffer.kategori || '',
+            });
             setPromoModalVisible(true);
             setNewOfferToastVisible(true);
             await AsyncStorage.setItem(PROMO_LAST_SEEN_OFFER_ID_KEY, latestId);
@@ -434,7 +437,8 @@ export default function HomeScreen() {
     if (!p) return false;
     return p.day===today.getDate() && p.month===today.getMonth()+1 && (p.year?p.year===today.getFullYear():true);
   });
-  const lunchBoxPicks = [LANDMARKS[0], LANDMARKS[1]].filter(Boolean);
+  const landmarks = React.useMemo(() => getLandmarks(i18n.language), [i18n.language]);
+  const lunchBoxPicks = [landmarks[0], landmarks[1]].filter(Boolean);
   const amber    = Clean.accent;
   const gold     = Clean.accent;
 
@@ -731,13 +735,26 @@ export default function HomeScreen() {
               >
                 <View style={[s.promoAccentBlock,{backgroundColor: isDark?'rgba(242,96,12,0.12)':'rgba(242,96,12,0.07)', borderTopLeftRadius:TICKET_RADIUS, borderTopRightRadius:TICKET_RADIUS}]}>
                   <View style={s.promoTopRow}>
-                    <View style={[s.promoIconCircle,{backgroundColor:isDark?'rgba(242,96,12,0.18)':'#fff'}]}><Tag color={amber} size={20}/></View>
+                    <View style={[s.promoIconCircle,{backgroundColor:isDark?'rgba(242,96,12,0.18)':'#fff'}]}>
+                      {(() => { const PromoIcon = getCategoryTheme(promoOffer?.kategori, promoOffer?.baslik).icon; return <PromoIcon color={amber} size={20}/>; })()}
+                    </View>
                     <Text style={[s.promoEyebrow,{color:txt2}]}>{tr('home.gencKartIndirim')}</Text>
                   </View>
 
                   <View style={s.promoHero}>
-                    <Text style={[s.promoBigPct,{color:txt1}]}>%20</Text>
-                    <Text style={[s.pBigLabel,{color:txt1}]}>{tr('home.indirim')}</Text>
+                    {(() => {
+                      const promoDiscount = promoOffer?.aciklama?.match(/%([\d]+)/)?.[1] ?? null;
+                      return promoDiscount ? (
+                        <>
+                          <Text style={[s.promoBigPct,{color:amber}]}>%{promoDiscount}</Text>
+                          <Text style={[s.pBigLabel,{color:txt2, marginTop:2}]}>{tr('home.indirim')}</Text>
+                        </>
+                      ) : (
+                        <Text style={[s.pBigLabel,{color:txt1, textAlign:'center'}]} numberOfLines={2}>
+                          {promoOffer?.kategori || tr('home.yeniFirsat')}
+                        </Text>
+                      );
+                    })()}
                   </View>
                 </View>
 
@@ -750,8 +767,8 @@ export default function HomeScreen() {
                 </View>
 
                 <View style={{paddingHorizontal:22, paddingTop:16, paddingBottom:20}}>
-                  <Text style={[s.promoBigName,{color:txt1}]} numberOfLines={1}>{tr('home.bugunOzelIndirim')}</Text>
-                  <Text style={[s.promoBigKat,{color:txt2}]} numberOfLines={2}>{tr('home.ogrenciIndirimi')}</Text>
+                  <Text style={[s.promoBigName,{color:txt1}]} numberOfLines={1}>{promoOffer?.baslik || tr('home.bugunOzelIndirim')}</Text>
+                  <Text style={[s.promoBigKat,{color:txt2}]} numberOfLines={2}>{promoOffer?.aciklama || tr('home.ogrenciIndirimi')}</Text>
                   <View style={[s.pCta,{backgroundColor:amber, paddingVertical:13}]}>
                     <Text style={[s.pCtaTxt,{color:'#fff', fontSize:13.5}]}>{tr('home.gencKarttaGoruntule')}</Text>
                   </View>

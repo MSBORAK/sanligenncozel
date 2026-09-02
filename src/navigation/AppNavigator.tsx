@@ -17,7 +17,6 @@ import ProfileScreen from '@/screens/ProfileScreen';
 import EventsScreen from '@/screens/EventsScreen';
 import MagazineScreen from '@/screens/MagazineScreen';
 import PartnerDetailScreen from '@/screens/PartnerDetailScreen';
-import WelcomeScreen from '@/screens/WelcomeScreen';
 import HeritageDetailScreen from '@/screens/HeritageDetailScreen';
 import NotificationsScreen from '@/screens/NotificationsScreen';
 import WeatherDetailScreen from '@/screens/WeatherDetailScreen';
@@ -33,7 +32,6 @@ import SosyalScreen from '@/screens/SosyalScreen';
 import ChatScreen from '@/screens/ChatScreen';
 import SendSnapScreen from '@/screens/SendSnapScreen';
 import SnapViewScreen from '@/screens/SnapViewScreen';
-import SocialFeedScreen from '@/screens/SocialFeedScreen';
 import StoryViewScreen from '@/screens/StoryViewScreen';
 import CompleteProfileScreen from '@/screens/CompleteProfileScreen';
 import CreatePostScreen from '@/screens/CreatePostScreen';
@@ -201,7 +199,6 @@ const AppNavigator = () => {
       >
         <Stack.Screen name="OnboardingFlow" component={OnboardingNavigator} />
         <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="Main" component={MainTabs} />
         <Stack.Screen name="Events" component={EventsScreen} />
         <Stack.Screen name="Magazine" component={MagazineScreen} />
@@ -220,7 +217,6 @@ const AppNavigator = () => {
         <Stack.Screen name="Chat" component={ChatScreen} />
         <Stack.Screen name="SendSnap" component={SendSnapScreen} />
         <Stack.Screen name="SnapView" component={SnapViewScreen} />
-        <Stack.Screen name="SocialFeed" component={SocialFeedScreen} />
         <Stack.Screen name="StoryView" component={StoryViewScreen} />
         <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
         <Stack.Screen name="CreatePost" component={CreatePostScreen} />

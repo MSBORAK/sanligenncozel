@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { AppAlert } from '@/lib/alert';
 import {
   View, Text, StyleSheet, TouchableOpacity, Modal, TextInput,
-  ScrollView, Platform, Switch, KeyboardAvoidingView, Alert, Image,
+  ScrollView, Platform, Switch, KeyboardAvoidingView, Alert, Image, Dimensions, Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -9,6 +10,7 @@ import {
   ChevronRight, Bell, ShieldCheck, User as UserIcon, X,
   HelpCircle, MessageSquare, Send, Heart, Users, LogOut, Flame,
   Star, MapPin, FileText, ScrollText, Trash2, Mail, CreditCard, Palette, Languages,
+  Grid3x3,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { MOCK_USER } from '@/api/mockData';
@@ -22,12 +24,29 @@ import { LanguageCode } from '@/i18n';
 import { cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList, MainTabParamList } from '@/types/navigation';
+import { PRIVACY_POLICY_TEXT, TERMS_OF_USE_TEXT, KVKK_TEXT } from '@/constants/legalTexts';
 
 type Nav = StackNavigationProp<RootStackParamList>;
 type ThemeMode = 'light' | 'dark' | 'inverse';
 
 const SUPPORT_EMAIL = 'destek@sanligenc.app';
 const APP_VERSION = '1.0.0';
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+
+const OTHER_APPS = [
+  {
+    key: 'tabufun',
+    name: 'TabuFun - Tabu & Sessiz Sinema',
+    iosUrl: 'https://apps.apple.com/tr/app/tabufun-tabu-sessiz-sinema/id6751104663?l=tr',
+    androidUrl: 'https://play.google.com/store/apps/details?id=com.muhammedenesaslan.TabuFun&pcampaignid=web_share',
+  },
+  {
+    key: 'cografyapusulasi',
+    name: 'Coğrafya Pusulası - KPSS/YKS',
+    iosUrl: 'https://apps.apple.com/tr/app/co%C4%9Frafya-pusulas%C4%B1-kpss-yks/id6760138734?l=tr',
+    androidUrl: 'https://play.google.com/store/apps/details?id=com.msbborak.map&pcampaignid=web_share',
+  },
+] as const;
 
 type LegalDoc = 'privacy' | 'terms' | 'kvkk' | null;
 
@@ -36,17 +55,19 @@ const ProfileScreen = () => {
   const { mode, setMode } = useThemeMode();
   const { t: tr, i18n } = useTranslation();
   const { language, setLanguage, supportedLanguages } = useLanguage();
-  const { profile, refreshProfile } = useUser();
-  const [modalVisible, setModalVisible] = useState(false);
+  const { profile, isGuest, refreshProfile } = useUser();
   const [legalDoc, setLegalDoc] = useState<LegalDoc>(null);
   const [accountSettingsVisible, setAccountSettingsVisible] = useState(false);
   const [deleteAccountVisible, setDeleteAccountVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [editName, setEditName] = useState('');
+  const [editUsername, setEditUsername] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [eventNotificationsEnabled, setEventNotificationsEnabled] = useState(true);
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
   const [personalizationEnabled, setPersonalizationEnabled] = useState(true);
+  const [radarVisible, setRadarVisible] = useState(true);
+  const [radarVisibleSaving, setRadarVisibleSaving] = useState(false);
   const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
   const [themeModalVisible, setThemeModalVisible] = useState(false);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
@@ -56,7 +77,7 @@ const ProfileScreen = () => {
   const [friendCount, setFriendCount] = useState(0);
   const navigation = useNavigation<Nav>();
 
-  const userName = profile?.name || MOCK_USER.name;
+  const userName = profile?.name || (isGuest ? tr('common.misafir') : MOCK_USER.name);
   const userUsername = profile?.username || '';
   const userEmail = profile?.email || '';
   const userInitial = userName.charAt(0).toUpperCase();
@@ -78,6 +99,43 @@ const ProfileScreen = () => {
 
   useEffect(() => {
     if (!profile?.userId) return;
+    supabase
+      .from('user_profiles')
+      .select('radar_visible')
+      .eq('user_id', profile.userId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        console.log('[Şehir Radarı Ayarı] mevcut değer', { data, error });
+        if (!error && data) setRadarVisible(data.radar_visible !== false);
+      });
+  }, [profile?.userId]);
+
+  const handleRadarVisibleChange = async (value: boolean) => {
+    if (!profile?.userId || radarVisibleSaving) return;
+    setRadarVisible(value);
+    setRadarVisibleSaving(true);
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .update({ radar_visible: value })
+        .eq('user_id', profile.userId)
+        .select();
+      console.log('[Şehir Radarı Ayarı] güncelleme sonucu', { data, error });
+      if (error || !data || data.length === 0) {
+        setRadarVisible(!value);
+        AppAlert.alert(tr('common.error'), tr('profileScreen.sehirRadariAyariHata'));
+      }
+    } catch (e: any) {
+      console.error('[Şehir Radarı Ayarı] HATA', e);
+      setRadarVisible(!value);
+      AppAlert.alert(tr('common.error'), tr('profileScreen.sehirRadariAyariHata'));
+    } finally {
+      setRadarVisibleSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!profile?.userId) return;
     (async () => {
       try {
         const { count } = await supabase
@@ -93,7 +151,7 @@ const ProfileScreen = () => {
   }, [profile?.userId]);
 
   const handleLogout = async () => {
-    Alert.alert(tr('profile.cikisYap'), tr('profileScreen.oturumuKapatmakIstiyorMusun'), [
+    AppAlert.alert(tr('profile.cikisYap'), tr('profileScreen.oturumuKapatmakIstiyorMusun'), [
       { text: tr('common.cancel'), style: 'cancel' },
       {
         text: tr('profile.cikisYap'), style: 'destructive',
@@ -126,13 +184,13 @@ const ProfileScreen = () => {
         // yerelde zaten kapanmış olabilir
       }
       setDeleteAccountVisible(false);
-      Alert.alert(
+      AppAlert.alert(
         tr('profileScreen.talebinAlindi'),
         tr('profileScreen.hesapSilmeTalebiAciklama'),
         [{ text: tr('sendSnap.tamam'), onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Login' }] }) }]
       );
     } catch (e) {
-      Alert.alert(tr('common.error'), tr('profileScreen.talebinGonderilemedi') + ' ' + SUPPORT_EMAIL + ' ' + tr('profileScreen.uzerindenIletisimeGec'));
+      AppAlert.alert(tr('common.error'), tr('profileScreen.talebinGonderilemedi') + ' ' + SUPPORT_EMAIL + ' ' + tr('profileScreen.uzerindenIletisimeGec'));
     } finally {
       setDeleting(false);
     }
@@ -205,88 +263,17 @@ const ProfileScreen = () => {
     privacy: {
       title: 'Gizlilik Politikası',
       icon: <ShieldCheck color={txt1} size={26} strokeWidth={2} />,
-      body:
-`Son güncelleme: 2026
-
-ŞanlıGenç ("Uygulama"), Şanlıurfa'daki gençlere yönelik bir şehir ve gençlik platformudur. Bu politika, uygulamayı kullanırken hangi verilerinin toplandığını, nasıl kullanıldığını ve haklarını açıklar.
-
-1. Topladığımız veriler
-• Hesap bilgileri: ad soyad, kullanıcı adı, e-posta adresi
-• Profil fotoğrafı (yüklersen)
-• Uygulama içi etkileşimler: favoriler, yorumlar, puanlamalar, katıldığın etkinlikler
-• Konum bilgisi: yalnızca "yakınımdaki duraklar/mekânlar" gibi özellikleri kullanman için, ve yalnızca izin verdiğinde
-• Cihaz ve kullanım verileri: uygulama sürümü, hata kayıtları, genel kullanım istatistikleri
-
-2. Verilerini nasıl kullanıyoruz
-Verilerin yalnızca; hesabını yönetmek, sana etkinlik/fırsat/duyuru göstermek, sosyal özellikleri (ŞanlıSosyal) çalıştırmak, uygulamayı iyileştirmek ve yasal yükümlülüklerimizi yerine getirmek için kullanılır.
-
-3. Paylaşım
-Verilerin hiçbir şekilde reklam amacıyla üçüncü taraflara satılmaz. Verilerin yalnızca uygulamayı çalıştırmamıza yardımcı olan alt yüklenicilerle (barındırma ve veritabanı hizmeti) paylaşılır; bu hizmet sağlayıcılar da verilerini yalnızca bizim talimatlarımız doğrultusunda işler.
-
-4. Güvenlik
-Verilerin şifreli bağlantılar üzerinden iletilir ve erişim yetkilendirmesi olan güvenli sunucularda saklanır.
-
-5. Saklama süresi
-Hesabın aktif olduğu sürece verilerin saklanır. Hesabını sildiğinde, verilerin KVKK'da öngörülen süreler saklı kalmak kaydıyla makul bir süre içinde silinir veya anonim hale getirilir.
-
-6. Haklarım nelerdir?
-Verilerine erişme, düzeltilmesini isteme, silinmesini talep etme ve işlemeye itiraz etme hakkına sahipsin. Detaylar için "KVKK Aydınlatma Metni"ne bakabilirsin.
-
-7. Bize ulaş
-Sorularınız için: ${SUPPORT_EMAIL}`,
+      body: PRIVACY_POLICY_TEXT,
     },
     terms: {
       title: 'Kullanım Şartları',
       icon: <FileText color={txt1} size={26} strokeWidth={2} />,
-      body:
-`Son güncelleme: 2026
-
-Bu Kullanım Şartları, ŞanlıGenç uygulamasını kullanırken uyman gereken kuralları belirler. Uygulamayı kullanarak bu şartları kabul etmiş sayılırsın.
-
-1. Hesap
-13 yaşından büyük olman ve hesap bilgilerinin doğru olması gerekir. Hesabının güvenliğinden sen sorumlusun; şifreni kimseyle paylaşma.
-
-2. Kullanım kuralları
-• Başkalarına hakaret, taciz veya nefret söylemi içeren paylaşım yapamazsın.
-• Sahte bilgi, spam veya yanıltıcı içerik paylaşamazsın.
-• ŞanlıSosyal ve yorum alanlarında yalnızca yasal ve saygılı içerik paylaşabilirsin.
-• Uygulamanın işleyişini bozacak (bot, otomasyon, tersine mühendislik vb.) hiçbir girişimde bulunamazsın.
-
-3. İçerikler
-Genç Kart fırsatları, etkinlik bilgileri ve tarihi yer içerikleri bilgilendirme amaçlıdır; anlaşmalı işletmelerin sunduğu kampanya koşulları önceden haber verilmeksizin değişebilir.
-
-4. Sorumluluk sınırı
-Uygulama "olduğu gibi" sunulur. Üçüncü taraf işletmelerin sunduğu hizmet/kampanyalardan veya kullanıcıların paylaştığı içeriklerden doğabilecek anlaşmazlıklardan uygulama sorumlu tutulamaz.
-
-5. Hesap kapatma
-Kurallara aykırı davranış tespit edilirse hesabın askıya alınabilir veya kapatılabilir. Hesabını istediğin zaman "Hesabımı Sil" seçeneğiyle kapatabilirsin.
-
-6. Değişiklikler
-Bu şartlar zaman zaman güncellenebilir; önemli değişikliklerde uygulama içinden bilgilendirilirsin.
-
-7. İletişim
-${SUPPORT_EMAIL}`,
+      body: TERMS_OF_USE_TEXT,
     },
     kvkk: {
       title: 'KVKK Aydınlatma Metni',
       icon: <ScrollText color={txt1} size={26} strokeWidth={2} />,
-      body:
-`6698 sayılı Kişisel Verilerin Korunması Kanunu ("KVKK") uyarınca, veri sorumlusu sıfatıyla ŞanlıGenç uygulaması olarak seni bilgilendiriyoruz.
-
-1. Kişisel verilerin işlenme amacı
-Ad-soyad, kullanıcı adı, e-posta, profil fotoğrafı, konum (izin verilirse) ve uygulama içi etkileşim verilerin; üyeliğinin oluşturulması, hizmetlerin sunulması, Genç Kart fırsatlarının ve etkinliklerin sana özel gösterilmesi, ŞanlıSosyal üzerinden diğer gençlerle bağlantı kurabilmen ve yasal yükümlülüklerin yerine getirilmesi amacıyla işlenir.
-
-2. İşlenen verilerin aktarılabileceği taraflar
-Verilerin, hizmetin sunulabilmesi için zorunlu olduğu ölçüde barındırma/veritabanı altyapı sağlayıcımızla ve yetkili kamu kurum ve kuruluşlarıyla (yasal zorunluluk halinde) paylaşılabilir. Verilerin pazarlama amacıyla üçüncü kişilere satılmaz veya kiralanmaz.
-
-3. Kişisel veri toplamanın yöntemi ve hukuki sebebi
-Verilerin, uygulamayı kullanman sırasında elektronik ortamda; sözleşmenin kurulması ve ifası, açık rızan (konum gibi opsiyonel veriler için) ve meşru menfaat hukuki sebeplerine dayanılarak toplanır.
-
-4. KVKK'nın 11. maddesi kapsamındaki hakların
-Kişisel verinin işlenip işlenmediğini öğrenme, işlenmişse buna ilişkin bilgi talep etme, işlenme amacını ve amacına uygun kullanılıp kullanılmadığını öğrenme, yurt içinde/yurt dışında aktarıldığı üçüncü kişileri bilme, eksik/yanlış işlenmişse düzeltilmesini isteme, KVKK'da öngörülen şartlar çerçevesinde silinmesini/yok edilmesini isteme, yapılan işlemlerin ilgili üçüncü kişilere bildirilmesini isteme, münhasıran otomatik sistemlerle analiz edilmesi suretiyle aleyhine bir sonucun ortaya çıkmasına itiraz etme ve kanuna aykırı işlenme sebebiyle zarara uğraman hâlinde zararın giderilmesini talep etme haklarına sahipsin.
-
-5. Başvuru
-Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerinden ya da ${SUPPORT_EMAIL} adresinden bizimle iletişime geçebilirsin. Talebin en geç 30 gün içinde sonuçlandırılır.`,
+      body: KVKK_TEXT,
     },
   };
 
@@ -381,7 +368,7 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
                 subtitle={tr('profile.hesapAyarlariSub')}
                 icon={<UserIcon color={txt1} size={20} strokeWidth={2.2} />}
                 iconBg={chipBg}
-                onPress={() => { setEditName(userName); setEditEmail(userEmail); setAccountSettingsVisible(true); }}
+                onPress={() => { setEditName(userName); setEditUsername(userUsername); setEditEmail(userEmail); setAccountSettingsVisible(true); }}
               />
               <MenuItem
                 label={tr('profile.geriBildirim')}
@@ -443,8 +430,41 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
                 subtitle={tr('profileScreen.kisisellestirmeSub')}
                 value={personalizationEnabled}
                 onValueChange={setPersonalizationEnabled}
+              />
+              <ToggleRow
+                icon={<MapPin color={txt1} size={20} strokeWidth={2.2} />}
+                iconBg={chipBg}
+                title={tr('profileScreen.sehirRadariGorunurluk')}
+                subtitle={tr('profileScreen.sehirRadariGorunurlukSub')}
+                value={radarVisible}
+                onValueChange={handleRadarVisibleChange}
                 isLast
               />
+            </View>
+          </View>
+        </View>
+
+        {/* ── DİĞER UYGULAMALARIMIZ ── */}
+        <View style={styles.section}>
+          <Text style={[styles.groupLabel, { color: txt2 }]}>{tr('profileScreen.digerUygulamalarimiz')}</Text>
+          <View style={[styles.menuCardOuter, cardBorder, { backgroundColor: cardBg }]}>
+            <View style={[styles.menuCard, cardInnerClip]}>
+              {OTHER_APPS.map((app, idx) => (
+                <MenuItem
+                  key={app.key}
+                  label={app.name}
+                  subtitle={tr('profileScreen.magazadaGoruntule')}
+                  icon={<Grid3x3 color={txt1} size={20} strokeWidth={2.2} />}
+                  iconBg={chipBg}
+                  onPress={() => {
+                    const url = Platform.OS === 'ios' ? app.iosUrl : app.androidUrl;
+                    Linking.openURL(url).catch(() => {
+                      AppAlert.alert(tr('common.error'), tr('profileScreen.magazaAcilamadi'));
+                    });
+                  }}
+                  isLast={idx === OTHER_APPS.length - 1}
+                />
+              ))}
             </View>
           </View>
         </View>
@@ -490,21 +510,21 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
                 subtitle={tr('profileScreen.sikSorulanlar')}
                 icon={<HelpCircle color={txt1} size={20} strokeWidth={2.2} />}
                 iconBg={chipBg}
-                onPress={() => Alert.alert(tr('profileScreen.yardim'), tr('profileScreen.yakindaSssEklenecek'), [{ text: tr('sendSnap.tamam') }])}
+                onPress={() => AppAlert.alert(tr('profileScreen.yardim'), tr('profileScreen.yakindaSssEklenecek'), [{ text: tr('sendSnap.tamam') }])}
               />
               <MenuItem
                 label={tr('profileScreen.iletisim')}
                 subtitle={SUPPORT_EMAIL}
                 icon={<Mail color={txt1} size={20} strokeWidth={2.2} />}
                 iconBg={chipBg}
-                onPress={() => Alert.alert(tr('profileScreen.iletisim'), tr('profileScreen.bizeUlasabilirsin', { email: SUPPORT_EMAIL }), [{ text: tr('sendSnap.tamam') }])}
+                onPress={() => AppAlert.alert(tr('profileScreen.iletisim'), tr('profileScreen.bizeUlasabilirsin', { email: SUPPORT_EMAIL }), [{ text: tr('sendSnap.tamam') }])}
               />
               <MenuItem
                 label={tr('profileScreen.hakkinda')}
                 subtitle={`ŞanlıGenç · ${tr('profileScreen.surum')} ${APP_VERSION}`}
                 icon={<Flame color={txt1} size={20} strokeWidth={2.2} />}
                 iconBg={chipBg}
-                onPress={() => Alert.alert('ŞanlıGenç', tr('profileScreen.hakkindaMetni', { version: APP_VERSION }), [{ text: tr('sendSnap.tamam') }])}
+                onPress={() => AppAlert.alert('ŞanlıGenç', tr('profileScreen.hakkindaMetni', { version: APP_VERSION }), [{ text: tr('sendSnap.tamam') }])}
                 isLast
               />
             </View>
@@ -559,37 +579,6 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
 
         {/* ── MODALlar ── */}
 
-        {/* Doğrulama */}
-        <Modal animationType="slide" transparent visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalBackdrop}>
-            <View style={modalCardStyle}>
-              <TouchableOpacity style={styles.modalClose} onPress={() => setModalVisible(false)}>
-                <X color={txt2} size={22} />
-              </TouchableOpacity>
-              <View style={[styles.modalIconWrap, { backgroundColor: chipBg }]}>
-                <ShieldCheck color={txt1} size={28} strokeWidth={2} />
-              </View>
-              <Text style={[styles.modalTitle, { color: txt1 }]}>{tr('profileScreen.hesabiniDogrula')}</Text>
-              <Text style={[styles.modalSubtitle, { color: txt2 }]}>
-                {tr('profileScreen.telefonDogrulaAciklama')}
-              </Text>
-              <TextInput
-                placeholder={tr('profileScreen.telefonNumaraniz')}
-                placeholderTextColor={txt2}
-                style={modalInputStyle}
-                keyboardType="phone-pad"
-                maxLength={10}
-                autoFocus
-              />
-              <TouchableOpacity style={styles.modalBtn} onPress={() => setModalVisible(false)}>
-                <View style={[styles.modalBtnGrad, { backgroundColor: ctaBg }]}>
-                  <Text style={[styles.modalBtnText, { color: ctaTxt }]}>{tr('profileScreen.dogrulaVeDevamEt')}</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
-
         {/* Yasal doküman (Gizlilik / Şartlar / KVKK) */}
         <Modal animationType="slide" transparent visible={legalDoc !== null} onRequestClose={() => setLegalDoc(null)}>
           <View style={styles.modalBackdrop}>
@@ -628,8 +617,8 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
                 <UserIcon color={txt1} size={28} strokeWidth={2} />
               </View>
               <Text style={[styles.modalTitle, { color: txt1 }]}>{tr('profile.hesapAyarlari')}</Text>
-              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 300, width: '100%' }}>
-                <Text style={[styles.inputLabel, { color: txt2 }]}>{tr('profileScreen.kullaniciAdi')}</Text>
+              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 360, width: '100%' }}>
+                <Text style={[styles.inputLabel, { color: txt2 }]}>{tr('profileScreen.adiniz')}</Text>
                 <TextInput
                   placeholder={tr('profileScreen.adiniz')}
                   placeholderTextColor={txt2}
@@ -637,6 +626,17 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
                   value={editName}
                   onChangeText={setEditName}
                   autoCapitalize="words"
+                />
+                <Text style={[styles.inputLabel, { color: txt2 }]}>{tr('profileScreen.kullaniciAdi')}</Text>
+                <TextInput
+                  placeholder="kullanici_adi"
+                  placeholderTextColor={txt2}
+                  style={modalInputStyle}
+                  value={editUsername}
+                  onChangeText={(val) => setEditUsername(val.replace(/[^a-zA-Z0-9_]/g, ''))}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  maxLength={20}
                 />
                 <Text style={[styles.inputLabel, { color: txt2 }]}>{tr('profileScreen.eposta')}</Text>
                 <TextInput
@@ -653,19 +653,40 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
               <TouchableOpacity
                 style={styles.modalBtn}
                 onPress={async () => {
+                  const cleanUsername = editUsername.trim().toLowerCase();
+                  if (!/^[a-z0-9_]{3,20}$/.test(cleanUsername)) {
+                    AppAlert.alert(tr('common.error'), tr('completeProfile.kullaniciAdiGecersiz'));
+                    return;
+                  }
                   try {
                     if (profile?.userId) {
-                      await supabase.from('user_profiles').update({ name: editName.trim() }).eq('user_id', profile.userId);
+                      const { data: updatedRows, error } = await supabase
+                        .from('user_profiles')
+                        .upsert(
+                          { user_id: profile.userId, name: editName.trim(), username: cleanUsername },
+                          { onConflict: 'user_id' }
+                        )
+                        .select();
+                      if (error) {
+                        if (error.code === '23505') {
+                          AppAlert.alert(tr('common.error'), tr('completeProfile.kullaniciAdiKullanimda'));
+                          return;
+                        }
+                        throw error;
+                      }
+                      console.log('Güncellenen satırlar:', updatedRows);
                       if (editEmail.trim() && editEmail.trim() !== userEmail) {
                         const { error: emailError } = await supabase.auth.updateUser({ email: editEmail.trim() });
                         if (emailError) throw emailError;
-                        Alert.alert(tr('profileScreen.onayGerekiyor'), tr('profileScreen.dogrulamaBaglantisiGonderildi'));
+                        AppAlert.alert(tr('profileScreen.onayGerekiyor'), tr('profileScreen.dogrulamaBaglantisiGonderildi'));
                       }
                       await refreshProfile();
+                      AppAlert.alert('Başarılı', 'Bilgilerin güncellendi.');
                     }
                     setAccountSettingsVisible(false);
                   } catch (e: any) {
-                    Alert.alert(tr('common.error'), e?.message || tr('profileScreen.bilgilerKaydedilemedi'));
+                    console.error('Hesap ayarları kaydetme hatası:', e);
+                    AppAlert.alert(tr('common.error'), e?.message || tr('profileScreen.bilgilerKaydedilemedi'));
                   }
                 }}
               >
@@ -711,38 +732,44 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
         {/* Geri Bildirim */}
         <Modal animationType="slide" transparent visible={feedbackModalVisible} onRequestClose={() => setFeedbackModalVisible(false)}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalBackdrop}>
-            <View style={modalCardStyle}>
+            <View style={[modalCardStyle, styles.feedbackModalCard]}>
               <TouchableOpacity style={styles.modalClose} onPress={() => setFeedbackModalVisible(false)}>
                 <X color={txt2} size={22} />
               </TouchableOpacity>
-              <View style={[styles.modalIconWrap, { backgroundColor: chipBg }]}>
-                <MessageSquare color={txt1} size={28} strokeWidth={2} />
-              </View>
-              <Text style={[styles.modalTitle, { color: txt1 }]}>{tr('profileScreen.geriBildirimBaslik')}</Text>
 
-              {/* Tip seçimi */}
-              <View style={styles.feedbackTypes}>
-                {(['complaint', 'bug', 'feature'] as const).map((t) => {
-                  const labels = { complaint: tr('profileScreen.oneri'), bug: tr('common.error'), feature: tr('profileScreen.ozellik') };
-                  const active = feedbackType === t;
-                  return (
-                    <TouchableOpacity
-                      key={t}
-                      style={[
-                        styles.feedbackTypeBtn,
-                        { borderColor: cardBdr },
-                        active && { borderColor: txt1, backgroundColor: chipBg },
-                      ]}
-                      onPress={() => setFeedbackType(t)}
-                    >
-                      <Text style={[styles.feedbackTypeTxt, active ? { color: txt1, fontWeight: '700' } : { color: txt2 }]}>{labels[t]}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                style={{ width: '100%', flexGrow: 0 }}
+                contentContainerStyle={{ alignItems: 'center' }}
+              >
+                <View style={[styles.modalIconWrap, { backgroundColor: chipBg }]}>
+                  <MessageSquare color={txt1} size={28} strokeWidth={2} />
+                </View>
+                <Text style={[styles.modalTitle, { color: txt1 }]}>{tr('profileScreen.geriBildirimBaslik')}</Text>
 
-              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 260, width: '100%' }}>
-                <Text style={[styles.inputLabel, { color: txt2 }]}>{tr('profileScreen.baslik')}</Text>
+                {/* Tip seçimi */}
+                <View style={styles.feedbackTypes}>
+                  {(['complaint', 'bug', 'feature'] as const).map((t) => {
+                    const labels = { complaint: tr('profileScreen.oneri'), bug: tr('common.error'), feature: tr('profileScreen.ozellik') };
+                    const active = feedbackType === t;
+                    return (
+                      <TouchableOpacity
+                        key={t}
+                        style={[
+                          styles.feedbackTypeBtn,
+                          { borderColor: cardBdr },
+                          active && { borderColor: txt1, backgroundColor: chipBg },
+                        ]}
+                        onPress={() => setFeedbackType(t)}
+                      >
+                        <Text style={[styles.feedbackTypeTxt, active ? { color: txt1, fontWeight: '700' } : { color: txt2 }]}>{labels[t]}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                <Text style={[styles.inputLabel, { color: txt2, alignSelf: 'flex-start' }]}>{tr('profileScreen.baslik')}</Text>
                 <TextInput
                   placeholder={tr('profileScreen.kisaBaslik')}
                   placeholderTextColor={txt2}
@@ -750,7 +777,7 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
                   value={feedbackTitle}
                   onChangeText={setFeedbackTitle}
                 />
-                <Text style={[styles.inputLabel, { color: txt2 }]}>{tr('profileScreen.aciklama')}</Text>
+                <Text style={[styles.inputLabel, { color: txt2, alignSelf: 'flex-start' }]}>{tr('profileScreen.aciklama')}</Text>
                 <TextInput
                   placeholder={tr('profileScreen.detaylariBurayaYaz')}
                   placeholderTextColor={txt2}
@@ -766,18 +793,23 @@ Bu haklarını kullanmak için Profil > Hesabımı Sil / Hesap Ayarları üzerin
                 style={[styles.modalBtn, (!feedbackTitle.trim() || !feedbackDescription.trim()) && { opacity: 0.4 }]}
                 disabled={!feedbackTitle.trim() || !feedbackDescription.trim()}
                 onPress={async () => {
+                  if (!profile?.userId) {
+                    AppAlert.alert(tr('common.error'), tr('profileScreen.girisGerekliGeriBildirim'), [{ text: tr('sendSnap.tamam') }]);
+                    return;
+                  }
                   try {
-                    await supabase.from('geri_bildirimler').insert({
-                      kullanici_id: profile?.userId || MOCK_USER.name,
+                    const { error } = await supabase.from('geri_bildirimler').insert({
+                      kullanici_id: profile.userId,
                       tur: feedbackType === 'complaint' ? 'sikayet_oneri' : feedbackType === 'bug' ? 'hata' : 'ozellik_istegi',
                       baslik: feedbackTitle.trim(),
                       aciklama: feedbackDescription.trim(),
                       durum: 'beklemede',
                       olusturma_tarihi: new Date().toISOString(),
                     });
-                    Alert.alert(tr('profileScreen.gonderildi'), tr('profileScreen.geriBildirimTesekkur'), [{ text: tr('sendSnap.tamam'), onPress: () => { setFeedbackModalVisible(false); setFeedbackTitle(''); setFeedbackDescription(''); setFeedbackType('complaint'); } }]);
+                    if (error) throw error;
+                    AppAlert.alert(tr('profileScreen.gonderildi'), tr('profileScreen.geriBildirimTesekkur'), [{ text: tr('sendSnap.tamam'), onPress: () => { setFeedbackModalVisible(false); setFeedbackTitle(''); setFeedbackDescription(''); setFeedbackType('complaint'); } }]);
                   } catch {
-                    Alert.alert(tr('common.error'), tr('profileScreen.gonderilirkenSorun'), [{ text: tr('sendSnap.tamam') }]);
+                    AppAlert.alert(tr('common.error'), tr('profileScreen.gonderilirkenSorun'), [{ text: tr('sendSnap.tamam') }]);
                   }
                 }}
               >
@@ -1110,6 +1142,10 @@ const styles = StyleSheet.create({
   },
   legalModalView: {
     maxHeight: '82%',
+  },
+  feedbackModalCard: {
+    maxHeight: SCREEN_HEIGHT * 0.82,
+    flexShrink: 1,
   },
   legalScroll: {
     width: '100%',

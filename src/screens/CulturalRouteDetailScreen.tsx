@@ -7,6 +7,7 @@ import { ArrowLeft, Clock, MapPin, Sparkles } from 'lucide-react-native';
 import { RootStackParamList } from '@/types/navigation';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { MOCK_WEEKEND_PLANS } from '@/api/mockData';
+import { localizeWeekendPlan } from '@/data/mockLocalization';
 import { cityFallback } from '@/lib/imageFallback';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { useTranslation } from 'react-i18next';
@@ -46,12 +47,15 @@ const CulturalRouteDetailScreen = () => {
   const route = useRoute();
   const { id } = route.params as { id: string };
   const t = useAppTheme();
-  const { t: tr } = useTranslation();
+  const { t: tr, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
 
   const cardBorder = t.isDark ? cardBorderDark : cardBorderLight;
 
-  const plan = useMemo(() => MOCK_WEEKEND_PLANS.find((p) => p.id === id), [id]);
+  const plan = useMemo(() => {
+    const found = MOCK_WEEKEND_PLANS.find((p) => p.id === id);
+    return found ? localizeWeekendPlan(found, i18n.language) : found;
+  }, [id, i18n.language]);
   const heroSource = useMemo(() => {
     if (plan?.image) {
       return typeof plan.image === 'string' ? { uri: plan.image } : plan.image;
@@ -120,7 +124,7 @@ const CulturalRouteDetailScreen = () => {
             <ArrowLeft color="#fff" size={20} strokeWidth={2.2} />
           </TouchableOpacity>
           <View style={styles.heroTextBlock}>
-            <Text style={styles.heroTitle}>{plan.title}</Text>
+            <Text style={styles.heroTitle} numberOfLines={2}>{plan.title}</Text>
           </View>
           </ImageBackground>
         </View>

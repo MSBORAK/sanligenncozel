@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, Keyboard, ActivityIndicator, Dimensions, Modal } from 'react-native';
+import { AppAlert } from '@/lib/alert';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, Keyboard, ActivityIndicator, Dimensions, Modal, Linking } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Search, MapPin, Star, Maximize2, Minimize2, Navigation, ArrowRight, Bus, X } from 'lucide-react-native';
@@ -8,18 +9,12 @@ import { Platform } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { MOCK_STOPS } from '@/data/transport';
-import { estimateTime, calculateDistance } from '@/utils/estimateTime';
+import { calculateDistance } from '@/utils/estimateTime';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { useFavorites } from '@/context/FavoritesContext';
 
 const SERIF = Platform.select<string>({ ios: 'Georgia', android: 'serif', default: 'serif' });
-
-const FAVORITE_STOPS = [
-  { id: 'abide', name: 'Abide Durağı', lines: '63, 73, 90' },
-  { id: 'osmanbey', name: 'Osmanbey Kampüsü', lines: '90, 90E, 90K' },
-  { id: 'piazza', name: 'Piazza AVM', lines: '33, 36' },
-];
 
 const TransportScreen = () => {
   const { t: tr } = useTranslation();
@@ -34,7 +29,6 @@ const TransportScreen = () => {
     longitudeDelta: 0.05,
   });
   const [nearestStop, setNearestStop] = useState<typeof MOCK_STOPS[0] | null>(null);
-  const [upcomingBuses, setUpcomingBuses] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { favoriteStopIds: favorites, isFavoriteStop, toggleFavorite } = useFavorites();
   const [isMapExpanded, setIsMapExpanded] = useState(false);
@@ -99,11 +93,20 @@ const TransportScreen = () => {
   }, [selectedArea]);
 
   useEffect(() => {
+    let isMounted = true;
     (async () => {
       try {
         let { status } = await Location.requestForegroundPermissionsAsync();
+        if (!isMounted) return;
         if (status !== 'granted') {
-          Alert.alert(tr('transport.izinGerekli'), tr('transport.izinMesaji'));
+          AppAlert.alert(
+            tr('transport.izinGerekli'),
+            tr('transport.izinMesaji'),
+            [
+              { text: tr('common.ok'), style: 'cancel' },
+              { text: tr('transport.ayarlaraGit'), onPress: () => Linking.openSettings() },
+            ]
+          );
           // Varsayılan olarak Abide durağını seç
           setNearestStop(MOCK_STOPS[0]);
           setFromStop(MOCK_STOPS[0]);
@@ -111,6 +114,7 @@ const TransportScreen = () => {
         }
 
         let location = await Location.getCurrentPositionAsync({});
+        if (!isMounted) return;
         setLocation(location);
 
         // En yakın durağı bul
@@ -159,24 +163,16 @@ const TransportScreen = () => {
         }
       } catch (e) {
         // Konum servisleri kapalı / GPS zaman aşımı / simülatör hatası — sessizce varsayılana düş
-        setNearestStop(MOCK_STOPS[0]);
-        setFromStop(MOCK_STOPS[0]);
+        if (isMounted) {
+          setNearestStop(MOCK_STOPS[0]);
+          setFromStop(MOCK_STOPS[0]);
+        }
       } finally {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     })();
+    return () => { isMounted = false; };
   }, []);
-
-  // Nearest stop değiştiğinde otobüsleri güncelle
-  useEffect(() => {
-    if (nearestStop) {
-      const buses = nearestStop.buses.map((bus: any) => ({
-        ...bus,
-        estimatedArrival: estimateTime(bus.baseTime),
-      }));
-      setUpcomingBuses(buses.sort((a, b) => a.estimatedArrival - b.estimatedArrival));
-    }
-  }, [nearestStop]);
 
   // Rota planlama algoritması
   useEffect(() => {
@@ -1188,59 +1184,6 @@ const styles = StyleSheet.create({
     color: '#16a34a',
     fontWeight: '600',
     fontSize: 12,
-  },
-  busList: {
-    marginTop: 16,
-    gap: 12,
-  },
-  busCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderRadius: 18,
-    padding: 14,
-    backgroundColor: Colors.white,
-    borderWidth: 2,
-  },
-  busLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  busNumberBadge: {
-    width: 46,
-    height: 46,
-    borderRadius: 16,
-    borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f9fafb',
-  },
-  busNumberText: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  busDestination: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.darkGray,
-  },
-  busTariff: {
-    fontSize: 12,
-    color: '#9ca3af',
-    marginTop: 2,
-  },
-  busRight: {
-    alignItems: 'flex-end',
-  },
-  busTime: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: Colors.darkGray,
-  },
-  busTimeSub: {
-    fontSize: 12,
-    color: '#9ca3af',
   },
   infoRow: {
     flexDirection: 'row',

@@ -26,6 +26,7 @@ secrets.js
 
 # Misc
 *.DS_Store
+._*
 
 # Claude Code local tooling
 .claude/

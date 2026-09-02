@@ -8,6 +8,7 @@ import { RootStackParamList } from '@/types/navigation';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { MOCK_MAGAZINES } from '@/api/mockData';
+import { localizeHeritageItem } from '@/data/mockLocalization';
 import type { HeritageCategory } from '@/types';
 import { useTranslation } from 'react-i18next';
 
@@ -29,25 +30,30 @@ type Nav = StackNavigationProp<RootStackParamList>;
 const HeritageCollectionScreen = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute();
-  const { category } = route.params as { category: HeritageCategory };
+  const { category } = (route.params as { category?: HeritageCategory } | undefined) || {};
   const t = useAppTheme();
-  const { t: tr } = useTranslation();
+  const { t: tr, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
 
   const cardBorder = t.isDark ? cardBorderDark : cardBorderLight;
 
   const formatted = useMemo(() => {
     // Sadece MOCK_MAGAZINES kullan
-    const fromMock = MOCK_MAGAZINES.filter((m) => m.category === category).map((m) => ({
-      id: m.id,
-      title: m.title,
-      description: m.description,
-      image: m.image,
-    }));
+    const fromMock = MOCK_MAGAZINES
+      .filter((m) => m.category === category)
+      .map((raw) => {
+        const m = localizeHeritageItem(raw, i18n.language);
+        return {
+          id: m.id,
+          title: m.title,
+          description: m.description,
+          image: m.image,
+        };
+      });
     return fromMock;
-  }, [category]);
+  }, [category, i18n.language]);
 
-  const metaKeys = CATEGORY_META_KEYS[category];
+  const metaKeys = category ? CATEGORY_META_KEYS[category] : undefined;
   const meta = metaKeys
     ? { title: tr(metaKeys.titleKey), subtitle: tr(metaKeys.subtitleKey) }
     : { title: tr('heritageCollection.defaultTitle'), subtitle: '' };
@@ -68,6 +74,11 @@ const HeritageCollectionScreen = () => {
           <Text style={[styles.count, { color: t.txt2 }]}>{tr('heritageCollection.mekanSayisi', { count: formatted.length })}</Text>
         </View>
 
+        {formatted.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={[styles.emptyStateText, { color: t.txt2 }]}>{tr('heritageCollection.sonucBulunamadi')}</Text>
+          </View>
+        ) : (
         <View style={styles.grid}>
           {formatted.map((item, index) => (
               <View key={item.id} style={[styles.cardOuter, cardOuterShadow, cardBorder, { width: CARD_W, backgroundColor: t.cardBg }]}>
@@ -96,6 +107,7 @@ const HeritageCollectionScreen = () => {
               </View>
             ))}
           </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -113,6 +125,15 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  emptyState: {
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    fontSize: 15,
+    textAlign: 'center',
   },
   titleBlock: {
     paddingHorizontal: 20,

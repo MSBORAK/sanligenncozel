@@ -21,6 +21,9 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { useTranslation } from 'react-i18next';
+import { useUser } from '@/context/UserContext';
+import { supabase } from '@/lib/supabase';
+import { notify } from '@/lib/notifications';
 
 const { width, height } = Dimensions.get('window');
 
@@ -52,8 +55,9 @@ const SnapViewScreen = () => {
   const route = useRoute();
   const t = useAppTheme();
   const { t: tr } = useTranslation();
-  const params = route.params as RouteParams;
-  
+  const params = (route.params as RouteParams | undefined) || { imageUrl: '', canView: false };
+  const { profile } = useUser();
+
   const [loading, setLoading] = useState(true);
   const [remainingTime, setRemainingTime] = useState(10);
   const [currentIndex, setCurrentIndex] = useState(params.initialIndex || 0);
@@ -70,14 +74,16 @@ const SnapViewScreen = () => {
   const reactionsEnabled = true; // always show reactions
 
   // Snap listesi varsa kullan, yoksa tek snap göster
-  const snapList: SnapItem[] = params.snapList || [{
-    id: '1',
-    imageUrl: params.imageUrl,
-    messageId: params.messageId,
-    canView: params.canView,
-  }];
+  const snapList: SnapItem[] = (params.snapList && params.snapList.length > 0)
+    ? params.snapList
+    : [{
+      id: '1',
+      imageUrl: params.imageUrl,
+      messageId: params.messageId,
+      canView: params.canView,
+    }];
 
-  const currentSnap = snapList[currentIndex];
+  const currentSnap: SnapItem | undefined = snapList[currentIndex] ?? snapList[0];
 
   const pauseTimer = () => {
     timerPausedRef.current = true;
@@ -110,16 +116,70 @@ const SnapViewScreen = () => {
     }, remaining * 1000);
   };
 
+  const [sending, setSending] = useState(false);
+
+  // Kıvılcıma emoji tepkisi ya da yazılı yanıt — ikisi de aslında karşı
+  // tarafa bir DM olarak gitmeli. Önceki hâli hiçbir yere göndermiyordu:
+  // handleReactionPress sadece ekranda emoji gösterip kayboluyordu,
+  // handleSendReply de sadece input'u temizleyip hiçbir şey yapmıyordu.
+  const sendSnapReply = async (text: string) => {
+    const senderId = profile?.userId;
+    const recipientId = params.userId;
+    const trimmed = text.trim();
+    if (!senderId || !recipientId || !trimmed || recipientId === senderId || sending) return;
+
+    setSending(true);
+    try {
+      const { data: convId, error: convError } = await supabase.rpc('get_or_create_conversation', {
+        user1_id: senderId,
+        user2_id: recipientId,
+      });
+      console.log('[Kıvılcım Yanıt] konuşma sonucu', { convId, convError });
+      if (convError) throw convError;
+      if (!convId) throw new Error('Konuşma oluşturulamadı');
+
+      const previewUrl = currentSnap?.imageUrl?.startsWith('http') ? currentSnap.imageUrl : null;
+      const messageContent = `${tr('sosyalMain.tepki') || 'Tepki'}: ${trimmed}`;
+
+      const { data: msgData, error: msgError } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: convId,
+          sender_id: senderId,
+          content: messageContent,
+          ...(previewUrl ? { image_url: previewUrl } : {}),
+        })
+        .select();
+      console.log('[Kıvılcım Yanıt] mesaj insert sonucu', { msgData, msgError });
+      if (msgError) throw msgError;
+      if (!msgData || msgData.length === 0) throw new Error('Mesaj kaydedilemedi');
+
+      const myName = profile?.name || profile?.username || tr('sosyalMain.biri');
+      notify.newMessage(recipientId, myName, messageContent, convId).catch(() => {});
+    } catch (e: any) {
+      console.error('[Kıvılcım Yanıt] HATA', e);
+    } finally {
+      setSending(false);
+    }
+  };
+
   const handleReactionPress = (emoji: string) => {
     setSentReaction(emoji);
     setTimeout(() => setSentReaction(null), 1500);
+    sendSnapReply(emoji);
   };
 
   const handleSendReply = () => {
     if (!replyText.trim()) return;
+    const text = replyText;
     setReplyText('');
     Keyboard.dismiss();
-    resumeTimer();
+    // resumeTimer() değil: yazarken geçen sürede geri sayım az/sıfır kalmış
+    // olabilir, resumeTimer bu az kalan süreyle devam edip anında
+    // navigation.goBack()'e (sayfadan ana sayfaya fırlamaya) yol açabiliyordu.
+    // Gönderdikten sonra süreyi sıfırdan başlatmak bu ani çıkışı önlüyor.
+    startTimer();
+    sendSnapReply(text);
   };
 
   const startTimer = () => {
@@ -174,6 +234,24 @@ const SnapViewScreen = () => {
     }
   };
 
+  // Görüntülenme kaydı + "tekrar oynattı" bildirimi (kendi snap'in değilse)
+  useEffect(() => {
+    if (isOwnSnap || !currentSnap?.id || !profile?.userId) return;
+    let cancelled = false;
+    (async () => {
+      const { data: wasAlreadyViewed } = await supabase.rpc('mark_snap_viewed', {
+        snap_id: currentSnap.id,
+        viewer_id: profile.userId,
+      });
+      if (cancelled) return;
+      if (wasAlreadyViewed && params.userId) {
+        const viewerName = profile.name || profile.username || tr('common.kullanici');
+        notify.snapReplayed(params.userId, viewerName).catch(() => {});
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [currentSnap?.id, isOwnSnap, profile?.userId]);
+
   useEffect(() => {
     startTimer();
 
@@ -196,7 +274,7 @@ const SnapViewScreen = () => {
     itemVisiblePercentThreshold: 50,
   }).current;
 
-  if (!currentSnap.canView) {
+  if (!currentSnap?.canView) {
     return (
       <View style={[styles.root, styles.errorContainer]}>
         <Text style={styles.errorText}>{tr('snapView.goruntulenemiyor')}</Text>

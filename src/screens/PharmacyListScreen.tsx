@@ -1,5 +1,6 @@
 import React, { useMemo, useCallback, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking, ScrollView } from 'react-native';
+import { AppAlert } from '@/lib/alert';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking, ScrollView, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Pill, MapPin, Phone, Navigation } from 'lucide-react-native';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
@@ -34,12 +35,18 @@ const PharmacyListScreen = () => {
 
   const handleDirections = useCallback((pharmacy: Pharmacy) => {
     const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(pharmacy.address)}`;
-    Linking.openURL(url).catch(err => console.error('Yol tarifi açılamadı:', err));
-  }, []);
+    Linking.openURL(url).catch(err => {
+      console.error('Yol tarifi açılamadı:', err);
+      AppAlert.alert(tr('common.error'), tr('pharmacy.linkAcilamadi'));
+    });
+  }, [tr]);
 
   const handleCall = useCallback((phone: string) => {
-    Linking.openURL(`tel:${phone}`).catch(err => console.error('Arama yapılamadı:', err));
-  }, []);
+    Linking.openURL(`tel:${phone}`).catch(err => {
+      console.error('Arama yapılamadı:', err);
+      AppAlert.alert(tr('common.error'), tr('pharmacy.aramaYapilamadi'));
+    });
+  }, [tr]);
 
   const pharmacyData = useMemo(() => {
     const nöbetçi = MOCK_PHARMACIES.filter(p => p.isOnDuty);
@@ -142,6 +149,12 @@ const PharmacyListScreen = () => {
         maxToRenderPerBatch={6}
         windowSize={7}
         removeClippedSubviews
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Pill color={txt2} size={32} strokeWidth={2} />
+            <Text style={[styles.emptyStateText, { color: txt2 }]}>{tr('pharmacy.sonucBulunamadi')}</Text>
+          </View>
+        }
         ListHeaderComponent={
           <ScrollView
             horizontal
@@ -181,6 +194,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 20,
     gap: 4,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingHorizontal: 32,
+    gap: 12,
+  },
+  emptyStateText: {
+    fontSize: 15,
+    textAlign: 'center',
   },
   headerLabel: {
     fontSize: 11,

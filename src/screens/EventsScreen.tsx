@@ -25,7 +25,7 @@ import { cityFallback } from '@/lib/imageFallback';
 import { pickLocalized } from '@/lib/localizeContent';
 import { useTranslation } from 'react-i18next';
 
-const CATEGORIES = ['Tümü', 'Favorilerim', 'Konser', 'Gezi', 'Spor'];
+const CATEGORIES = ['Tümü', 'Konser', 'Gezi', 'Spor'];
 
 const MONTHS_SHORT = ['OCA', 'ŞUB', 'MAR', 'NİS', 'MAY', 'HAZ', 'TEM', 'AĞU', 'EYL', 'EKİ', 'KAS', 'ARA'];
 const WEEKDAYS_SHORT = ['PAZ', 'PZT', 'SAL', 'ÇAR', 'PER', 'CUM', 'CMT'];
@@ -75,15 +75,24 @@ const EventsScreen = () => {
     try {
       const { data, error } = await supabase
         .from('etkinlikler')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*');
 
       if (data) {
-        setEvents(data.map((row: any) => ({
+        const mapped = data.map((row: any) => ({
           ...row,
           baslik: pickLocalized(row, 'baslik', i18n.language),
           aciklama: pickLocalized(row, 'aciklama', i18n.language),
-        })));
+        }));
+        // En yakın/bugünkü etkinlik en üstte; tarihi olmayanlar en sonda
+        mapped.sort((a, b) => {
+          const da = parseEventDate(a.tarih);
+          const db = parseEventDate(b.tarih);
+          if (!da && !db) return 0;
+          if (!da) return 1;
+          if (!db) return -1;
+          return da.getTime() - db.getTime();
+        });
+        setEvents(mapped);
       }
       if (error) console.log('Etkinlik hatası:', error);
     } catch (e) {
@@ -145,7 +154,8 @@ const EventsScreen = () => {
           activeOpacity={0.88}
           style={[
             styles.tabPill,
-            active ? { backgroundColor: ctaBg } : { backgroundColor: chipBg, borderWidth: 1, borderColor: cardBdr },
+            { borderWidth: 1.5, borderColor: '#111114' },
+            active ? { backgroundColor: ctaBg } : { backgroundColor: chipBg },
           ]}
         >
           <Text style={[styles.tabPillText, { color: active ? ctaTxt : txt2 }]}>
@@ -166,11 +176,11 @@ const EventsScreen = () => {
         ? isSameDay(eventDate, new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1))
         : false;
 
+      const hoursLeft = eventDate ? Math.round((eventDate.getTime() - now.getTime()) / 3600000) : null;
+      const isUrgent = isToday && hoursLeft !== null && hoursLeft > 0 && hoursLeft <= 6;
+
       // İlk sıradaki etkinlik büyük "öne çıkan" kart olarak gösterilir
       if (index === 0) {
-        const hoursLeft = eventDate ? Math.round((eventDate.getTime() - now.getTime()) / 3600000) : null;
-        const isUrgent = isToday && hoursLeft !== null && hoursLeft > 0 && hoursLeft <= 6;
-
         return (
           <AnimatedListItem index={index} delay={40}>
             <View style={[styles.heroEventOuter, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
@@ -254,9 +264,16 @@ const EventsScreen = () => {
             </View>
 
             <View style={styles.rowInfo}>
-              <Text style={[styles.rowTitle, { color: txt1 }]} numberOfLines={2}>
-                {item.title}
-              </Text>
+              <View style={styles.rowTitleLine}>
+                <Text style={[styles.rowTitle, { color: txt1, flexShrink: 1 }]} numberOfLines={2}>
+                  {item.title}
+                </Text>
+                {isUrgent && (
+                  <View style={[styles.rowUrgentTag, { backgroundColor: amber }]}>
+                    <Text style={styles.rowUrgentTagText}>{hoursLeft} SAAT</Text>
+                  </View>
+                )}
+              </View>
               <View style={styles.rowMetaLine}>
                 <View style={styles.rowMetaChip}>
                   <CalendarDays color={txt2} size={12} strokeWidth={2} />
@@ -296,7 +313,7 @@ const EventsScreen = () => {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: pageBg }]} edges={['top']}>
       <View style={styles.header}>
-        <View style={[styles.headerPanel, cardBorder, { backgroundColor: cardBg }]}>
+        <View style={styles.headerPanel}>
           <View style={styles.headerRow}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.headerLabel, { color: txt2 }]}>KEŞFET</Text>
@@ -361,7 +378,8 @@ const EventsScreen = () => {
                   onPress={() => setSelectedDayKey(active ? null : key)}
                   style={[
                     styles.dayChip,
-                    active ? { backgroundColor: ctaBg } : { backgroundColor: chipBg, borderWidth: 1, borderColor: cardBdr },
+                    { borderWidth: 1.5, borderColor: '#111114' },
+                    active ? { backgroundColor: ctaBg } : { backgroundColor: chipBg },
                   ]}
                 >
                   <Text style={[styles.dayChipWeekday, { color: active ? ctaTxt : txt2 }]}>
@@ -428,10 +446,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   headerPanel: {
-    borderRadius: 18,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
+    paddingTop: 6,
     gap: 8,
   },
   headerRow: {
@@ -671,11 +686,27 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 5,
   },
+  rowTitleLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   rowTitle: {
     fontFamily: FontFamily.semiBold,
     fontSize: 15,
     letterSpacing: -0.2,
     lineHeight: 19,
+  },
+  rowUrgentTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  rowUrgentTagText: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 9,
+    letterSpacing: 0.3,
+    color: '#fff',
   },
   rowMeta: {
     fontFamily: FontFamily.medium,

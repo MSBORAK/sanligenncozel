@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AppAlert } from '@/lib/alert';
 import {
   View,
   Text,
@@ -61,10 +62,29 @@ const SendSnapScreen = ({ route }: any) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Kıvılcım sadece arkadaşlara gönderilebilir — kabul edilmiş arkadaşlık kayıtlarından
+      // karşı tarafın id'lerini çıkarıp, sadece onların profillerini listeliyoruz.
+      const { data: friendships, error: friendshipsError } = await supabase
+        .from('friendships')
+        .select('sender_id, receiver_id')
+        .eq('status', 'accepted')
+        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`);
+
+      if (friendshipsError) throw friendshipsError;
+
+      const friendIds = (friendships || []).map((f: any) =>
+        f.sender_id === user.id ? f.receiver_id : f.sender_id
+      );
+
+      if (friendIds.length === 0) {
+        setAllUsers([]);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('user_profiles')
         .select('user_id, username, name, avatar_url')
-        .neq('user_id', user.id)
+        .in('user_id', friendIds)
         .order('name', { ascending: true });
 
       if (error) throw error;
@@ -142,12 +162,12 @@ const SendSnapScreen = ({ route }: any) => {
 
   const handleSendSnap = async () => {
     if (!imageUri) {
-      Alert.alert(tr('common.error'), tr('sendSnap.resimBulunamadi'));
+      AppAlert.alert(tr('common.error'), tr('sendSnap.resimBulunamadi'));
       return;
     }
 
     if (selectedRecipients.length === 0) {
-      Alert.alert(tr('common.error'), tr('sendSnap.enAzBirKisi'));
+      AppAlert.alert(tr('common.error'), tr('sendSnap.enAzBirKisi'));
       return;
     }
 
@@ -156,14 +176,14 @@ const SendSnapScreen = ({ route }: any) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        Alert.alert(tr('common.error'), tr('sendSnap.girisGerekiyor'));
+        AppAlert.alert(tr('common.error'), tr('sendSnap.girisGerekiyor'));
         return;
       }
 
       // Resmi yükle
       const imageUrl = await uploadImage(imageUri);
       if (!imageUrl) {
-        Alert.alert(tr('common.error'), tr('sendSnap.resimYuklemeHatasi'));
+        AppAlert.alert(tr('common.error'), tr('sendSnap.resimYuklemeHatasi'));
         setUploading(false);
         return;
       }
@@ -195,14 +215,14 @@ const SendSnapScreen = ({ route }: any) => {
 
       await Promise.all(messagePromises);
 
-      Alert.alert(
+      AppAlert.alert(
         tr('sendSnap.basarili'),
         tr('sendSnap.gonderildi', { count: selectedRecipients.length }),
         [{ text: tr('sendSnap.tamam'), onPress: () => navigation.goBack() }]
       );
     } catch (error) {
       console.error('Send snap error:', error);
-      Alert.alert(tr('common.error'), tr('sendSnap.gonderilirkenHata'));
+      AppAlert.alert(tr('common.error'), tr('sendSnap.gonderilirkenHata'));
     } finally {
       setUploading(false);
     }

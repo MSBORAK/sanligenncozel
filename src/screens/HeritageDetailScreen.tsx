@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { AppAlert } from '@/lib/alert';
 import {
   View,
   Text,
@@ -31,6 +32,7 @@ import { cardOuterShadow, cardBorderLight, cardBorderDark } from '@/constants/Sh
 import { supabase } from '@/lib/supabase';
 import { mapKesfetRow, type KesfetRow } from '@/lib/kesfet';
 import { MOCK_MAGAZINES } from '@/api/mockData';
+import { localizeHeritageItem } from '@/data/mockLocalization';
 import type { HeritageCategory } from '@/types';
 
 type Props = StackScreenProps<RootStackParamList, 'HeritageDetail'>;
@@ -65,9 +67,10 @@ interface ReviewRow {
   reviewer_name?: string;
 }
 
-function toPlaceFromMock(id: string): PlaceView | null {
-  const m = MOCK_MAGAZINES.find((x) => String(x.id) === String(id));
-  if (!m) return null;
+function toPlaceFromMock(id: string, lang: string): PlaceView | null {
+  const found = MOCK_MAGAZINES.find((x) => String(x.id) === String(id));
+  if (!found) return null;
+  const m = localizeHeritageItem(found, lang);
   return {
     title: m.title,
     description: m.description,
@@ -136,16 +139,16 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           }
         }
 
-        setPlace(toPlaceFromMock(id));
+        setPlace(toPlaceFromMock(id, i18n.language));
       } catch (e) {
         console.error('Keşfet detay yüklenemedi:', e);
-        setPlace(toPlaceFromMock(id));
+        setPlace(toPlaceFromMock(id, i18n.language));
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [id]
+    [id, i18n.language]
   );
 
   const loadReviews = useCallback(async () => {
@@ -199,16 +202,19 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const relatedPlaces = useMemo(() => {
     if (!place) return [];
-    return MOCK_MAGAZINES.filter((m) => m.category === place.category && String(m.id) !== String(id)).slice(0, 8);
-  }, [place, id]);
+    return MOCK_MAGAZINES
+      .filter((m) => m.category === place.category && String(m.id) !== String(id))
+      .slice(0, 8)
+      .map((m) => localizeHeritageItem(m, i18n.language));
+  }, [place, id, i18n.language]);
 
   const submitReview = async () => {
     if (!profile?.userId) {
-      Alert.alert(tr('heritageDetail.girisGerekli'), tr('heritageDetail.yorumIcinGiris'));
+      AppAlert.alert(tr('heritageDetail.girisGerekli'), tr('heritageDetail.yorumIcinGiris'));
       return;
     }
     if (!newComment.trim()) {
-      Alert.alert(tr('login.eksikBilgi'), tr('heritageDetail.lutfenYorumYaz'));
+      AppAlert.alert(tr('login.eksikBilgi'), tr('heritageDetail.lutfenYorumYaz'));
       return;
     }
     setSubmitting(true);
@@ -225,7 +231,7 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       setNewRating(5);
       await loadReviews();
     } catch (e) {
-      Alert.alert(tr('common.error'), tr('heritageDetail.yorumGonderilemedi'));
+      AppAlert.alert(tr('common.error'), tr('heritageDetail.yorumGonderilemedi'));
     } finally {
       setSubmitting(false);
     }
@@ -309,7 +315,7 @@ const HeritageDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
         <View style={[styles.sheet, { backgroundColor: t.pageBg }]}>
           <View style={styles.titleRow}>
-            <Text style={[styles.title, { color: t.txt1, flex: 1 }]}>{place.title}</Text>
+            <Text style={[styles.title, { color: t.txt1, flex: 1 }]} numberOfLines={2}>{place.title}</Text>
             {avgRating != null && (
               <View style={[styles.ratingPill, { backgroundColor: t.chipBg }]}>
                 <Star color={starYellow} fill={starYellow} size={14} strokeWidth={0} />

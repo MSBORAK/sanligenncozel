@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AppAlert } from '@/lib/alert';
 import {
   View,
   Text,
@@ -8,27 +9,31 @@ import {
   Image,
   Alert,
   KeyboardAvoidingView,
+  ScrollView,
   Platform,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Camera, Check } from 'lucide-react-native';
+import { Camera, Check, X as XIcon, ArrowLeft } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
-import { useAppTheme } from '@/theme/useAppTheme';
+import { Clean } from '@/constants/Colors';
 import { supabase } from '@/lib/supabase';
 import { useTranslation } from 'react-i18next';
+import { PRIVACY_POLICY_TEXT, TERMS_OF_USE_TEXT } from '@/constants/legalTexts';
 
 const CompleteProfileScreen = () => {
   const navigation = useNavigation();
-  const t = useAppTheme();
   const { t: tr } = useTranslation();
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
+  const [hasExistingUsername, setHasExistingUsername] = useState(false);
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [legalModalDoc, setLegalModalDoc] = useState<'privacy' | 'terms' | null>(null);
 
   // Mevcut profil bilgilerini yükle
   useEffect(() => {
@@ -48,6 +53,7 @@ const CompleteProfileScreen = () => {
 
       if (profile) {
         setUsername(profile.username || '');
+        setHasExistingUsername(!!profile.username);
         setName(profile.name || '');
         if (profile.avatar_url) {
           setAvatarUri(profile.avatar_url);
@@ -65,7 +71,7 @@ const CompleteProfileScreen = () => {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (status !== 'granted') {
-        Alert.alert(tr('completeProfile.izinGerekli'), tr('completeProfile.izinMesaji'));
+        AppAlert.alert(tr('completeProfile.izinGerekli'), tr('completeProfile.izinMesaji'));
         return;
       }
 
@@ -80,7 +86,7 @@ const CompleteProfileScreen = () => {
         setAvatarUri(result.assets[0].uri);
       }
     } catch (e) {
-      Alert.alert(tr('common.error'), tr('completeProfile.fotoSecmeHatasi'));
+      AppAlert.alert(tr('common.error'), tr('completeProfile.fotoSecmeHatasi'));
     }
   };
 
@@ -97,7 +103,7 @@ const CompleteProfileScreen = () => {
       const arrayBuffer = await new Response(blob).arrayBuffer();
 
       const { data, error } = await supabase.storage
-        .from('social-media')
+        .from('avatars')
         .upload(fileName, arrayBuffer, {
           contentType: `image/${fileExt}`,
           upsert: true,
@@ -106,7 +112,7 @@ const CompleteProfileScreen = () => {
       if (error) throw error;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('social-media')
+        .from('avatars')
         .getPublicUrl(data.path);
 
       return publicUrl;
@@ -116,10 +122,44 @@ const CompleteProfileScreen = () => {
     }
   };
 
+  const handleBack = () => {
+    AppAlert.alert(
+      tr('completeProfile.cikisYapilsinMi'),
+      tr('completeProfile.cikisYapilsinMiAciklama'),
+      [
+        { text: tr('common.cancel'), style: 'cancel' },
+        {
+          text: tr('completeProfile.cikisYap'),
+          style: 'destructive',
+          onPress: async () => {
+            await supabase.auth.signOut();
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Login' as never }],
+            });
+          },
+        },
+      ]
+    );
+  };
+
   const handleComplete = async () => {
     if (!name.trim()) {
-      Alert.alert(tr('common.error'), tr('completeProfile.adGirin'));
+      AppAlert.alert(tr('common.error'), tr('completeProfile.adGirin'));
       return;
+    }
+
+    if (!acceptedTerms) {
+      AppAlert.alert(tr('common.error'), tr('completeProfile.sartlariKabulEt'));
+      return;
+    }
+
+    if (!hasExistingUsername) {
+      const cleanUsername = username.trim().toLowerCase();
+      if (!/^[a-z0-9_]{3,20}$/.test(cleanUsername)) {
+        AppAlert.alert(tr('common.error'), tr('completeProfile.kullaniciAdiGecersiz'));
+        return;
+      }
     }
 
     setLoading(true);
@@ -134,16 +174,26 @@ const CompleteProfileScreen = () => {
         avatarUrl = await uploadAvatar(avatarUri);
       }
 
-      // Profili GÜNCELLE (insert değil update)
+      // Profil satırı yoksa oluştur, varsa güncelle
       const { error } = await supabase
         .from('user_profiles')
-        .update({
-          name: name.trim(),
-          avatar_url: avatarUrl,
-        })
-        .eq('user_id', user.id);
+        .upsert(
+          {
+            user_id: user.id,
+            name: name.trim(),
+            avatar_url: avatarUrl,
+            ...(hasExistingUsername ? {} : { username: username.trim().toLowerCase() }),
+          },
+          { onConflict: 'user_id' }
+        );
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === '23505') {
+          AppAlert.alert(tr('common.error'), tr('completeProfile.kullaniciAdiKullanimda'));
+          return;
+        }
+        throw error;
+      }
 
       // Ana sayfaya yönlendir
       navigation.reset({
@@ -152,108 +202,176 @@ const CompleteProfileScreen = () => {
       });
     } catch (error: any) {
       console.error('Profile completion error:', error);
-      Alert.alert(tr('common.error'), error.message || tr('completeProfile.guncellemeHatasi'));
+      AppAlert.alert(tr('common.error'), error.message || tr('completeProfile.guncellemeHatasi'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={styles.root}>
-      <LinearGradient
-        colors={[t.ctaBg, t.txt2, t.pageBg]}
-        style={StyleSheet.absoluteFill}
-      />
-
+    <View style={[styles.root, { backgroundColor: Clean.bg }]}>
       <SafeAreaView style={styles.container} edges={['top']}>
         {loadingProfile ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={t.ctaBg} />
+            <ActivityIndicator size="large" color={Clean.ctaBg} />
             <Text style={styles.loadingText}>{tr('completeProfile.profilYukleniyor')}</Text>
           </View>
         ) : (
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.content}
+            style={styles.flex}
           >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>{tr('completeProfile.title')}</Text>
-            <Text style={styles.subtitle}>
-              {tr('completeProfile.hosGeldin')}
-            </Text>
-          </View>
-
-          {/* Avatar */}
-          <TouchableOpacity 
-            style={styles.avatarContainer}
-            onPress={pickImage}
-          >
-            {avatarUri ? (
-              <Image source={{ uri: avatarUri }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Camera color={t.ctaTxt} size={32} />
-              </View>
-            )}
-            <View style={styles.avatarBadge}>
-              <Camera color={t.ctaTxt} size={16} />
-            </View>
-          </TouchableOpacity>
-
-          {/* Inputs */}
-          <View style={styles.inputsContainer}>
-            {/* Kullanıcı Adı (Sadece Gösterim) */}
-            <View style={styles.inputWrapper}>
-              <Text style={styles.inputLabel}>{tr('completeProfile.kullaniciAdin')}</Text>
-              <View style={[styles.input, styles.inputDisabled]}>
-                <Text style={styles.inputDisabledText}>@{username}</Text>
-              </View>
-              <Text style={styles.inputHint}>
-                {tr('completeProfile.kullaniciAdiDegismez')}
-              </Text>
-            </View>
-
-            {/* İsim */}
-            <View style={styles.inputWrapper}>
-              <Text style={styles.inputLabel}>{tr('completeProfile.adinSoyadin')}</Text>
-              <TextInput
-                placeholder={tr('completeProfile.adPlaceholder')}
-                placeholderTextColor="rgba(255,255,255,0.4)"
-                style={styles.input}
-                value={name}
-                onChangeText={setName}
-                autoCapitalize="words"
-              />
-              <Text style={styles.inputHint}>
-                {tr('completeProfile.gercekAdOneri')}
-              </Text>
-            </View>
-          </View>
-
-          {/* Complete Button */}
-          <TouchableOpacity
-            style={styles.completeButton}
-            onPress={handleComplete}
-            disabled={loading}
-          >
-            <LinearGradient
-              colors={[t.ctaBg, t.txt2]}
-              style={styles.completeButtonGradient}
+            <ScrollView
+              contentContainerStyle={styles.content}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
             >
-              {loading ? (
-                <ActivityIndicator color={t.ctaTxt} />
-              ) : (
-                <>
-                  <Check color={t.ctaTxt} size={24} />
-                  <Text style={styles.completeButtonText}>{tr('completeProfile.tamamla')}</Text>
-                </>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-        </KeyboardAvoidingView>
+              {/* Geri / Çıkış */}
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={handleBack}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <ArrowLeft color={Clean.textPrimary} size={22} />
+              </TouchableOpacity>
+
+              {/* Header */}
+              <View style={styles.header}>
+                <Text style={styles.title}>{tr('completeProfile.title')}</Text>
+                <Text style={styles.subtitle}>
+                  {tr('completeProfile.hosGeldin')}
+                </Text>
+              </View>
+
+              {/* Avatar */}
+              <TouchableOpacity
+                style={styles.avatarContainer}
+                onPress={pickImage}
+              >
+                {avatarUri ? (
+                  <Image source={{ uri: avatarUri }} style={styles.avatar} />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <Camera color={Clean.textMuted} size={32} />
+                  </View>
+                )}
+                <View style={styles.avatarBadge}>
+                  <Camera color={Clean.ctaText} size={16} />
+                </View>
+              </TouchableOpacity>
+
+              {/* Inputs */}
+              <View style={styles.inputsContainer}>
+                {/* Kullanıcı Adı */}
+                <View style={styles.inputWrapper}>
+                  <Text style={styles.inputLabel}>{tr('completeProfile.kullaniciAdin')}</Text>
+                  {hasExistingUsername ? (
+                    <View style={[styles.input, styles.inputDisabled]}>
+                      <Text style={styles.inputDisabledText}>@{username}</Text>
+                    </View>
+                  ) : (
+                    <TextInput
+                      placeholder="ornek_kullanici"
+                      placeholderTextColor={Clean.textMuted}
+                      style={styles.input}
+                      value={username}
+                      onChangeText={(val) => setUsername(val.replace(/[^a-zA-Z0-9_]/g, ''))}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      maxLength={20}
+                    />
+                  )}
+                  <Text style={styles.inputHint}>
+                    {hasExistingUsername
+                      ? tr('completeProfile.kullaniciAdiDegismez')
+                      : tr('completeProfile.kullaniciAdiOlustur')}
+                  </Text>
+                </View>
+
+                {/* İsim */}
+                <View style={styles.inputWrapper}>
+                  <Text style={styles.inputLabel}>{tr('completeProfile.adinSoyadin')}</Text>
+                  <TextInput
+                    placeholder={tr('completeProfile.adPlaceholder')}
+                    placeholderTextColor={Clean.textMuted}
+                    style={styles.input}
+                    value={name}
+                    onChangeText={setName}
+                    autoCapitalize="words"
+                  />
+                  <Text style={styles.inputHint}>
+                    {tr('completeProfile.gercekAdOneri')}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Şartlar/Gizlilik onayı */}
+              <TouchableOpacity
+                style={styles.termsRow}
+                activeOpacity={0.8}
+                onPress={() => setAcceptedTerms((v) => !v)}
+              >
+                <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
+                  {acceptedTerms && <Check color={Clean.ctaText} size={14} strokeWidth={3} />}
+                </View>
+                <Text style={styles.termsText}>
+                  {tr('completeProfile.sartlariOkudumOncesi')}{' '}
+                  <Text style={styles.termsLink} onPress={() => setLegalModalDoc('terms')}>
+                    {tr('completeProfile.kullanimSartlari')}
+                  </Text>
+                  {' '}{tr('completeProfile.ve')}{' '}
+                  <Text style={styles.termsLink} onPress={() => setLegalModalDoc('privacy')}>
+                    {tr('completeProfile.gizlilikPolitikasi')}
+                  </Text>
+                  {"'"}{tr('completeProfile.niOkudumKabulEdiyorum')}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Complete Button */}
+              <TouchableOpacity
+                style={[styles.completeButton, !acceptedTerms && styles.completeButtonDisabled]}
+                onPress={handleComplete}
+                disabled={loading || !acceptedTerms}
+                activeOpacity={0.85}
+              >
+                {loading ? (
+                  <ActivityIndicator color={Clean.ctaText} />
+                ) : (
+                  <>
+                    <Check color={Clean.ctaText} size={22} />
+                    <Text style={styles.completeButtonText}>{tr('completeProfile.tamamla')}</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </KeyboardAvoidingView>
         )}
       </SafeAreaView>
+
+      <Modal
+        visible={legalModalDoc !== null}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setLegalModalDoc(null)}
+      >
+        <View style={styles.legalModalBackdrop}>
+          <View style={styles.legalModalCard}>
+            <View style={styles.legalModalHeader}>
+              <Text style={styles.legalModalTitle}>
+                {legalModalDoc === 'terms' ? tr('completeProfile.kullanimSartlari') : tr('completeProfile.gizlilikPolitikasi')}
+              </Text>
+              <TouchableOpacity onPress={() => setLegalModalDoc(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <XIcon color={Clean.textPrimary} size={22} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.legalModalBody} showsVerticalScrollIndicator={false}>
+              <Text style={styles.legalModalText}>
+                {legalModalDoc === 'terms' ? TERMS_OF_USE_TEXT : PRIVACY_POLICY_TEXT}
+              </Text>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -265,6 +383,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  flex: {
+    flex: 1,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -272,122 +393,194 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   loadingText: {
-    color: '#FFFFFF',
+    color: Clean.textSecondary,
     fontSize: 16,
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: 24,
     justifyContent: 'center',
+    paddingVertical: 24,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 32,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontSize: 28,
+    fontWeight: '800',
+    color: Clean.textPrimary,
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    color: Clean.textSecondary,
     textAlign: 'center',
   },
   avatarContainer: {
     alignSelf: 'center',
-    marginBottom: 40,
+    marginBottom: 36,
     position: 'relative',
   },
   avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 4,
-    borderColor: '#2F2418',
+    width: 116,
+    height: 116,
+    borderRadius: 58,
+    borderWidth: 1.5,
+    borderColor: '#111114',
   },
   avatarPlaceholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    width: 116,
+    height: 116,
+    borderRadius: 58,
+    backgroundColor: Clean.surfaceSoft,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 1.5,
+    borderColor: '#111114',
     borderStyle: 'dashed',
   },
   avatarBadge: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#2F2418',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: Clean.ctaBg,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
-    borderColor: '#000000',
+    borderWidth: 2,
+    borderColor: Clean.bg,
   },
   inputsContainer: {
-    gap: 24,
-    marginBottom: 40,
+    gap: 22,
+    marginBottom: 36,
   },
   inputWrapper: {
     gap: 8,
   },
   inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#F1E3CB',
+    fontSize: 13,
+    fontWeight: '700',
+    color: Clean.textPrimary,
     marginLeft: 4,
   },
   input: {
-    height: 56,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    height: 52,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#111114',
+    backgroundColor: Clean.surface,
     paddingHorizontal: 16,
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: Clean.textPrimary,
+    fontSize: 15,
+    fontWeight: '500',
   },
   inputDisabled: {
-    backgroundColor: 'rgba(255,255,255,0.02)',
-    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: Clean.surfaceSoft,
     justifyContent: 'center',
   },
   inputDisabledText: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 16,
+    color: Clean.textSecondary,
+    fontSize: 15,
+    fontWeight: '500',
   },
   inputHint: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.5)',
+    color: Clean.textMuted,
     marginLeft: 4,
   },
   completeButton: {
-    borderRadius: 28,
-    overflow: 'hidden',
-    shadowColor: '#2F2418',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  completeButtonGradient: {
     height: 56,
+    borderRadius: 16,
+    backgroundColor: Clean.ctaBg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    width: '76%',
+    alignSelf: 'center',
   },
   completeButtonText: {
-    fontSize: 18,
+    fontSize: 16,
+    fontWeight: '800',
+    color: Clean.ctaText,
+  },
+  completeButtonDisabled: {
+    opacity: 0.45,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  termsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingHorizontal: 8,
+    marginBottom: 20,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: Clean.textMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  checkboxChecked: {
+    backgroundColor: Clean.ctaBg,
+    borderColor: Clean.ctaBg,
+  },
+  termsText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 19,
+    color: Clean.textSecondary,
+  },
+  termsLink: {
+    color: Clean.ctaBg,
     fontWeight: '700',
-    color: '#FFFFFF',
+  },
+  legalModalBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  legalModalCard: {
+    backgroundColor: Clean.bg,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+    paddingTop: 16,
+  },
+  legalModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  legalModalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: Clean.textPrimary,
+  },
+  legalModalBody: {
+    paddingHorizontal: 20,
+  },
+  legalModalText: {
+    fontSize: 13.5,
+    lineHeight: 21,
+    color: Clean.textSecondary,
+    paddingBottom: 32,
   },
 });
 

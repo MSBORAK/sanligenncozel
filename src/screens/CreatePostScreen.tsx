@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { AppAlert } from '@/lib/alert';
 import {
   View,
   Text,
@@ -41,7 +42,7 @@ const CreatePostScreen = ({ route }: any) => {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (status !== 'granted') {
-        Alert.alert(tr('completeProfile.izinGerekli'), tr('completeProfile.izinMesaji'));
+        AppAlert.alert(tr('completeProfile.izinGerekli'), tr('completeProfile.izinMesaji'));
         return;
       }
 
@@ -56,7 +57,7 @@ const CreatePostScreen = ({ route }: any) => {
         setImageUri(result.assets[0].uri);
       }
     } catch (e) {
-      Alert.alert(tr('common.error'), tr('completeProfile.fotoSecmeHatasi'));
+      AppAlert.alert(tr('common.error'), tr('completeProfile.fotoSecmeHatasi'));
     }
   };
 
@@ -65,7 +66,7 @@ const CreatePostScreen = ({ route }: any) => {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
 
       if (status !== 'granted') {
-        Alert.alert(tr('completeProfile.izinGerekli'), tr('createPost.kameraIzinMesaji'));
+        AppAlert.alert(tr('completeProfile.izinGerekli'), tr('createPost.kameraIzinMesaji'));
         return;
       }
 
@@ -79,7 +80,7 @@ const CreatePostScreen = ({ route }: any) => {
         setImageUri(result.assets[0].uri);
       }
     } catch (e) {
-      Alert.alert(tr('common.error'), tr('createPost.fotoCekmeHatasi'));
+      AppAlert.alert(tr('common.error'), tr('createPost.fotoCekmeHatasi'));
     }
   };
 
@@ -123,7 +124,7 @@ const CreatePostScreen = ({ route }: any) => {
 
   const handlePost = async () => {
     if (!imageUri) {
-      Alert.alert(tr('common.error'), tr('createPost.resimEkleyin'));
+      AppAlert.alert(tr('common.error'), tr('createPost.resimEkleyin'));
       return;
     }
 
@@ -132,14 +133,14 @@ const CreatePostScreen = ({ route }: any) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        Alert.alert(tr('common.error'), tr('createPost.girisGerekiyor'));
+        AppAlert.alert(tr('common.error'), tr('createPost.girisGerekiyor'));
         return;
       }
 
       // Resmi yükle
       const imageUrl = await uploadImage(imageUri);
       if (!imageUrl) {
-        Alert.alert(tr('common.error'), tr('createPost.resimYuklemeHatasi'));
+        AppAlert.alert(tr('common.error'), tr('createPost.resimYuklemeHatasi'));
         setUploading(false);
         return;
       }
@@ -159,14 +160,14 @@ const CreatePostScreen = ({ route }: any) => {
 
       if (error) throw error;
 
-      Alert.alert(
+      AppAlert.alert(
         tr('createPost.basarili'),
         tr('createPost.hikayePaylasildi'),
         [{ text: tr('common.ok'), onPress: () => navigation.goBack() }]
       );
     } catch (error) {
       console.error('Story creation error:', error);
-      Alert.alert(tr('common.error'), tr('createPost.hikayeOlusturmaHatasi'));
+      AppAlert.alert(tr('common.error'), tr('createPost.hikayeOlusturmaHatasi'));
     } finally {
       setUploading(false);
     }

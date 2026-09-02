@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -45,9 +45,12 @@ const StoryViewScreen = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
+    isMountedRef.current = true;
     fetchUserStories();
+    return () => { isMountedRef.current = false; };
   }, []);
 
   useEffect(() => {
@@ -84,6 +87,7 @@ const StoryViewScreen = () => {
         .order('created_at', { ascending: true });
 
       if (error) throw error;
+      if (!isMountedRef.current) return;
 
       if (!storiesData || storiesData.length === 0) {
         navigation.goBack();
@@ -97,6 +101,8 @@ const StoryViewScreen = () => {
         .eq('user_id', params.userId)
         .single();
 
+      if (!isMountedRef.current) return;
+
       // Story'lere profil bilgisini ekle
       const storiesWithProfile = storiesData.map((story: any) => ({
         ...story,
@@ -108,7 +114,7 @@ const StoryViewScreen = () => {
       }));
 
       setStories(storiesWithProfile as any);
-      
+
       // İlk story'yi görüntülendi olarak işaretle
       const { data: { user } } = await supabase.auth.getUser();
       if (user && storiesData[0].user_id !== user.id) {
@@ -119,9 +125,9 @@ const StoryViewScreen = () => {
       }
     } catch (error) {
       console.error('Fetch stories error:', error);
-      navigation.goBack();
+      if (isMountedRef.current) navigation.goBack();
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
   };
 
@@ -234,7 +240,7 @@ const StoryViewScreen = () => {
             style={styles.userAvatar}
           />
           <View style={styles.userTextContainer}>
-            <Text style={styles.userName}>{currentStory.user_profiles.name}</Text>
+            <Text style={styles.userName} numberOfLines={1}>{currentStory.user_profiles.name}</Text>
             <Text style={styles.timeAgo}>{timeAgo}</Text>
           </View>
           <TouchableOpacity

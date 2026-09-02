@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { AppAlert } from '@/lib/alert';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bell, UserPlus, Check, X, MessageSquare, Sparkles, Calendar, Percent, ChevronLeft } from 'lucide-react-native';
@@ -21,7 +22,7 @@ interface FriendRequest {
 
 type NotificationItem =
   | { id: string; type: 'friend_request'; created_at: string; title: string; message: string; request: FriendRequest }
-  | { id: string; type: 'message'; created_at: string; title: string; message: string; targetUserId: string; targetUserName: string }
+  | { id: string; type: 'message'; created_at: string; title: string; message: string; targetUserId: string; targetUserName: string; targetUserAvatar?: string; targetUsername?: string }
   | { id: string; type: 'snap'; created_at: string; title: string; message: string }
   | { id: string; type: 'event'; created_at: string; title: string; message: string }
   | { id: string; type: 'discount'; created_at: string; title: string; message: string };
@@ -37,7 +38,10 @@ const NotificationsScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchNotifications = useCallback(async () => {
-    if (!profile?.userId) return;
+    if (!profile?.userId) {
+      setLoading(false);
+      return;
+    }
     try {
       const userId = profile.userId;
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -95,24 +99,30 @@ const NotificationsScreen = () => {
           const senderIds = [...new Set(msgData.map((m: any) => m.sender_id))];
           const { data: senderProfiles } = await supabase
             .from('user_profiles')
-            .select('user_id, name')
+            .select('user_id, name, username, avatar_url')
             .in('user_id', senderIds);
 
-          const senderMap: Record<string, string> = {};
+          const senderMap: Record<string, { name: string; username: string; avatarUrl: string }> = {};
           (senderProfiles ?? []).forEach((p: any) => {
-            senderMap[p.user_id] = p.name ?? tr('common.kullanici');
+            senderMap[p.user_id] = {
+              name: p.name ?? tr('common.kullanici'),
+              username: p.username ?? '',
+              avatarUrl: p.avatar_url ?? '',
+            };
           });
 
           msgData.forEach((m: any) => {
-            const senderName = senderMap[m.sender_id] ?? tr('common.kullanici');
+            const sender = senderMap[m.sender_id] ?? { name: tr('common.kullanici'), username: '', avatarUrl: '' };
             merged.push({
               id: `msg-${m.id}`,
               type: 'message',
               created_at: m.created_at,
-              title: senderName,
+              title: sender.name,
               message: m.content?.trim() ? m.content : tr('notifications.yeniMesajGonderdi'),
               targetUserId: m.sender_id,
-              targetUserName: senderName,
+              targetUserName: sender.name,
+              targetUserAvatar: sender.avatarUrl,
+              targetUsername: sender.username,
             });
           });
         }
@@ -216,28 +226,32 @@ const NotificationsScreen = () => {
   const handleAccept = async (req: FriendRequest) => {
     if (!profile?.userId) return;
     try {
-      const { error } = await supabase.from('friendships').update({ status: 'accepted' }).eq('id', req.id);
+      const { error, data } = await supabase.from('friendships').update({ status: 'accepted' }).eq('id', req.id).select();
       if (error) throw error;
+      if (!data || data.length === 0) throw new Error('İstek güncellenemedi.');
 
-      await supabase.rpc('get_or_create_conversation', {
+      const { data: convId, error: convError } = await supabase.rpc('get_or_create_conversation', {
         user1_id: profile.userId,
         user2_id: req.sender_id,
       });
+      console.log('[Bildirim Arkadaş Kabul] konuşma oluştur sonucu', { convId, convError });
+      if (convError) throw convError;
+      if (!convId) throw new Error('Konuşma oluşturulamadı');
 
-      Alert.alert(tr('sosyalMain.arkadasEklendi'), tr('notifications.ileArtikMesajlasabilirsiniz', { name: req.sender_profile?.name ?? tr('common.kullanici') }));
+      AppAlert.alert(tr('sosyalMain.arkadasEklendi'), tr('notifications.ileArtikMesajlasabilirsiniz', { name: req.sender_profile?.name ?? tr('common.kullanici') }));
       await fetchNotifications();
-    } catch {
-      Alert.alert(tr('common.error'), tr('notifications.istekKabulEdilemedi'));
+    } catch (e: any) {
+      AppAlert.alert(tr('common.error'), e.message || tr('notifications.istekKabulEdilemedi'));
     }
   };
 
   const handleReject = async (reqId: string) => {
     try {
-      const { error } = await supabase.from('friendships').update({ status: 'rejected' }).eq('id', reqId);
+      const { error } = await supabase.from('friendships').delete().eq('id', reqId);
       if (error) throw error;
       await fetchNotifications();
     } catch {
-      Alert.alert(tr('common.error'), tr('notifications.istekReddedilemedi'));
+      AppAlert.alert(tr('common.error'), tr('notifications.istekReddedilemedi'));
     }
   };
 
@@ -261,6 +275,8 @@ const NotificationsScreen = () => {
       navigation.navigate('Chat', {
         userId: item.targetUserId,
         userName: item.targetUserName,
+        userAvatar: item.targetUserAvatar || '',
+        username: item.targetUsername || '',
       });
       return;
     }

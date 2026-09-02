@@ -1,8 +1,3 @@
-export const estimateTime = (base: number) => {
-  const randomOffset = Math.floor(Math.random() * 3); // 0–2 dk
-  return base + randomOffset;
-};
-
 // İki nokta arasındaki mesafeyi hesaplayan fonksiyon (Haversine formülü)
 // Returns distance in km
 export const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {

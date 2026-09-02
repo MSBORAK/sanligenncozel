@@ -17,7 +17,10 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.sanligenc.app",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "ŞanlıSosyal kıvılcım videoları için mikrofon kullanılır."
+        "NSCameraUsageDescription": "ŞanlıSosyal kıvılcım fotoğraf ve videoları çekmek için kameraya erişim gerekir.",
+        "NSMicrophoneUsageDescription": "ŞanlıSosyal kıvılcım videoları için mikrofon kullanılır.",
+        "NSPhotoLibraryUsageDescription": "Profil fotoğrafı ve kıvılcım paylaşımı için fotoğraf galerine erişim gerekir.",
+        "NSLocationWhenInUseUsageDescription": "Şehir Radarı ve Ulaşım özelliklerinin çalışması için konumuna erişim gerekir."
       }
     },
     "android": {
@@ -29,7 +32,9 @@
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
       ]
     },
     "plugins": [
@@ -41,7 +46,26 @@
           "sounds": []
         }
       ],
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Şehir Radarı ve Ulaşım özelliklerinin çalışması için konumuna erişim gerekir."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "ŞanlıSosyal kıvılcım fotoğraf ve videoları çekmek için kameraya erişim gerekir.",
+          "microphonePermission": "ŞanlıSosyal kıvılcım videoları için mikrofon kullanılır."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Profil fotoğrafı ve kıvılcım paylaşımı için fotoğraf galerine erişim gerekir."
+        }
+      ]
     ]
   }
 }

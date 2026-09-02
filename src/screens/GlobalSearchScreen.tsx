@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,15 +8,21 @@ import {
   ScrollView,
   Keyboard,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Search, X, Calendar, MapPin, BookOpen, Bus } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MOCK_PARTNERS, MOCK_EVENTS, MOCK_MAGAZINES } from '@/api/mockData';
 import { MOCK_STOPS } from '@/data/transport';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { useTranslation } from 'react-i18next';
+import { supabase, processImageUrl } from '@/lib/supabase';
+import { pickLocalized } from '@/lib/localizeContent';
+
+type EventRow = { id: string; title: string; location: string; category: string };
+type PartnerRow = { id: string; name: string; offer: string; description: string };
+type HeritageRow = { id: string; title: string; description: string; image?: string };
 
 type SearchResult = {
   type: 'event' | 'partner' | 'heritage' | 'stop';
@@ -28,10 +34,59 @@ type SearchResult = {
 
 const GlobalSearchScreen = ({ route }: any) => {
   const t = useAppTheme();
-  const { t: tr } = useTranslation();
+  const { t: tr, i18n } = useTranslation();
   const navigation = useNavigation<any>();
   const filterType = route?.params?.filterType; // 'heritage' | undefined
   const [query, setQuery] = useState('');
+  const [events, setEvents] = useState<EventRow[]>([]);
+  const [partners, setPartners] = useState<PartnerRow[]>([]);
+  const [heritage, setHeritage] = useState<HeritageRow[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    const load = async () => {
+      let eventRows, firsatRows, kesfetRows;
+      try {
+        const results = await Promise.all([
+          supabase.from('etkinlikler').select('id, baslik, konum, kategori'),
+          supabase.from('firsatlar').select('id, baslik, aciklama'),
+          supabase.from('kesfet').select('id, baslik, aciklama, resim_url'),
+        ]);
+        eventRows = results[0].data;
+        firsatRows = results[1].data;
+        kesfetRows = results[2].data;
+      } catch {
+        if (isMounted) setDataLoading(false);
+        return;
+      }
+      if (!isMounted) return;
+
+      setEvents((eventRows || []).map((e: any) => ({
+        id: String(e.id),
+        title: pickLocalized(e, 'baslik', i18n.language) || e.baslik || '',
+        location: e.konum || '',
+        category: e.kategori || '',
+      })));
+
+      setPartners((firsatRows || []).map((p: any) => ({
+        id: String(p.id),
+        name: pickLocalized(p, 'baslik', i18n.language) || p.baslik || '',
+        offer: pickLocalized(p, 'aciklama', i18n.language) || p.aciklama || '',
+        description: pickLocalized(p, 'aciklama', i18n.language) || p.aciklama || '',
+      })));
+
+      setHeritage((kesfetRows || []).map((m: any) => ({
+        id: String(m.id),
+        title: pickLocalized(m, 'baslik', i18n.language) || m.baslik || '',
+        description: pickLocalized(m, 'aciklama', i18n.language) || m.aciklama || '',
+        image: processImageUrl(m.resim_url, 'kesfet_resimleri') || undefined,
+      })));
+      setDataLoading(false);
+    };
+    load();
+    return () => { isMounted = false; };
+  }, [i18n.language]);
 
   const normalize = (s: string) => s.toLocaleLowerCase('tr-TR').trim();
   const match = (text: string) => query && normalize(text).includes(normalize(query));
@@ -42,22 +97,21 @@ const GlobalSearchScreen = ({ route }: any) => {
 
     // Eğer sadece keşfet araması istenmişse, diğer tipleri atla
     if (!filterType || filterType === 'event') {
-      MOCK_EVENTS.forEach((e) => {
+      events.forEach((e) => {
         if (match(e.title) || match(e.location) || match(e.category)) {
           out.push({
             type: 'event',
             id: e.id,
             title: e.title,
             subtitle: `${e.location} · ${e.category}`,
-            image: e.image,
           });
         }
       });
     }
 
     if (!filterType || filterType === 'partner') {
-      MOCK_PARTNERS.forEach((p) => {
-        if (match(p.name) || match(p.offer) || match(p.description || '')) {
+      partners.forEach((p) => {
+        if (match(p.name) || match(p.offer) || match(p.description)) {
           out.push({
             type: 'partner',
             id: p.id,
@@ -69,14 +123,13 @@ const GlobalSearchScreen = ({ route }: any) => {
     }
 
     if (!filterType || filterType === 'heritage') {
-      // Sadece MOCK_MAGAZINES kullan
-      MOCK_MAGAZINES.forEach((m) => {
-        if (match(m.title) || match(m.description || '')) {
+      heritage.forEach((m) => {
+        if (match(m.title) || match(m.description)) {
           out.push({
             type: 'heritage',
             id: m.id,
             title: m.title,
-            subtitle: m.description?.slice(0, 50) + (m.description && m.description.length > 50 ? '...' : ''),
+            subtitle: m.description.slice(0, 50) + (m.description.length > 50 ? '...' : ''),
             image: m.image,
           });
         }
@@ -99,7 +152,7 @@ const GlobalSearchScreen = ({ route }: any) => {
     }
 
     return out;
-  }, [query, filterType]);
+  }, [query, filterType, events, partners, heritage]);
 
   const list = results();
 
@@ -165,6 +218,10 @@ const GlobalSearchScreen = ({ route }: any) => {
             <Text style={[styles.placeholderText, { color: t.txt2 }]}>
               {tr('search.emptyHint')}
             </Text>
+          </View>
+        ) : dataLoading ? (
+          <View style={styles.placeholder}>
+            <ActivityIndicator color={t.accent} />
           </View>
         ) : list.length === 0 ? (
           <View style={styles.placeholder}>
