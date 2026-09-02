@@ -74,6 +74,37 @@ export const LoginScreen: React.FC = () => {
     }
     setSubmitting(true);
     try {
+      // Eğer register modundaysak önce e-posta zaten kayıtlı mı kontrol etmeye çalış
+      if (mode === 'register') {
+        try {
+          // Deneme: shouldCreateUser = false ile var mı bakıyoruz.
+          const probe = await supabase.auth.signInWithOtp({
+            email: email.trim(),
+            options: { shouldCreateUser: false },
+          });
+          // Eğer probe hata döndürmezse, kullanıcı zaten kayıtlı ve OTP gönderildi (giriş akışı).
+          // Bu durumda kullanıcıyı uyarıp login moduna geçmesini teklif edelim.
+          AppAlert.alert(
+            tr('login.hesapZatenVarBaslik') || 'Zaten kayıtlısınız',
+            tr('login.hesapZatenVarAciklama') || 'Bu e-posta ile zaten bir hesap var. Giriş yapmak ister misiniz?',
+            [
+              { text: tr('common.cancel'), style: 'cancel' },
+              {
+                text: tr('login.girisYap'),
+                onPress: () => {
+                  setMode('login');
+                  setStep('email');
+                },
+              },
+            ]
+          );
+          setSubmitting(false);
+          return;
+        } catch (probeErr) {
+          // Eğer probeErr geldiyse büyük ihtimalle kullanıcı yok — devam edip yeni kullanıcı oluşturacağız.
+        }
+      }
+
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
         options: {
