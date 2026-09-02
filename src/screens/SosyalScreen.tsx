@@ -131,6 +131,12 @@ interface Conversation {
     is_snap?: boolean;
   } | null;
   unread_count: number;
+  // Yeni alanlar: erişim kontrolü ve neden (opsiyonel)
+  isFriend?: boolean;
+  isBlocked?: boolean;
+  blockedByOther?: boolean;
+  accessible?: boolean;
+  accessReason?: string;
 }
 
 interface FriendRequest {
@@ -1356,13 +1362,20 @@ function MessagesView({
   const renderConvItem = (conv: Conversation) => (
     <TouchableOpacity
       key={conv.conversation_id}
-      style={[styles.msgItem, { borderColor: cardBdr }]}
+      style={[styles.msgItem, { borderColor: cardBdr, opacity: conv.accessible === false ? 0.6 : 1 }]}
       activeOpacity={0.75}
-      onPress={() => onNavigateChat(
-        conv.other_user.user_id, conv.other_user.name,
-        processImageUrl(conv.other_user.avatar_url) ?? 'https://i.pravatar.cc/150',
-        conv.other_user.username,
-      )}
+      onPress={() => {
+        if (conv.accessible === false) {
+          // erişim yok -> neden göster
+          AppAlert.alert(tr('common.uye'), conv.accessReason || tr('sosyalMain.erişimEngellendi'));
+          return;
+        }
+        onNavigateChat(
+          conv.other_user.user_id, conv.other_user.name,
+          processImageUrl(conv.other_user.avatar_url) ?? 'https://i.pravatar.cc/150',
+          conv.other_user.username,
+        );
+      }}
       onLongPress={() => confirmDeleteConversation(conv)}
       delayLongPress={400}
     >
@@ -1378,8 +1391,12 @@ function MessagesView({
       <View style={styles.msgInfo}>
         <Text style={[styles.msgName, { color: txt1 }]}>{conv.other_user.name}</Text>
         <Text style={[styles.msgSub, { color: txt2 }]} numberOfLines={1}>
-          {conv.last_message?.sender_id === currentUserId ? `${tr('sosyalMain.sen')}: ` : ''}
-          {conv.last_message?.content || tr('sosyalMain.henuzMesajYok')}
+          {conv.accessible === false ? (conv.accessReason || tr('sosyalMain.erişimEngellendi')) : (
+            <>
+              {conv.last_message?.sender_id === currentUserId ? `${tr('sosyalMain.sen')}: ` : ''}
+              {conv.last_message?.content || tr('sosyalMain.henuzMesajYok')}
+            </>
+          )}
         </Text>
       </View>
       <View style={styles.msgMeta}>
@@ -2471,22 +2488,23 @@ export default function SosyalScreen() {
 
           if (!otherParticipant) return null;
 
-          // Güvenlik: sadece kabul edilmiş arkadaşların sohbetlerini göster
+          // Arkadaşlık kontrolü
           const { data: friendshipRow } = await supabase
             .from('friendships')
             .select('id')
             .or(`and(sender_id.eq.${userId},receiver_id.eq.${otherParticipant.user_id}),and(sender_id.eq.${otherParticipant.user_id},receiver_id.eq.${userId})`)
             .eq('status', 'accepted')
             .maybeSingle();
-          if (!friendshipRow) return null;
+          const isFriend = !!friendshipRow;
 
-          // Engelleme varsa sohbeti gizle
+          // Engelleme bilgisi — kim engelledi bilgisiyle birlikte al
           const { data: blockRow } = await supabase
             .from('blocked_users')
-            .select('id')
+            .select('blocker_id, blocked_id')
             .or(`and(blocker_id.eq.${userId},blocked_id.eq.${otherParticipant.user_id}),and(blocker_id.eq.${otherParticipant.user_id},blocked_id.eq.${userId})`)
             .maybeSingle();
-          if (blockRow) return null;
+          const isBlocked = !!blockRow;
+          const blockedByOther = !!blockRow && blockRow.blocker_id === otherParticipant.user_id;
 
           const { data: profile } = await supabase
             .from('user_profiles')
@@ -2513,6 +2531,10 @@ export default function SosyalScreen() {
           if (hiddenAt) unreadQuery = unreadQuery.gt('created_at', hiddenAt);
           const { count: unreadCount } = await unreadQuery;
 
+          // Erişilebilirlik kararı: artık tüm konuşmaları listele, ama erişim bilgisi ekle
+          const accessible = isFriend && !isBlocked;
+          const accessReason = accessible ? undefined : (isBlocked ? tr('sosyalMain.engellendiniz') : tr('sosyalMain.arkadasDegilsiniz'));
+
           return {
             conversation_id: convId,
             other_user: profile
@@ -2520,6 +2542,11 @@ export default function SosyalScreen() {
               : { user_id: otherParticipant.user_id, name: tr('common.kullanici'), username: '' },
             last_message: lastMsgData || null,
             unread_count: unreadCount || 0,
+            isFriend,
+            isBlocked,
+            blockedByOther,
+            accessible,
+            accessReason,
           } as Conversation;
         } catch { return null; }
       });
