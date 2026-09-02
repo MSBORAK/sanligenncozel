@@ -74,37 +74,6 @@ export const LoginScreen: React.FC = () => {
     }
     setSubmitting(true);
     try {
-      // Eğer register modundaysak önce e-posta zaten kayıtlı mı kontrol etmeye çalış
-      if (mode === 'register') {
-        try {
-          // Deneme: shouldCreateUser = false ile var mı bakıyoruz.
-          const probe = await supabase.auth.signInWithOtp({
-            email: email.trim(),
-            options: { shouldCreateUser: false },
-          });
-          // Eğer probe hata döndürmezse, kullanıcı zaten kayıtlı ve OTP gönderildi (giriş akışı).
-          // Bu durumda kullanıcıyı uyarıp login moduna geçmesini teklif edelim.
-          AppAlert.alert(
-            'Zaten kayıtlısınız',
-            'Bu e‑posta ile zaten bir hesap bulunuyor. Giriş yapmak ister misiniz?',
-            [
-              { text: tr('common.cancel'), style: 'cancel' },
-              {
-                text: tr('login.girisYap'),
-                onPress: () => {
-                  setMode('login');
-                  setStep('email');
-                },
-              },
-            ]
-          );
-          setSubmitting(false);
-          return;
-        } catch (probeErr) {
-          // Eğer probeErr geldiyse büyük ihtimalle kullanıcı yok — devam edip yeni kullanıcı oluşturacağız.
-        }
-      }
-
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
         options: {
@@ -116,7 +85,11 @@ export const LoginScreen: React.FC = () => {
       AppAlert.alert(tr('login.kodGonderildi'), tr('login.dogrulamaKoduGir'));
     } catch (error) {
       const message = error instanceof Error ? error.message : tr('login.birHataOlustu');
-      AppAlert.alert(tr('common.error'), message);
+      if (typeof message === 'string' && message.toLowerCase().includes('signups not allowed')) {
+        AppAlert.alert('Hata', 'E‑posta ile yeni kayıt yapılamıyor. Lütfen giriş yapmayı deneyin.');
+      } else {
+        AppAlert.alert(tr('common.error'), message);
+      }
     } finally {
       setSubmitting(false);
     }
