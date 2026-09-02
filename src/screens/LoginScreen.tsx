@@ -30,7 +30,8 @@ export const LoginScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { setGuestMode } = useUser();
   const { t: tr } = useTranslation();
-  const [mode, setMode] = useState<AuthMode>('register');
+  // Default to 'login' so opening this screen defaults to signing in (not registering)
+  const [mode, setMode] = useState<AuthMode>('login');
   const [step, setStep] = useState<AuthStep>('email');
   const [email, setEmail] = useState('');
   const [otpCode, setOtpCode] = useState('');
