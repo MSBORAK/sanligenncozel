@@ -43,6 +43,21 @@ function dayKey(d: Date) {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
+function formatEventDateLabel(dateStr: string | undefined): string {
+  if (!dateStr) return '';
+  const d = parseEventDate(dateStr);
+  if (!d) return '';
+  const now = new Date();
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const timePart = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  if (isSameDay(d, now)) return `BUGÜN · ${timePart}`;
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  if (isSameDay(d, tomorrow)) return `YARIN · ${timePart}`;
+  // e.g., 18 ARA · 20:30
+  const monthsShort = ['OCA','ŞUB','MAR','NİS','MAY','HAZ','TEM','AĞU','EYL','EKİ','KAS','ARA'];
+  return `${d.getDate()} ${monthsShort[d.getMonth()]} · ${timePart}`;
+}
+
 interface EventData {
   id: number;
   baslik: string;
@@ -197,10 +212,10 @@ const EventsScreen = () => {
                 >
                 <View style={styles.heroEventOverlay} pointerEvents="none" />
 
-                {eventDate && (isToday || isTomorrow) && (
+                {eventDate && (
                   <View style={[styles.heroDateTag, { backgroundColor: isToday ? amber : cardBg }]}>
                     <Text style={[styles.heroDateTagText, { color: isToday ? '#fff' : txt1 }]}>
-                      {isToday ? 'BUGÜN' : 'YARIN'}
+                      {isToday ? 'BUGÜN' : (isTomorrow ? 'YARIN' : `${eventDate.getDate()} ${MONTHS_SHORT[eventDate.getMonth()]}`)}
                     </Text>
                   </View>
                 )}
@@ -220,7 +235,7 @@ const EventsScreen = () => {
 
                 <View style={styles.heroTextBlock}>
                   <Text style={styles.heroEventTitle} numberOfLines={2}>{item.title}</Text>
-                  <Text style={styles.heroEventMeta} numberOfLines={1}>{item.location}</Text>
+                  <Text style={styles.heroEventMeta} numberOfLines={1}>{formatEventDateLabel(item.date)}{item.location ? ` · ${item.location}` : ''}</Text>
                 </View>
 
                 {isUrgent && (
@@ -278,7 +293,7 @@ const EventsScreen = () => {
                 <View style={styles.rowMetaChip}>
                   <CalendarDays color={txt2} size={12} strokeWidth={2} />
                   <Text style={[styles.rowMeta, { color: txt2 }]} numberOfLines={1}>
-                    {item.date}
+                    {formatEventDateLabel(item.date)}
                   </Text>
                 </View>
                 <View style={styles.rowMetaChip}>
@@ -563,7 +578,7 @@ const styles = StyleSheet.create({
   heroEventCard: {
     width: '100%',
     borderRadius: 22,
-    height: 236,
+    height: 192,
     overflow: 'hidden',
     justifyContent: 'flex-end',
   },
