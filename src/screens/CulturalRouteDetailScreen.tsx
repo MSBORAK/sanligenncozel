@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ImageBackground, Dimensions, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ImageBackground, Dimensions, Linking, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { ArrowLeft, Clock, MapPin, Sparkles } from 'lucide-react-native';
+import { ArrowLeft, Clock, MapPin, Sparkles, Navigation } from 'lucide-react-native';
 import { RootStackParamList } from '@/types/navigation';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { MOCK_WEEKEND_PLANS } from '@/api/mockData';
@@ -86,24 +86,25 @@ const CulturalRouteDetailScreen = () => {
     return segmentDistances.reduce((sum, value) => sum + value, 0);
   }, [segmentDistances]);
 
-  const openDirections = async () => {
-    const { lat, lon } = plan.coordinates;
-    const label = encodeURIComponent(plan.title);
-    const googleAppUrl = `comgooglemaps://?daddr=${lat},${lon}&directionsmode=driving`;
-    const appleMapsUrl = `http://maps.apple.com/?daddr=${lat},${lon}&q=${label}`;
-    const googleWebUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`;
+  const openDirectionsTo = async (lat: number, lon: number, label: string) => {
+    const encodedLabel = encodeURIComponent(label);
+    // Özel uygulama şemaları (comgooglemaps:// vb.) Expo Go'da whitelist'e
+    // eklenemediği için canOpenURL güvenilir değil (hep false/hata dönebiliyor).
+    // Bunun yerine her platformun kendi https universal link'ini doğrudan açıyoruz —
+    // bu, ilgili harita uygulaması kuruluysa onu, değilse tarayıcıyı açar.
+    const url = Platform.select({
+      ios: `https://maps.apple.com/?daddr=${lat},${lon}&q=${encodedLabel}`,
+      android: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`,
+      default: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`,
+    })!;
     try {
-      const canOpenGoogle = await Linking.canOpenURL(googleAppUrl);
-      if (canOpenGoogle) {
-        await Linking.openURL(googleAppUrl);
-        return;
-      }
-      const canOpenApple = await Linking.canOpenURL(appleMapsUrl);
-      await Linking.openURL(canOpenApple ? appleMapsUrl : googleWebUrl);
+      await Linking.openURL(url);
     } catch {
-      await Linking.openURL(googleWebUrl);
+      await Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`);
     }
   };
+
+  const openDirections = () => openDirectionsTo(plan.coordinates.lat, plan.coordinates.lon, plan.title);
 
   return (
     <View style={[styles.container, { backgroundColor: t.pageBg }]}>
@@ -174,7 +175,22 @@ const CulturalRouteDetailScreen = () => {
                       {!isLast && <View style={[styles.stepLine, { backgroundColor: categoryTheme.soft }]} />}
                     </View>
                     <View style={[styles.stepTextWrap, isLast && { paddingBottom: 0 }]}>
-                      <Text style={[styles.stepText, { color: t.txt1 }]}>{activity}</Text>
+                      <View style={styles.stepTextRow}>
+                        <Text style={[styles.stepText, { color: t.txt1, flex: 1 }]}>{activity}</Text>
+                        {plan.waypoints?.[index] && !plan.waypoints[index].isBreak && (
+                          <TouchableOpacity
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            onPress={() =>
+                              openDirectionsTo(plan.waypoints[index].lat, plan.waypoints[index].lon, plan.waypoints[index].name)
+                            }
+                          >
+                            <Navigation color={categoryTheme.strong} size={15} />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                      {!!plan.waypoints?.[index]?.note && (
+                        <Text style={[styles.stepNote, { color: t.txt2 }]}>{plan.waypoints[index].note}</Text>
+                      )}
                       {!isLast && segmentDistances[index] != null && (
                         <Text style={[styles.stepMeta, { color: t.txt2 }]}>
                           {tr('culturalRouteDetail.sonrakiDurak')}: {segmentDistances[index].toFixed(1)} km
@@ -330,6 +346,11 @@ const styles = StyleSheet.create({
     minHeight: 24,
     marginVertical: 4,
   },
+  stepTextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   stepTextWrap: {
     flex: 1,
     paddingBottom: 20,
@@ -339,6 +360,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 20,
+  },
+  stepNote: {
+    marginTop: 3,
+    fontSize: 12.5,
+    lineHeight: 17,
   },
   stepMeta: {
     marginTop: 4,

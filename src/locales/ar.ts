@@ -506,6 +506,9 @@ export default {
     hesabinVarMi: 'لديك حساب بالفعل؟',
   },
   sosyalMain: {
+    arkadasDegilsiniz: 'لستما صديقين',
+    engellendiniz: 'تم حظرك',
+    erişimEngellendi: 'تم رفض الوصول',
     herkesdenSonSaat: 'آخر 4 ساعات للجميع',
     herkes: 'الجميع',
     arkadaslar: 'الأصدقاء',

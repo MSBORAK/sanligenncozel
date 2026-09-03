@@ -188,6 +188,7 @@ const SosyalProfileScreen = ({ route }: any) => {
   const [refreshing, setRefreshing] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [reactionsEnabled, setReactionsEnabled] = useState(true);
+  const [reactionsEnabledSaving, setReactionsEnabledSaving] = useState(false);
   const [myRelationship, setMyRelationship] = useState<any | null>(null);
   const [relationshipActionLoading, setRelationshipActionLoading] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
@@ -307,12 +308,13 @@ const SosyalProfileScreen = ({ route }: any) => {
         // Kendi profilimiz için is_public ve seri değerini çek
         const { data: profileData } = await supabase
           .from('user_profiles')
-          .select('snap_streak_current')
+          .select('snap_streak_current, reactions_enabled')
           .eq('user_id', viewingUserId)
           .single();
 
         if (profileData) {
           setStreakCount(profileData.snap_streak_current ?? 0);
+          setReactionsEnabled(profileData.reactions_enabled !== false);
         }
       }
 
@@ -1109,7 +1111,24 @@ const SosyalProfileScreen = ({ route }: any) => {
                 </View>
                 <Switch
                   value={reactionsEnabled}
-                  onValueChange={setReactionsEnabled}
+                  disabled={reactionsEnabledSaving}
+                  onValueChange={async (value) => {
+                    if (!currentUserProfile?.userId) return;
+                    setReactionsEnabled(value);
+                    setReactionsEnabledSaving(true);
+                    try {
+                      const { error } = await supabase
+                        .from('user_profiles')
+                        .update({ reactions_enabled: value })
+                        .eq('user_id', currentUserProfile.userId);
+                      if (error) throw error;
+                    } catch {
+                      setReactionsEnabled(!value);
+                      AppAlert.alert(tr('common.error'), tr('sosyalProfile.islemBasarisiz'));
+                    } finally {
+                      setReactionsEnabledSaving(false);
+                    }
+                  }}
                   trackColor={{
                     false: isDark ? '#2c2c2e' : '#e2e8f0',
                     true: amber
@@ -1119,6 +1138,27 @@ const SosyalProfileScreen = ({ route }: any) => {
                 />
               </View>
             </View>
+
+            {/* Engellenen Kullanıcılar */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate('BlockedUsers')}
+              style={[
+                styles.privacyCard,
+                cardOuterShadow,
+                cardBorder,
+                { backgroundColor: cardBg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+              ]}
+            >
+              <View style={styles.privacyLeft}>
+                <ShieldOff size={20} color={txt1} strokeWidth={2} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.privacyTitle, { color: txt1 }]}>{tr('profileScreen.engellenenKullanicilar')}</Text>
+                  <Text style={[styles.privacyDesc, { color: txt2 }]}>{tr('profileScreen.engellenenKullanicilarSub')}</Text>
+                </View>
+              </View>
+              <ChevronRight size={18} color={txt2} strokeWidth={2} />
+            </TouchableOpacity>
             </>
           )}
 

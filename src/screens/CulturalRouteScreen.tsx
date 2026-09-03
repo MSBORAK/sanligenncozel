@@ -18,11 +18,6 @@ const CATEGORY_KEYS: Record<string, string> = {
   'yarım-gün': 'culturalRoute.yarimGun',
   'akşam': 'culturalRoute.aksam',
 };
-const CATEGORY_PASTELS: Record<string, string> = {
-  'tam-gün': '#F8F0D0',
-  'yarım-gün': '#ECF3D8',
-  'akşam': '#F6E4EA',
-};
 const ROUTE_DOTS = ['#ECA7B6', '#BEDB7A', '#F2C84B'] as const;
 
 type DurationFilter = 'hepsi' | 'tam-gün' | 'yarım-gün' | 'akşam';
@@ -138,9 +133,9 @@ const CulturalRouteScreen = () => {
           <TouchableOpacity
             activeOpacity={0.9}
             onPress={() => navigation.navigate('CulturalRouteDetail', { id: recommendedPlan.id })}
-            style={[styles.recommendCard, cardBorder, { backgroundColor: CATEGORY_PASTELS[recommendedPlan.category] ?? '#D8F0F0' }]}
+            style={[styles.recommendCard, cardBorder, { backgroundColor: t.cardBg }]}
           >
-            <Text style={[styles.recommendLabel, { color: t.txt2 }]}>{tr('culturalRoute.suAnIcinOnerilen')}</Text>
+            <Text style={[styles.recommendLabel, { color: t.accent }]}>{tr('culturalRoute.suAnIcinOnerilen')}</Text>
             <Text style={[styles.recommendTitle, { color: t.txt1 }]}>{recommendedPlan.title}</Text>
             <Text style={[styles.recommendSub, { color: t.txt2 }]}>
               {isHotHours ? tr('culturalRoute.sicakSaatlerNotu') : tr('culturalRoute.saatineGoreNotu')}

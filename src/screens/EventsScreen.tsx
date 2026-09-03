@@ -6,10 +6,9 @@ import {
   FlatList,
   TouchableOpacity,
   Image,
-  ImageBackground,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Heart, CalendarDays, MapPin } from 'lucide-react-native';
+import { Heart, CalendarDays, MapPin, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
@@ -29,6 +28,8 @@ const CATEGORIES = ['Tümü', 'Konser', 'Gezi', 'Spor'];
 
 const MONTHS_SHORT = ['OCA', 'ŞUB', 'MAR', 'NİS', 'MAY', 'HAZ', 'TEM', 'AĞU', 'EYL', 'EKİ', 'KAS', 'ARA'];
 const WEEKDAYS_SHORT = ['PAZ', 'PZT', 'SAL', 'ÇAR', 'PER', 'CUM', 'CMT'];
+const MONTHS_FULL = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+const WEEKDAYS_MONDAY_FIRST = ['P', 'S', 'Ç', 'P', 'C', 'C', 'P'];
 
 function parseEventDate(dateStr: string): Date | null {
   const d = new Date(dateStr);
@@ -79,6 +80,7 @@ const EventsScreen = () => {
   const initialTab = (route.params as { initialTab?: string } | undefined)?.initialTab;
   const [activeTab, setActiveTab] = useState(initialTab === 'Favorilerim' ? 'Favorilerim' : 'Tümü');
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
+  const [calendarVisible, setCalendarVisible] = useState(false);
   const [events, setEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(true);
   const { favoriteEventIds, isFavoriteEvent, toggleFavorite } = useFavorites();
@@ -130,6 +132,30 @@ const EventsScreen = () => {
     return Array.from(map.values()).sort((a, b) => a.getTime() - b.getTime());
   }, [events]);
 
+  const eventDayKeySet = useMemo(() => new Set(availableDays.map(dayKey)), [availableDays]);
+
+  // Takvim en yakın etkinliğin ayından açılsın — kullanıcı ekranı açar
+  // açmaz zaten yaklaşan etkinlik hangi ayda ise onu görsün, boş bir ay
+  // grubuyla karşılaşmasın.
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date();
+    const upcoming = availableDays.find(d => d.getTime() >= now.getTime());
+    const base = upcoming ?? now;
+    return new Date(base.getFullYear(), base.getMonth(), 1);
+  });
+
+  const calendarCells = useMemo(() => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    // Pazartesi başlangıçlı hafta (getDay(): 0=Pazar) — Türkiye takvim geleneği
+    const leadingBlanks = (firstDay.getDay() + 6) % 7;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const cells: (Date | null)[] = Array(leadingBlanks).fill(null);
+    for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
+    return cells;
+  }, [calendarMonth]);
+
   const filteredEvents = useMemo(() => {
     let list = events;
     if (activeTab === 'Favorilerim') list = list.filter(e => favoriteEventIds.includes(e.id.toString()));
@@ -141,7 +167,23 @@ const EventsScreen = () => {
         return d ? dayKey(d) === selectedDayKey : false;
       });
     }
-    return list;
+
+    // En yakın tarihli (yaklaşan) etkinlik listenin başına gelsin —
+    // önceden sıralama yoktu, index 0 rastgele hangi etkinlikse o büyük
+    // öne çıkan kart oluyordu. Geçmiş etkinlikler sona itiliyor, yaklaşanlar
+    // arasında en yakın tarih öne geliyor.
+    const now = Date.now();
+    return [...list].sort((a, b) => {
+      const da = parseEventDate(a.tarih);
+      const db = parseEventDate(b.tarih);
+      if (!da && !db) return 0;
+      if (!da) return 1;
+      if (!db) return -1;
+      const aFuture = da.getTime() >= now;
+      const bFuture = db.getTime() >= now;
+      if (aFuture !== bFuture) return aFuture ? -1 : 1;
+      return aFuture ? da.getTime() - db.getTime() : db.getTime() - da.getTime();
+    });
   }, [events, activeTab, favoriteEventIds, selectedDayKey]);
 
   const formatEvent = useCallback(
@@ -200,50 +242,52 @@ const EventsScreen = () => {
           <AnimatedListItem index={index} delay={40}>
             <View style={[styles.heroEventOuter, cardOuterShadow, cardBorder, { backgroundColor: cardBg }]}>
               <TouchableOpacity
-                style={[styles.heroEventCard, cardInnerClip]}
                 activeOpacity={0.92}
                 onPress={() => navigation.navigate('EventDetail', { eventId: item.id })}
               >
-                <ImageBackground
-                  source={{ uri: item.image }}
-                  style={styles.heroEventImageBg}
-                  imageStyle={styles.heroEventImageRadius}
-                  resizeMode="cover"
-                >
-                <View style={styles.heroEventOverlay} pointerEvents="none" />
+                <View style={styles.heroImageWrap}>
+                  <Image source={{ uri: item.image }} style={styles.heroImage} resizeMode="cover" />
 
-                {eventDate && (
-                  <View style={[styles.heroDateTag, { backgroundColor: isToday ? amber : cardBg }]}>
-                    <Text style={[styles.heroDateTagText, { color: isToday ? '#fff' : txt1 }]}>
-                      {isToday ? 'BUGÜN' : (isTomorrow ? 'YARIN' : `${eventDate.getDate()} ${MONTHS_SHORT[eventDate.getMonth()]}`)}
-                    </Text>
-                  </View>
-                )}
+                  {eventDate && (
+                    <View style={[styles.heroDateTag, { backgroundColor: isToday ? amber : '#fff' }]}>
+                      <Text style={[styles.heroDateTagText, { color: isToday ? '#fff' : '#111114' }]}>
+                        {isToday ? 'BUGÜN' : (isTomorrow ? 'YARIN' : `${eventDate.getDate()} ${MONTHS_SHORT[eventDate.getMonth()]}`)}
+                      </Text>
+                    </View>
+                  )}
 
-                <TouchableOpacity
-                  style={[styles.heroHeartBtn, { backgroundColor: cardBg }]}
-                  onPress={() => onToggleFavorite(item.id)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Heart
-                    color={isFavoriteEvent(item.id) ? amber : txt1}
-                    size={18}
-                    strokeWidth={2}
-                    fill={isFavoriteEvent(item.id) ? amber : 'transparent'}
-                  />
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.heroHeartBtn}
+                    onPress={() => onToggleFavorite(item.id)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Heart
+                      color={isFavoriteEvent(item.id) ? amber : '#111114'}
+                      size={18}
+                      strokeWidth={2}
+                      fill={isFavoriteEvent(item.id) ? amber : 'transparent'}
+                    />
+                  </TouchableOpacity>
 
-                <View style={styles.heroTextBlock}>
-                  <Text style={styles.heroEventTitle} numberOfLines={2}>{item.title}</Text>
-                  <Text style={styles.heroEventMeta} numberOfLines={1}>{formatEventDateLabel(item.date)}{item.location ? ` · ${item.location}` : ''}</Text>
+                  {isUrgent && (
+                    <View style={[styles.heroUrgentTag, { backgroundColor: amber }]}>
+                      <Text style={styles.heroUrgentTagText}>SON {hoursLeft} SAAT</Text>
+                    </View>
+                  )}
                 </View>
 
-                {isUrgent && (
-                  <View style={[styles.heroUrgentTag, { backgroundColor: amber }]}>
-                    <Text style={styles.heroUrgentTagText}>SON {hoursLeft} SAAT</Text>
+                {/* Keşfet/Gezi Rotaları kartlarındaki gibi: görsel üstte,
+                    başlık ve detaylar altta beyaz/kart zemininde — resmin
+                    üzerine koyu gradyanla yazı basmak yerine temiz ayrım */}
+                <View style={styles.heroTextBlock}>
+                  <Text style={[styles.heroEventTitle, { color: txt1 }]} numberOfLines={2}>{item.title}</Text>
+                  <View style={styles.heroMetaRow}>
+                    <CalendarDays color={txt2} size={13} strokeWidth={2} />
+                    <Text style={[styles.heroEventMeta, { color: txt2 }]} numberOfLines={1}>
+                      {formatEventDateLabel(item.date)}{item.location ? ` · ${item.location}` : ''}
+                    </Text>
                   </View>
-                )}
-                </ImageBackground>
+                </View>
               </TouchableOpacity>
             </View>
           </AnimatedListItem>
@@ -364,7 +408,7 @@ const EventsScreen = () => {
         </View>
       </View>
 
-      <View style={styles.pillsRowFixed}>
+      <View style={[styles.pillsRowFixed, { flexDirection: 'row', alignItems: 'center' }]}>
         <FlatList
           horizontal
           data={CATEGORIES}
@@ -374,37 +418,77 @@ const EventsScreen = () => {
           style={styles.pillsFlatList}
           contentContainerStyle={styles.pillsContainer}
         />
+        {availableDays.length > 0 && (
+          <TouchableOpacity
+            onPress={() => setCalendarVisible(v => !v)}
+            activeOpacity={0.85}
+            style={[
+              styles.calToggleBtn,
+              { borderWidth: 1.5, borderColor: '#111114', marginRight: 20 },
+              calendarVisible || selectedDayKey ? { backgroundColor: ctaBg } : { backgroundColor: chipBg },
+            ]}
+          >
+            <CalendarDays color={calendarVisible || selectedDayKey ? ctaTxt : txt1} size={18} strokeWidth={2} />
+          </TouchableOpacity>
+        )}
       </View>
 
-      {availableDays.length > 0 && (
-        <View style={styles.dayStripRow}>
-          <FlatList
-            horizontal
-            data={availableDays}
-            keyExtractor={(d) => dayKey(d)}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.dayStripContent}
-            renderItem={({ item: d }) => {
+      {calendarVisible && availableDays.length > 0 && (
+        <View style={[styles.miniCalendar, cardBorder, { backgroundColor: cardBg }]}>
+          <View style={styles.calHeaderRow}>
+            <TouchableOpacity
+              onPress={() => setCalendarMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <ChevronLeft color={txt1} size={20} strokeWidth={2.2} />
+            </TouchableOpacity>
+            <Text style={[styles.calHeaderLabel, { color: txt1 }]}>
+              {MONTHS_FULL[calendarMonth.getMonth()]} {calendarMonth.getFullYear()}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setCalendarMonth(m => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <ChevronRight color={txt1} size={20} strokeWidth={2.2} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.calWeekdayRow}>
+            {WEEKDAYS_MONDAY_FIRST.map((w, i) => (
+              <Text key={i} style={[styles.calWeekdayLabel, { color: txt2 }]}>{w}</Text>
+            ))}
+          </View>
+
+          <View style={styles.calGrid}>
+            {calendarCells.map((d, i) => {
+              if (!d) return <View key={`blank-${i}`} style={styles.calCell} />;
               const key = dayKey(d);
+              const hasEvent = eventDayKeySet.has(key);
               const active = selectedDayKey === key;
               return (
                 <TouchableOpacity
-                  activeOpacity={0.85}
+                  key={key}
+                  style={styles.calCell}
+                  activeOpacity={hasEvent ? 0.7 : 1}
+                  disabled={!hasEvent}
                   onPress={() => setSelectedDayKey(active ? null : key)}
-                  style={[
-                    styles.dayChip,
-                    { borderWidth: 1.5, borderColor: '#111114' },
-                    active ? { backgroundColor: ctaBg } : { backgroundColor: chipBg },
-                  ]}
                 >
-                  <Text style={[styles.dayChipWeekday, { color: active ? ctaTxt : txt2 }]}>
-                    {WEEKDAYS_SHORT[d.getDay()]}
-                  </Text>
-                  <Text style={[styles.dayChipNum, { color: active ? ctaTxt : txt1 }]}>{d.getDate()}</Text>
+                  <View style={[styles.calDayCircle, active && { backgroundColor: ctaBg }]}>
+                    <Text
+                      style={[
+                        styles.calDayNum,
+                        { color: active ? ctaTxt : hasEvent ? txt1 : txt2 },
+                        !hasEvent && { opacity: 0.35 },
+                      ]}
+                    >
+                      {d.getDate()}
+                    </Text>
+                  </View>
+                  {hasEvent && !active && <View style={[styles.calDot, { backgroundColor: amber }]} />}
                 </TouchableOpacity>
               );
-            }}
-          />
+            })}
+          </View>
         </View>
       )}
 
@@ -521,7 +605,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   pillsFlatList: {
-    flexGrow: 0,
+    flex: 1,
     height: 50,
   },
   pillsContainer: {
@@ -530,28 +614,64 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexGrow: 0,
   },
-  dayStripRow: {
-    marginBottom: 8,
-  },
-  dayStripContent: {
-    paddingHorizontal: 20,
-    gap: 8,
-  },
-  dayChip: {
-    width: 48,
-    paddingVertical: 7,
-    borderRadius: 14,
+  calToggleBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  dayChipWeekday: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: 9,
-    letterSpacing: 0.3,
-    marginBottom: 2,
+  miniCalendar: {
+    marginHorizontal: 20,
+    marginBottom: 14,
+    borderRadius: 18,
+    padding: 14,
   },
-  dayChipNum: {
+  calHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  calHeaderLabel: {
     fontFamily: FontFamily.semiBold,
-    fontSize: 15,
+    fontSize: 14,
+  },
+  calWeekdayRow: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+  calWeekdayLabel: {
+    flex: 1,
+    textAlign: 'center',
+    fontFamily: FontFamily.medium,
+    fontSize: 11,
+  },
+  calGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  calCell: {
+    width: `${100 / 7}%`,
+    alignItems: 'center',
+    paddingVertical: 3,
+  },
+  calDayCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calDayNum: {
+    fontFamily: FontFamily.medium,
+    fontSize: 13,
+  },
+  calDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    marginTop: 2,
   },
   tabPill: {
     paddingHorizontal: 16,
@@ -575,24 +695,13 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     overflow: 'hidden',
   },
-  heroEventCard: {
+  heroImageWrap: {
     width: '100%',
-    borderRadius: 22,
-    height: 192,
-    overflow: 'hidden',
-    justifyContent: 'flex-end',
+    height: 180,
   },
-  heroEventImageBg: {
+  heroImage: {
     width: '100%',
     height: '100%',
-    justifyContent: 'flex-end',
-  },
-  heroEventImageRadius: {
-    borderRadius: 22,
-  },
-  heroEventOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.32)',
   },
   heroDateTag: {
     position: 'absolute',
@@ -616,28 +725,32 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#fff',
   },
   heroTextBlock: {
-    padding: 18,
-    paddingBottom: 15,
+    padding: 16,
   },
   heroEventTitle: {
     fontFamily: FontFamily.semiBold,
-    fontSize: 20,
+    fontSize: 19,
     letterSpacing: -0.3,
-    color: '#fff',
-    lineHeight: 25,
+    lineHeight: 24,
+  },
+  heroMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
   },
   heroEventMeta: {
     fontFamily: FontFamily.medium,
     fontSize: 13,
-    color: 'rgba(255,255,255,0.85)',
-    marginTop: 5,
+    flexShrink: 1,
   },
   heroUrgentTag: {
     position: 'absolute',
-    bottom: 16,
-    right: 16,
+    bottom: 12,
+    right: 12,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 10,

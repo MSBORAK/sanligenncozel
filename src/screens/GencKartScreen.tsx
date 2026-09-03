@@ -66,36 +66,45 @@ const SERIF = Platform.select<string>({
  * Gerçek bilet siluetini çizen path — yarım daire çentikler kartın
  * kendi şeklinden kesiliyor (HomeScreen'deki FirsatTicketCard ile aynı dil).
  */
-const buildTicketPath = (w: number, h: number, r: number, notchY: number, nr: number) => [
-  `M ${r} 0`,
-  `L ${w - r} 0`,
-  `Q ${w} 0 ${w} ${r}`,
-  `L ${w} ${notchY - nr}`,
-  `A ${nr} ${nr} 0 0 0 ${w} ${notchY + nr}`,
-  `L ${w} ${h - r}`,
-  `Q ${w} ${h} ${w - r} ${h}`,
-  `L ${r} ${h}`,
-  `Q 0 ${h} 0 ${h - r}`,
-  `L 0 ${notchY + nr}`,
-  `A ${nr} ${nr} 0 0 0 0 ${notchY - nr}`,
-  `L 0 ${r}`,
-  `Q 0 0 ${r} 0`,
-  `Z`,
-].join(' ');
+// Stroke tam kenara (x=0 / x=w) denk gelirse kalınlığın yarısı SVG sınırının
+// dışına taşıp kırpılıyordu (sağ kenar kayboluyordu). Path'i her yönden
+// STROKE_INSET kadar içeri çekip bu kırpılmayı önlüyoruz.
+const STROKE_INSET = 1;
+const buildTicketPath = (w: number, h: number, r: number, notchY: number, nr: number) => {
+  const i = STROKE_INSET;
+  const x0 = i, y0 = i, x1 = w - i, y1 = h - i;
+  return [
+    `M ${x0 + r} ${y0}`,
+    `L ${x1 - r} ${y0}`,
+    `A ${r} ${r} 0 0 1 ${x1} ${y0 + r}`,
+    `L ${x1} ${notchY - nr}`,
+    `A ${nr} ${nr} 0 0 0 ${x1} ${notchY + nr}`,
+    `L ${x1} ${y1 - r}`,
+    `A ${r} ${r} 0 0 1 ${x1 - r} ${y1}`,
+    `L ${x0 + r} ${y1}`,
+    `A ${r} ${r} 0 0 1 ${x0} ${y1 - r}`,
+    `L ${x0} ${notchY + nr}`,
+    `A ${nr} ${nr} 0 0 0 ${x0} ${notchY - nr}`,
+    `L ${x0} ${y0 + r}`,
+    `A ${r} ${r} 0 0 1 ${x0 + r} ${y0}`,
+    `Z`,
+  ].join(' ');
+};
 
 const TICKET_RADIUS = 20;
 const TICKET_NOTCH_RADIUS = 8;
 
-/** Keşfet paletinin soft pastelleri — ticket gövdesi */
-const DEAL_ACCENTS = ['#F6E4EA', '#ECF3D8', '#F8F0D0', '#D8F0F0'] as const;
+/** Kategori ikon renkleri — sadece ikon dairesinde ufak bir vurgu, kart zemininde değil */
+const DEAL_ACCENTS = ['#B45309', '#15803D', '#BE185D', '#0F766E'] as const;
 
-/** Anlaşmalı mekan — bilet siluetli kart (ikili grid) */
+/** Anlaşmalı mekan — bilet siluetli kart (ikili grid). Diğer sayfalarla (Keşfet/Ana Sayfa)
+ * aynı editorial dil: krem/kart zemin + kalın border, renk sadece ikon dairesinde. */
 function VenueTicketCard({
-  item, isFav, onPress, onToggleFav, amber, ctaBg, ctaTxt, isDark, accent,
+  item, isFav, onPress, onToggleFav, amber, ctaBg, ctaTxt, isDark, accent, cardBg, cardBdr, txt1, txt2,
 }: {
   item: DiscountPartner; isFav: boolean; onPress: () => void; onToggleFav: () => void;
   amber: string; ctaBg: string; ctaTxt: string; isDark: boolean;
-  accent: string;
+  accent: string; cardBg: string; cardBdr: string; txt1: string; txt2: string;
 }) {
   const { t: tr } = useTranslation();
   const [size, setSize] = useState({ width: 160, height: 210 });
@@ -103,8 +112,6 @@ function VenueTicketCard({
   const Icon = item.icon;
   const pctMatch = item.offer.match(/%\s*(\d+)/);
   const discountNum = pctMatch ? pctMatch[1] : null;
-  const ink = '#111114';
-  const inkMuted = 'rgba(17,17,20,0.62)';
 
   return (
     <View
@@ -114,9 +121,9 @@ function VenueTicketCard({
       <Svg width={size.width} height={size.height} style={StyleSheet.absoluteFill}>
         <Path
           d={buildTicketPath(size.width, size.height, TICKET_RADIUS, notchY, TICKET_NOTCH_RADIUS)}
-          fill={accent}
-          stroke={isDark ? 'rgba(255,255,255,0.14)' : 'rgba(58,42,26,0.28)'}
-          strokeWidth={1}
+          fill={cardBg}
+          stroke={cardBdr}
+          strokeWidth={1.2}
         />
       </Svg>
 
@@ -125,35 +132,35 @@ function VenueTicketCard({
         onPress={onToggleFav}
         hitSlop={10}
       >
-        <Heart color={isFav ? amber : inkMuted} size={17} strokeWidth={2} fill={isFav ? amber : 'transparent'} />
+        <Heart color={isFav ? amber : txt2} size={17} strokeWidth={2} fill={isFav ? amber : 'transparent'} />
       </TouchableOpacity>
 
       <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={{ width: size.width }}>
         <View style={styles.ticketCard}>
           <View style={styles.ticketHero}>
-            <View style={[styles.ticketIconWrap, { backgroundColor: 'rgba(255,255,255,0.45)', borderWidth: 1, borderColor: 'rgba(17,17,20,0.18)' }]}>
-              <Icon color={ink} size={20} strokeWidth={2} />
+            <View style={[styles.ticketIconWrap, { backgroundColor: `${accent}22`, borderWidth: 1, borderColor: `${accent}55` }]}>
+              <Icon color={accent} size={20} strokeWidth={2} />
             </View>
             {discountNum ? (
               <>
-                <Text style={[styles.ticketBigPct, { color: ink }]}>%{discountNum}</Text>
-                <Text style={[styles.ticketBigLabel, { color: inkMuted }]}>{tr('home.indirim')}</Text>
+                <Text style={[styles.ticketBigPct, { color: txt1 }]}>%{discountNum}</Text>
+                <Text style={[styles.ticketBigLabel, { color: txt2 }]}>{tr('home.indirim')}</Text>
               </>
             ) : (
-              <Text style={[styles.ticketOfferText, { color: ink }]} numberOfLines={2}>{item.offer}</Text>
+              <Text style={[styles.ticketOfferText, { color: txt1 }]} numberOfLines={2}>{item.offer}</Text>
             )}
           </View>
 
           <View style={styles.ticketTearRow} onLayout={(e) => setNotchY(e.nativeEvent.layout.y + e.nativeEvent.layout.height / 2)}>
             <View style={styles.ticketDashRow}>
               {Array.from({ length: 9 }).map((_, di) => (
-                <View key={di} style={[styles.ticketDashSeg, { backgroundColor: 'rgba(17,17,20,0.28)' }]} />
+                <View key={di} style={[styles.ticketDashSeg, { backgroundColor: cardBdr }]} />
               ))}
             </View>
           </View>
 
-          <Text style={[styles.ticketName, { color: ink }]} numberOfLines={1}>{item.name}</Text>
-          <Text style={[styles.ticketKat, { color: inkMuted }]} numberOfLines={1}>{item.category}</Text>
+          <Text style={[styles.ticketName, { color: txt1 }]} numberOfLines={1}>{item.name}</Text>
+          <Text style={[styles.ticketKat, { color: txt2 }]} numberOfLines={1}>{item.category}</Text>
           <View style={[styles.ticketCta, { backgroundColor: ctaBg }]}>
             <Text style={[styles.ticketCtaTxt, { color: ctaTxt }]}>{tr('home.kuponuKullan')}</Text>
           </View>
@@ -371,6 +378,10 @@ const GencKartScreen = () => {
                           ctaTxt={ctaTxt}
                           isDark={isDark}
                           accent={DEAL_ACCENTS[index % DEAL_ACCENTS.length]}
+                          cardBg={cardBg}
+                          cardBdr={cardBdr}
+                          txt1={txt1}
+                          txt2={txt2}
                         />
                     </AnimatedListItem>
                 ))}
@@ -724,11 +735,11 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   ticketCard: {
-    height: 224,
+    height: 190,
     borderRadius: TICKET_RADIUS,
     paddingHorizontal: 13,
-    paddingTop: 16,
-    paddingBottom: 14,
+    paddingTop: 14,
+    paddingBottom: 12,
     backgroundColor: 'transparent',
     overflow: 'hidden',
   },
@@ -739,18 +750,18 @@ const styles = StyleSheet.create({
     paddingTop: 2,
   },
   ticketIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
   },
   ticketBigPct: {
-    fontSize: 32,
-    lineHeight: 34,
-    fontWeight: '900',
-    letterSpacing: -1,
+    fontSize: 26,
+    lineHeight: 28,
+    fontWeight: '800',
+    letterSpacing: -0.6,
   },
   ticketBigLabel: {
     fontSize: 9,

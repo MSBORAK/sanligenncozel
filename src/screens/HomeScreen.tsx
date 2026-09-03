@@ -100,44 +100,50 @@ const SPECIAL_DAYS: Record<string,{name:string;emoji:string;color:string;type:st
  * kendi şeklinden kesiliyor (renk taklidi değil), bu yüzden arkasında
  * ne olursa olsun (gölge, sayfa zemini) doğru şekilde görünür.
  */
-const buildTicketPath = (w: number, h: number, r: number, notchY: number, nr: number) => [
-  `M ${r} 0`,
-  `L ${w - r} 0`,
-  `Q ${w} 0 ${w} ${r}`,
-  `L ${w} ${notchY - nr}`,
-  `A ${nr} ${nr} 0 0 0 ${w} ${notchY + nr}`,
-  `L ${w} ${h - r}`,
-  `Q ${w} ${h} ${w - r} ${h}`,
-  `L ${r} ${h}`,
-  `Q 0 ${h} 0 ${h - r}`,
-  `L 0 ${notchY + nr}`,
-  `A ${nr} ${nr} 0 0 0 0 ${notchY - nr}`,
-  `L 0 ${r}`,
-  `Q 0 0 ${r} 0`,
-  `Z`,
-].join(' ');
+// Stroke tam kenara (x=0 / x=w) denk gelirse kalınlığın yarısı SVG sınırının
+// dışına taşıp kırpılıyordu (sağ kenar kayboluyordu). Path'i her yönden
+// STROKE_INSET kadar içeri çekip bu kırpılmayı önlüyoruz.
+const STROKE_INSET = 1;
+const buildTicketPath = (w: number, h: number, r: number, notchY: number, nr: number) => {
+  const i = STROKE_INSET;
+  const x0 = i, y0 = i, x1 = w - i, y1 = h - i;
+  return [
+    `M ${x0 + r} ${y0}`,
+    `L ${x1 - r} ${y0}`,
+    `A ${r} ${r} 0 0 1 ${x1} ${y0 + r}`,
+    `L ${x1} ${notchY - nr}`,
+    `A ${nr} ${nr} 0 0 0 ${x1} ${notchY + nr}`,
+    `L ${x1} ${y1 - r}`,
+    `A ${r} ${r} 0 0 1 ${x1 - r} ${y1}`,
+    `L ${x0 + r} ${y1}`,
+    `A ${r} ${r} 0 0 1 ${x0} ${y1 - r}`,
+    `L ${x0} ${notchY + nr}`,
+    `A ${nr} ${nr} 0 0 0 ${x0} ${notchY - nr}`,
+    `L ${x0} ${y0 + r}`,
+    `A ${r} ${r} 0 0 1 ${x0 + r} ${y0}`,
+    `Z`,
+  ].join(' ');
+};
 
 const TICKET_RADIUS = 16;
 const TICKET_NOTCH_RADIUS = 8;
 const PROMO_LAST_SEEN_OFFER_ID_KEY = 'home_promo_last_seen_offer_id_v1';
 
-/** Keşfet paletinin soft pastelleri — ticket gövdesi */
-const DEAL_ACCENTS = ['#F6E4EA', '#ECF3D8', '#F8F0D0', '#D8F0F0'] as const;
+/** Kategori ikon renkleri — sadece ikon dairesinde ufak bir vurgu, kart zemininde değil */
+const DEAL_ACCENTS = ['#B45309', '#15803D', '#BE185D', '#0F766E'] as const;
 
-/** Genç Kart fırsat kartı — gerçek bilet siluetiyle (SVG kesik) */
+/** Genç Kart fırsat kartı — gerçek bilet siluetiyle (SVG kesik). Diğer kartlarla
+ * (Keşfet/Gezi Rotaları) aynı editorial dil: krem/kart zemin + kalın border. */
 function FirsatTicketCard({
-  p, th, Icon, discountNum, onPress, ctaBg, ctaTxt, isDark, accent,
+  p, th, Icon, discountNum, onPress, ctaBg, ctaTxt, isDark, accent, cardBg, cardBdr, txt1, txt2,
 }: {
   p: FirsatData; th: any; Icon: any; discountNum: string | null; onPress: () => void;
   ctaBg: string; ctaTxt: string; isDark: boolean;
-  accent: string;
+  accent: string; cardBg: string; cardBdr: string; txt1: string; txt2: string;
 }) {
   const [size, setSize] = useState({ width: 128, height: 148 });
   const [notchY, setNotchY] = useState(74);
   const { t: tr } = useTranslation();
-  // Pastel gövde üzerinde koyu ink; dark mode'da da okunabilir kalsın
-  const ink = '#111114';
-  const inkMuted = 'rgba(17,17,20,0.62)';
 
   return (
     <View
@@ -147,25 +153,25 @@ function FirsatTicketCard({
       <Svg width={size.width} height={size.height} style={StyleSheet.absoluteFill}>
         <Path
           d={buildTicketPath(size.width, size.height, TICKET_RADIUS, notchY, TICKET_NOTCH_RADIUS)}
-          fill={accent}
-          stroke={isDark ? 'rgba(255,255,255,0.14)' : 'rgba(17,17,20,0.35)'}
-          strokeWidth={1}
+          fill={cardBg}
+          stroke={cardBdr}
+          strokeWidth={1.2}
         />
       </Svg>
       <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={{ width: size.width }}>
         <View style={[s.pCard, { backgroundColor: 'transparent', marginRight: 0, borderRadius: TICKET_RADIUS }]}>
           {/* ÜST: indirim kahraman — ortalı */}
           <View style={s.pHero}>
-            <View style={[s.pIconWrap,{backgroundColor: 'rgba(255,255,255,0.45)', borderWidth: 1, borderColor: 'rgba(17,17,20,0.18)'}]}>
-              <Icon color={ink} size={20} strokeWidth={2} />
+            <View style={[s.pIconWrap,{backgroundColor: `${accent}22`, borderWidth: 1, borderColor: `${accent}55`}]}>
+              <Icon color={accent} size={19} strokeWidth={1.75} />
             </View>
             {discountNum ? (
               <>
-                <Text style={[s.pBigPct,{color:ink}]}>%{discountNum}</Text>
-                <Text style={[s.pBigLabel,{color:inkMuted}]}>{tr('home.indirim')}</Text>
+                <Text style={[s.pBigPct,{color:txt1}]}>%{discountNum}</Text>
+                <Text style={[s.pBigLabel,{color:txt2}]}>{tr('home.indirim')}</Text>
               </>
             ):(
-              <Text style={[s.pOfferText,{color:ink}]} numberOfLines={2}>{p.aciklama || 'Fırsat'}</Text>
+              <Text style={[s.pOfferText,{color:txt1}]} numberOfLines={2}>{p.aciklama || 'Fırsat'}</Text>
             )}
           </View>
 
@@ -173,14 +179,14 @@ function FirsatTicketCard({
           <View style={s.pTearRow} onLayout={(e) => setNotchY(e.nativeEvent.layout.y + e.nativeEvent.layout.height / 2)}>
             <View style={s.pDashRow}>
               {Array.from({length:10}).map((_,di)=>(
-                <View key={di} style={[s.pDashSeg,{backgroundColor: 'rgba(17,17,20,0.28)'}]}/>
+                <View key={di} style={[s.pDashSeg,{backgroundColor: cardBdr}]}/>
               ))}
             </View>
           </View>
 
           {/* ALT: marka + kategori + CTA — ortalı */}
-          <Text style={[s.pName,{color:ink}]} numberOfLines={1}>{p.baslik}</Text>
-          <Text style={[s.pKat,{color:inkMuted}]} numberOfLines={1}>{p.kategori}</Text>
+          <Text style={[s.pName,{color:txt1}]} numberOfLines={1}>{p.baslik}</Text>
+          <Text style={[s.pKat,{color:txt2}]} numberOfLines={1}>{p.kategori}</Text>
           <View style={[s.pCta,{backgroundColor:ctaBg}]}>
             <Text style={[s.pCtaTxt,{color:ctaTxt}]}>{tr('home.kuponuKullan')}</Text>
           </View>
@@ -581,6 +587,10 @@ export default function HomeScreen() {
                     ctaTxt={ctaTxt}
                     isDark={isDark}
                     accent={DEAL_ACCENTS[idx % DEAL_ACCENTS.length]}
+                    cardBg={cardBg}
+                    cardBdr={cardBdr}
+                    txt1={txt1}
+                    txt2={txt2}
                   />
                 );
               })}
@@ -736,7 +746,7 @@ export default function HomeScreen() {
                 <View style={[s.promoAccentBlock,{backgroundColor: isDark?'rgba(242,96,12,0.12)':'rgba(242,96,12,0.07)', borderTopLeftRadius:TICKET_RADIUS, borderTopRightRadius:TICKET_RADIUS}]}>
                   <View style={s.promoTopRow}>
                     <View style={[s.promoIconCircle,{backgroundColor:isDark?'rgba(242,96,12,0.18)':'#fff'}]}>
-                      {(() => { const PromoIcon = getCategoryTheme(promoOffer?.kategori, promoOffer?.baslik).icon; return <PromoIcon color={amber} size={20}/>; })()}
+                      {(() => { const PromoIcon = getCategoryTheme(promoOffer?.kategori, promoOffer?.baslik).icon; return <PromoIcon color={amber} size={19} strokeWidth={1.75}/>; })()}
                     </View>
                     <Text style={[s.promoEyebrow,{color:txt2}]}>{tr('home.gencKartIndirim')}</Text>
                   </View>
@@ -1180,11 +1190,11 @@ const s = StyleSheet.create({
 
   // Partners — kupon / bilet tasarımı
   pScroll:   {paddingHorizontal:20, paddingVertical:14},
-  pCard:     {width:128, borderRadius:16, paddingHorizontal:10, paddingTop:10, paddingBottom:10, marginRight:10, height:158, overflow:'hidden'},
+  pCard:     {width:128, borderRadius:16, paddingHorizontal:10, paddingTop:16, paddingBottom:10, marginRight:10, height:158, overflow:'hidden'},
   pHero:     {flex:1, alignItems:'center', justifyContent:'center', paddingTop:2},
-  pIconWrap: {width:34, height:34, borderRadius:17, justifyContent:'center', alignItems:'center', marginBottom:6},
-  pBigPct:   {fontSize:28, lineHeight:30, fontWeight:'900', color:'#fff', letterSpacing:-1},
-  pBigLabel: {fontSize:9, fontWeight:'800', color:'rgba(255,255,255,0.9)', letterSpacing:2, marginTop:-2},
+  pIconWrap: {width:30, height:30, borderRadius:15, justifyContent:'center', alignItems:'center', marginBottom:6},
+  pBigPct:   {fontSize:19, lineHeight:21, fontWeight:'800', letterSpacing:-0.4},
+  pBigLabel: {fontSize:8.5, fontWeight:'700', letterSpacing:1.4, marginTop:-1},
   pBigFirsat:{fontSize:22, fontWeight:'900', color:'#fff', letterSpacing:0.5, paddingVertical:6},
   pOfferText:{fontSize:15, fontWeight:'800', color:'#fff', letterSpacing:-0.2, textAlign:'center', paddingHorizontal:2},
   pTearRow:  {flexDirection:'row', alignItems:'center', height:14, marginVertical:8, marginHorizontal:-13},

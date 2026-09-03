@@ -820,7 +820,7 @@ const ChatScreen = () => {
                     </Text>
                   </View>
                   {item.content && item.content !== '📷 Snap' && (
-                    <Text style={[styles.snapCaption, isMe ? styles.mySnapCaption : styles.theirSnapCaption]}>
+                    <Text style={[styles.snapCaption, isMe ? styles.mySnapCaption : (isDark ? styles.theirSnapCaptionDark : styles.theirSnapCaption)]}>
                       {item.content}
                     </Text>
                   )}
@@ -1057,37 +1057,39 @@ const ChatScreen = () => {
   return (
     <GestureHandlerRootView style={styles.gestureRoot}>
     <SafeAreaView style={[styles.root, { backgroundColor: t.pageBg }]} edges={['top']}>
+      {/* Header — KeyboardAvoidingView'ın DIŞINDA: kaydırılacak alanın
+          başlangıcı olarak header yüksekliğini tahmin etmeye/ölçmeye hiç
+          gerek kalmıyor, klavye açılınca sadece mesaj+input alanı kayıyor. */}
+      <View style={[styles.header, { backgroundColor: t.cardBg, borderBottomColor: t.divider }]}>
+        <Pressable onPress={() => navigation.goBack()} style={styles.backButton} hitSlop={12}>
+          <ArrowLeft color={t.txt1} size={24} />
+        </Pressable>
+        <Pressable
+          style={styles.headerUserInfo}
+          onPress={() => navigation.navigate('SosyalProfile', { userId: params.userId })}
+        >
+          <Image
+            source={{ uri: partnerAvatar || 'https://i.pravatar.cc/150' }}
+            style={styles.headerAvatar}
+          />
+          <View style={styles.headerTextWrap}>
+            <Text style={[styles.headerName, { color: t.txt1 }]} numberOfLines={1}>
+              {headerDisplayName}
+            </Text>
+            {otherTyping ? (
+              <Text style={[styles.headerTyping, { color: t.txt2 }]} numberOfLines={1}>
+                {tr('chat.yaziyor')}
+              </Text>
+            ) : null}
+          </View>
+        </Pressable>
+      </View>
+
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        keyboardVerticalOffset={0}
       >
-        {/* Header */}
-        <View style={[styles.header, { backgroundColor: t.cardBg, borderBottomColor: t.divider }]}>
-          <Pressable onPress={() => navigation.goBack()} style={styles.backButton} hitSlop={12}>
-            <ArrowLeft color={t.txt1} size={24} />
-          </Pressable>
-          <Pressable
-            style={styles.headerUserInfo}
-            onPress={() => navigation.navigate('SosyalProfile', { userId: params.userId })}
-          >
-            <Image
-              source={{ uri: partnerAvatar || 'https://i.pravatar.cc/150' }}
-              style={styles.headerAvatar}
-            />
-            <View style={styles.headerTextWrap}>
-              <Text style={[styles.headerName, { color: t.txt1 }]} numberOfLines={1}>
-                {headerDisplayName}
-              </Text>
-              {otherTyping ? (
-                <Text style={[styles.headerTyping, { color: t.txt2 }]} numberOfLines={1}>
-                  {tr('chat.yaziyor')}
-                </Text>
-              ) : null}
-            </View>
-          </Pressable>
-        </View>
-
         {/* Messages */}
         {loading ? (
           <View style={styles.loadingContainer}>
@@ -1770,6 +1772,9 @@ const styles = StyleSheet.create({
   },
   theirSnapCaption: {
     color: SnapColors.black,
+  },
+  theirSnapCaptionDark: {
+    color: Editorial.ink,
   },
   emptyState: {
     flex: 1,

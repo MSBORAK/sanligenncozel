@@ -36,6 +36,7 @@ import StoryViewScreen from '@/screens/StoryViewScreen';
 import CompleteProfileScreen from '@/screens/CompleteProfileScreen';
 import CreatePostScreen from '@/screens/CreatePostScreen';
 import SosyalProfileScreen from '@/screens/SosyalProfileScreen';
+import BlockedUsersScreen from '@/screens/BlockedUsersScreen';
 import OnboardingNavigator from '@/navigation/OnboardingNavigator';
 import { hasCompletedOnboarding } from '@/utils/onboarding';
 import { supabase } from '@/lib/supabase';
@@ -222,6 +223,7 @@ const AppNavigator = () => {
         <Stack.Screen name="CreatePost" component={CreatePostScreen} />
         <Stack.Screen name="Assistant" component={AssistantScreen} />
         <Stack.Screen name="SosyalProfile" component={SosyalProfileScreen} />
+        <Stack.Screen name="BlockedUsers" component={BlockedUsersScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

@@ -506,6 +506,9 @@ export default {
     hesabinVarMi: 'Déjà un compte ?',
   },
   sosyalMain: {
+    arkadasDegilsiniz: "Vous n'êtes pas amis",
+    engellendiniz: 'Vous êtes bloqué',
+    erişimEngellendi: 'Accès refusé',
     herkesdenSonSaat: 'Les 4 dernières heures de tout le monde',
     herkes: 'Tout le monde',
     arkadaslar: 'Amis',

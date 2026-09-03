@@ -71,7 +71,24 @@ const SnapViewScreen = () => {
   const timerPausedRef = useRef(false);
 
   const isOwnSnap = params.isOwnSnap === true;
-  const reactionsEnabled = true; // always show reactions
+  const [reactionsEnabled, setReactionsEnabled] = useState(true);
+
+  // Kıvılcım sahibinin "Tepkiler" ayarı kapalıysa emoji/mesaj tepkisi
+  // gösterilmemeli. Önceden bu değer hep true'ya sabitlenmişti, yani
+  // kullanıcı ayarı kapatsa bile herkes yine tepki bırakabiliyordu.
+  useEffect(() => {
+    if (isOwnSnap || !params.userId) { setReactionsEnabled(true); return; }
+    let isActive = true;
+    supabase
+      .from('user_profiles')
+      .select('reactions_enabled')
+      .eq('user_id', params.userId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (isActive) setReactionsEnabled(data?.reactions_enabled !== false);
+      });
+    return () => { isActive = false; };
+  }, [params.userId, isOwnSnap]);
 
   // Snap listesi varsa kullan, yoksa tek snap göster
   const snapList: SnapItem[] = (params.snapList && params.snapList.length > 0)
@@ -126,10 +143,28 @@ const SnapViewScreen = () => {
     const senderId = profile?.userId;
     const recipientId = params.userId;
     const trimmed = text.trim();
-    if (!senderId || !recipientId || !trimmed || recipientId === senderId || sending) return;
+    if (!senderId || !recipientId || !trimmed || recipientId === senderId || sending || !reactionsEnabled) return;
 
     setSending(true);
     try {
+      // ChatScreen'in sendMessage'ında yapılan arkadaşlık/engelleme kontrolü
+      // burada hiç yoktu — arkadaşlıktan çıkarılmış ya da engellenmiş biri
+      // bir kıvılcıma hâlâ tepki gönderip bildirim tetikleyebiliyordu.
+      const { data: friendship } = await supabase
+        .from('friendships')
+        .select('id')
+        .or(`and(sender_id.eq.${senderId},receiver_id.eq.${recipientId}),and(sender_id.eq.${recipientId},receiver_id.eq.${senderId})`)
+        .eq('status', 'accepted')
+        .maybeSingle();
+      if (!friendship) { setSending(false); return; }
+
+      const { data: blockRow } = await supabase
+        .from('blocked_users')
+        .select('id')
+        .or(`and(blocker_id.eq.${senderId},blocked_id.eq.${recipientId}),and(blocker_id.eq.${recipientId},blocked_id.eq.${senderId})`)
+        .maybeSingle();
+      if (blockRow) { setSending(false); return; }
+
       const { data: convId, error: convError } = await supabase.rpc('get_or_create_conversation', {
         user1_id: senderId,
         user2_id: recipientId,

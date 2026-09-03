@@ -38,6 +38,7 @@ export type RootStackParamList = {
   CreatePost: undefined;
   Assistant: undefined;
   SosyalProfile: { userId?: string };
+  BlockedUsers: undefined;
 };
 
 // HomeScreen için özel tip oluşturma. Bu, hem Stack hem de Tab tiplerini birleştirir.

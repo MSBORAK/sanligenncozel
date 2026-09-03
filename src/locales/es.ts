@@ -506,6 +506,9 @@ export default {
     hesabinVarMi: '¿Ya tienes cuenta?',
   },
   sosyalMain: {
+    arkadasDegilsiniz: 'No Sois Amigos',
+    engellendiniz: 'Has Sido Bloqueado',
+    erişimEngellendi: 'Acceso Denegado',
     herkesdenSonSaat: 'Las últimas 4 horas de todos',
     herkes: 'Todos',
     arkadaslar: 'Amigos',
@@ -627,6 +630,8 @@ export default {
   },
   chat: {
     kullaniciBilgisiBulunamadi: 'Información de usuario no encontrada',
+    engellemeVar: 'Bloqueado',
+    engellemeAciklama: 'No puedes enviar mensajes a este usuario debido a un bloqueo entre ustedes.',
     arkadasDegilsiniz: 'No Sois Amigos',
     arkadaslikIstegiGerekli: 'Debes enviar y que se acepte una solicitud de amistad antes de poder chatear.',
     bilinmeyenHata: 'Error desconocido',

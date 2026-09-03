@@ -839,7 +839,13 @@ const ProfileScreen = () => {
                 {([
                   { key: 'light', label: tr('profileScreen.gunDogumu'), desc: tr('profileScreen.acikVeSade') },
                   { key: 'dark', label: tr('profileScreen.gunBatimi'), desc: tr('profileScreen.sicakKoyu') },
-                  { key: 'inverse', label: tr('profileScreen.gecePariltisi'), desc: tr('profileScreen.siyahAgirlikli') },
+                  // 'inverse' (Gece Parıltısı) geçici olarak kaldırıldı: bu tema
+                  // gerçekten siyah arkaplan kullanıyor ama Şanlı Sosyal'deki
+                  // (ve başka ekranlardaki) metin renkleri "dark" temanın krem/
+                  // kahve tonlarına göre ayarlanmış — inverse'de bu koyu metinler
+                  // siyah zeminde okunmaz hale geliyor. Düzgün taranıp
+                  // düzeltilene kadar seçenek gizli; ThemeMode tipinden ve
+                  // useAppTheme'den kaldırılmadı, sadece kullanıcıya sunulmuyor.
                 ] as { key: ThemeMode; label: string; desc: string }[]).map((opt) => {
                   const active = mode === opt.key;
                   return (

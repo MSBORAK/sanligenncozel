@@ -402,7 +402,7 @@ export interface WeekendPlan {
   duration: string; // tahmini süre
   category: 'tam-gün' | 'yarım-gün' | 'akşam';
   coordinates: { lat: number; lon: number }; // rotanın ana konumu
-  waypoints: { name: string; lat: number; lon: number }[]; // mesafe hesabı için duraklar
+  waypoints: { name: string; lat: number; lon: number; isBreak?: boolean; note?: string }[]; // mesafe hesabı için duraklar; isBreak: yemek/mola gibi kullanıcının kendi tercihine bırakılan, yol tarifi gösterilmeyen duraklar; note: durak hakkında kısa bilgi
   image?: any; // URL string veya yerel require kaynağı
   tips?: string; // İpuçları
 }
@@ -422,10 +422,10 @@ export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
     category: 'tam-gün',
     coordinates: { lat: 37.2236, lon: 38.9226 }, // Göbeklitepe
     waypoints: [
-      { name: 'Göbeklitepe', lat: 37.2236, lon: 38.9226 },
-      { name: 'Öğle molası', lat: 37.201, lon: 38.88 },
-      { name: 'Balıklıgöl', lat: 37.1486, lon: 38.7969 },
-      { name: 'Çarşı', lat: 37.1498, lon: 38.7915 },
+      { name: 'Göbeklitepe', lat: 37.2236, lon: 38.9226, note: 'MÖ 10. binyıla tarihlenen, dünyanın bilinen en eski tapınak alanı; UNESCO Dünya Mirası listesinde.' },
+      { name: 'Öğle molası', lat: 37.201, lon: 38.88, isBreak: true },
+      { name: 'Balıklıgöl', lat: 37.1486, lon: 38.7969, note: 'Hz. İbrahim\'in ateşe atıldığına inanılan kutsal gölet; göldeki sazan balıkları kutsal kabul edilir.' },
+      { name: 'Çarşı', lat: 37.1498, lon: 38.7915, note: 'Bakırcılar ve Sipahi Pazarı gibi tarihi çarşılarıyla yerel el sanatlarının merkezi.' },
     ],
     image: require('@/assets/images/gobeklitepe.jpg'),
     tips: 'Yoğun saatlerden kaçınmak için sabah erken başlamanız önerilir.',
@@ -444,10 +444,10 @@ export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
     category: 'yarım-gün',
     coordinates: { lat: 37.1595, lon: 38.7989 }, // Arkeoloji Müzesi
     waypoints: [
-      { name: 'Arkeoloji Müzesi', lat: 37.1595, lon: 38.7989 },
-      { name: 'Mozaik Müzesi', lat: 37.1591, lon: 38.7997 },
-      { name: 'Müze çevresi', lat: 37.16, lon: 38.8008 },
-      { name: 'Şehir merkezi', lat: 37.151, lon: 38.7935 },
+      { name: 'Arkeoloji Müzesi', lat: 37.1595, lon: 38.7989, note: 'Göbeklitepe buluntularının da sergilendiği, bölgenin en kapsamlı arkeoloji müzesi.' },
+      { name: 'Mozaik Müzesi', lat: 37.1591, lon: 38.7997, note: 'Roma dönemine ait dev boyutlu taban mozaikleriyle bilinen Haleplibahçe Mozaik Müzesi.' },
+      { name: 'Müze çevresi', lat: 37.16, lon: 38.8008, note: 'Müze kompleksinin çevresinde kısa bir yürüyüş güzergahı.' },
+      { name: 'Şehir merkezi', lat: 37.151, lon: 38.7935, note: 'Şehrin ana çarşı ve sosyal yaşam alanlarına yakın merkezi nokta.' },
     ],
     image: require('@/assets/images/arkeoloji_muzesi.jpg'),
     tips: 'Müzelerin güncel ziyaret saatlerini gitmeden önce kontrol etmeniz faydalı olur.',
@@ -467,11 +467,11 @@ export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
     category: 'tam-gün',
     coordinates: { lat: 36.8625, lon: 39.0315 }, // Harran
     waypoints: [
-      { name: 'Harran giriş', lat: 36.8608, lon: 39.0304 },
-      { name: 'Kümbet evler', lat: 36.8616, lon: 39.0322 },
-      { name: 'Ulu Cami', lat: 36.8631, lon: 39.0341 },
-      { name: 'Öğle molası', lat: 36.866, lon: 39.0289 },
-      { name: 'İlçe merkezi', lat: 36.862, lon: 39.031 },
+      { name: 'Harran giriş', lat: 36.8608, lon: 39.0304, note: 'Konik kubbeli geleneksel kerpiç evleriyle tanınan tarihi ilçeye giriş noktası.' },
+      { name: 'Kümbet evler', lat: 36.8616, lon: 39.0322, note: 'Binlerce yıllık mimari geleneği yansıtan konik kubbeli kerpiç evler.' },
+      { name: 'Ulu Cami', lat: 36.8631, lon: 39.0341, note: 'Anadolu\'nun bilinen en eski camilerinden biri kabul edilen tarihi yapı kalıntıları.' },
+      { name: 'Öğle molası', lat: 36.866, lon: 39.0289, isBreak: true },
+      { name: 'İlçe merkezi', lat: 36.862, lon: 39.031, note: 'Yerel esnaf ve küçük kafelerin bulunduğu ilçe merkezi.' },
     ],
     image: require('@/assets/images/harran.jpg'),
     tips: 'Yaz aylarında sıcaklık yüksek olabildiği için su ve şapka bulundurmanız önerilir.',
@@ -491,11 +491,11 @@ export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
     category: 'yarım-gün',
     coordinates: { lat: 37.1486, lon: 38.7969 }, // Balıklıgöl çevresi
     waypoints: [
-      { name: 'Balıklıgöl', lat: 37.1486, lon: 38.7969 },
-      { name: 'Tarihi çarşılar', lat: 37.1502, lon: 38.7927 },
-      { name: 'Urfa Kalesi', lat: 37.152, lon: 38.7938 },
-      { name: 'Lezzet molası', lat: 37.1513, lon: 38.7908 },
-      { name: 'Akşam programı', lat: 37.1489, lon: 38.7956 },
+      { name: 'Balıklıgöl', lat: 37.1486, lon: 38.7969, note: 'Hz. İbrahim\'in ateşe atıldığına inanılan kutsal gölet; göldeki sazan balıkları kutsal kabul edilir.' },
+      { name: 'Tarihi çarşılar', lat: 37.1502, lon: 38.7927, note: 'Bakırcılar Çarşısı ve Sipahi Pazarı, geleneksel el sanatları ve yöresel ürünleriyle öne çıkar.' },
+      { name: 'Urfa Kalesi', lat: 37.152, lon: 38.7938, note: 'Şehre hakim tepede yer alan, farklı dönemlerden izler taşıyan tarihi kale kalıntısı.' },
+      { name: 'Lezzet molası', lat: 37.1513, lon: 38.7908, isBreak: true },
+      { name: 'Akşam programı', lat: 37.1489, lon: 38.7956, note: 'Akşam saatlerinde sıra gecesi ve yerel müzik programlarının düzenlendiği alan.' },
     ],
     image: require('@/assets/images/urfa_carsi.jpg'),
     tips: 'Merkez rotası için rahat yürüyüş ayakkabısı tercih etmeniz konfor sağlar.',
@@ -514,10 +514,10 @@ export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
     category: 'akşam',
     coordinates: { lat: 37.1486, lon: 38.7969 }, // Balıklıgöl çevresi
     waypoints: [
-      { name: 'Balıklıgöl yürüyüşü', lat: 37.1486, lon: 38.7969 },
-      { name: 'Mekanlar bölgesi', lat: 37.1495, lon: 38.7946 },
-      { name: 'Yemek noktası', lat: 37.151, lon: 38.7912 },
-      { name: 'Sıra gecesi', lat: 37.15, lon: 38.7899 },
+      { name: 'Balıklıgöl yürüyüşü', lat: 37.1486, lon: 38.7969, note: 'Akşam ışıklandırmasıyla ayrı bir atmosfer kazanan kutsal gölet çevresi.' },
+      { name: 'Mekanlar bölgesi', lat: 37.1495, lon: 38.7946, note: 'Kafe ve restoranların yoğunlaştığı, akşamları canlanan bölge.' },
+      { name: 'Yemek noktası', lat: 37.151, lon: 38.7912, isBreak: true },
+      { name: 'Sıra gecesi', lat: 37.15, lon: 38.7899, note: 'Geleneksel Urfa sıra gecesi kültürünün yaşatıldığı müzik ve sohbet programları.' },
     ],
     image: require('@/assets/images/gumruk_hani.jpg'),
     tips: 'Program ve mekan müsaitliği günlere göre değişebildiği için önceden kontrol etmeniz önerilir.',
@@ -537,10 +537,10 @@ export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
     category: 'tam-gün',
     coordinates: { lat: 37.2448, lon: 37.8698 }, // Halfeti
     waypoints: [
-      { name: 'Halfeti merkez', lat: 37.2448, lon: 37.8698 },
-      { name: 'Tekne turu', lat: 37.2456, lon: 37.8724 },
-      { name: 'Fotoğraf noktası', lat: 37.2469, lon: 37.8751 },
-      { name: 'Öğle molası', lat: 37.2437, lon: 37.8681 },
+      { name: 'Halfeti merkez', lat: 37.2448, lon: 37.8698, note: 'Fırat kıyısında kurulu, taş evleriyle bilinen tarihi ilçe merkezi.' },
+      { name: 'Tekne turu', lat: 37.2456, lon: 37.8724, note: 'Baraj suları altında kalan eski Halfeti\'yi ve minaresi görünen batık camiyi tekneyle gezme imkanı.' },
+      { name: 'Fotoğraf noktası', lat: 37.2469, lon: 37.8751, note: 'Rumkale ve nehir manzarasının en iyi görüldüğü noktalardan biri.' },
+      { name: 'Öğle molası', lat: 37.2437, lon: 37.8681, isBreak: true },
       { name: 'Dönüş noktası', lat: 37.2448, lon: 37.8698 },
     ],
     image: require('@/assets/images/halfeti_sakli_cennet.png'),
@@ -559,9 +559,9 @@ export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
     category: 'yarım-gün',
     coordinates: { lat: 37.1457, lon: 39.3585 }, // Karahantepe
     waypoints: [
-      { name: 'Karahantepe alanı', lat: 37.1457, lon: 39.3585 },
-      { name: 'Anıtsal taşlar', lat: 37.1462, lon: 39.3601 },
-      { name: 'Mola noktası', lat: 37.1439, lon: 39.3558 },
+      { name: 'Karahantepe alanı', lat: 37.1457, lon: 39.3585, note: 'Göbeklitepe ile aynı döneme ait, "Taş Tepeler" projesinin en önemli kazı alanlarından biri.' },
+      { name: 'Anıtsal taşlar', lat: 37.1462, lon: 39.3601, note: 'Kazılarda ortaya çıkarılan insan yüzü tasvirli anıtsal taş heykeller ve T biçimli dikilitaşlar.' },
+      { name: 'Mola noktası', lat: 37.1439, lon: 39.3558, isBreak: true },
     ],
     image: require('@/assets/images/karahantepe.png'),
     tips: 'Alan açık hava müzesi niteliğinde olduğu için yaz aylarında sabah erken saatler tercih edilmelidir.',
@@ -580,10 +580,10 @@ export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
     category: 'tam-gün',
     coordinates: { lat: 37.3081, lon: 39.0931 }, // Soğmatar/Şuayb Şehri bölgesi
     waypoints: [
-      { name: 'Şuayb Şehri', lat: 37.3081, lon: 39.0931 },
-      { name: 'Soğmatar', lat: 37.3138, lon: 39.1098 },
-      { name: 'Senem Mağarası', lat: 37.3187, lon: 39.1163 },
-      { name: 'Manzara molası', lat: 37.3047, lon: 39.0864 },
+      { name: 'Şuayb Şehri', lat: 37.3081, lon: 39.0931, note: 'Kaya oyma yapıları ve mağara kalıntılarıyla dikkat çeken tarihi yerleşim.' },
+      { name: 'Soğmatar', lat: 37.3138, lon: 39.1098, note: 'Ay tanrısı kültüne ait kaya kabartmaları ve tapınak kalıntılarıyla bilinen antik kent.' },
+      { name: 'Senem Mağarası', lat: 37.3187, lon: 39.1163, note: 'Bölgenin kaya oyma mağara mimarisini yansıtan tarihi mağara.' },
+      { name: 'Manzara molası', lat: 37.3047, lon: 39.0864, note: 'Tek Tek Dağları Milli Parkı\'nın doğal manzarasının izlenebileceği seyir noktası.' },
     ],
     image: require('@/assets/images/sogmatar.jpg'),
     tips: 'Bölgeye özel araç olmadan ulaşım zor olduğundan araçlı gitmeniz önerilir.',
@@ -600,8 +600,8 @@ export const MOCK_WEEKEND_PLANS: WeekendPlan[] = [
     category: 'yarım-gün',
     coordinates: { lat: 37.1504, lon: 38.7953 }, // Kızılkoyun Nekropolü
     waypoints: [
-      { name: 'Kızılkoyun Nekropolü', lat: 37.1504, lon: 38.7953 },
-      { name: 'Balıklıgöl', lat: 37.1486, lon: 38.7969 },
+      { name: 'Kızılkoyun Nekropolü', lat: 37.1504, lon: 38.7953, note: 'Roma dönemine ait kaya oyma mezar odalarından oluşan nekropol alanı.' },
+      { name: 'Balıklıgöl', lat: 37.1486, lon: 38.7969, note: 'Hz. İbrahim\'in ateşe atıldığına inanılan kutsal gölet; göldeki sazan balıkları kutsal kabul edilir.' },
     ],
     image: require('@/assets/images/kizilkoyun_nekropolu.png'),
     tips: 'Şehir merkezine yakın olduğu için diğer merkez gezileriyle birlikte planlanabilir.',

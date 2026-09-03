@@ -66,7 +66,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
 import { useUser } from '@/context/UserContext';
-import { supabase, processImageUrl, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase';
+import { supabase, processImageUrl, resolveSnapUrl, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase';
 import { notify } from '@/lib/notifications';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { Clean } from '@/constants/Colors';
@@ -1367,7 +1367,7 @@ function MessagesView({
       onPress={() => {
         if (conv.accessible === false) {
           // erişim yok -> neden göster
-          AppAlert.alert(tr('common.uye'), conv.accessReason || tr('sosyalMain.erişimEngellendi'));
+          AppAlert.alert(tr('sosyalMain.erişimEngellendi'), conv.accessReason || tr('sosyalMain.erişimEngellendi'));
           return;
         }
         onNavigateChat(
@@ -1462,7 +1462,12 @@ function MessagesView({
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
-        {loading ? (
+        {/* Realtime ile (yeni mesaj/okundu güncellemesi) tetiklenen arka plan
+            yenilemelerinde de loading=true oluyordu — bu da zaten dolu olan
+            listeyi her seferinde spinner'la değiştirip "hep yükleniyor"
+            hissi veriyordu. Liste zaten doluysa spinner göstermeden, sessizce
+            güncellensin; spinner sadece gerçek ilk yüklemede görünsün. */}
+        {loading && conversations.length === 0 ? (
           <ActivityIndicator color={txt1} style={{ marginTop: 40 }} />
         ) : isSearching ? (
           <>
@@ -1848,6 +1853,8 @@ export default function SosyalScreen() {
   const [snaps, setSnaps] = useState<SnapPost[]>([]);
   const [snapsLoading, setSnapsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('feed');
+  const activeTabRef = useRef(activeTab);
+  useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
   const [cameraVisible, setCameraVisible] = useState(false);
   const [friendModalVisible, setFriendModalVisible] = useState(false);
   const [friendSearchResults, setFriendSearchResults] = useState<UserProfile[]>([]);
@@ -2015,6 +2022,81 @@ export default function SosyalScreen() {
     }
   }, [currentUserId]);
 
+  // Realtime: yeni mesaj/kıvılcım geldiğinde ekrandan ayrılıp geri dönmeye
+  // gerek kalmadan listeleri anında yenile. Önceden sadece odak (focus)
+  // değişince yenileniyordu — aynı ekranda kalınırsa yeni içerik
+  // "sayfayı yenile"meden görünmüyordu.
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const messagesChannel = supabase
+      .channel(`sosyal-mesajlar-${currentUserId}`)
+      // Sadece INSERT dinleniyordu — "okundu" işaretlemesi bir UPDATE olduğu
+      // için, sohbeti okusan bile Mesajlar listesindeki okunmamış rozeti
+      // güncellenmiyordu (sekme değiştirip geri dönene kadar). '*' ile
+      // hem yeni mesajı hem okundu güncellemesini yakalıyoruz.
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
+        if (activeTabRef.current === 'messages') {
+          fetchConversations(currentUserId);
+        }
+      })
+      .subscribe();
+
+    const postsChannel = supabase
+      .channel(`sosyal-kivilcim-${currentUserId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'social_posts' }, () => {
+        if (activeTabRef.current === 'feed') {
+          fetchFriendSnaps();
+        }
+      })
+      .subscribe();
+
+    // Arkadaşlıktan çıkarma/engelleme başka bir ekranda (SosyalProfile) yapılıyor;
+    // buraya odak-değişimi ile 500ms gecikmeyle yansıyordu, bazen de hiç
+    // yansımıyordu (ör. çıkarılan kişinin kıvılcımı akışta kalmaya devam
+    // ediyordu). Artık friendships değişince arkadaş listesi anında yenilenir.
+    const friendshipsChannel = supabase
+      .channel(`sosyal-arkadaslik-${currentUserId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'friendships',
+        filter: `sender_id=eq.${currentUserId}`,
+      }, () => {
+        fetchFriends(currentUserId);
+        fetchOutgoingRequests(currentUserId);
+        fetchIncomingRequests(currentUserId);
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'friendships',
+        filter: `receiver_id=eq.${currentUserId}`,
+      }, () => {
+        fetchFriends(currentUserId);
+        fetchOutgoingRequests(currentUserId);
+        fetchIncomingRequests(currentUserId);
+      })
+      .subscribe();
+
+    const blocksChannel = supabase
+      .channel(`sosyal-engelleme-${currentUserId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'blocked_users',
+        filter: `blocker_id=eq.${currentUserId}`,
+      }, () => fetchFriends(currentUserId))
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(messagesChannel);
+      supabase.removeChannel(postsChannel);
+      supabase.removeChannel(friendshipsChannel);
+      supabase.removeChannel(blocksChannel);
+    };
+  }, [currentUserId]);
+
   // Ekrana her dönüşte snap feed'ini arka planda yenile (mevcut snap'leri silmeden)
   useFocusEffect(
     useCallback(() => {
@@ -2124,11 +2206,16 @@ export default function SosyalScreen() {
           .eq('user_id', bid)
           .single();
         setStreakBuddyLabel(bp?.username ? `@${bp.username}` : (bp?.name ?? ''));
-        const { data: mutual, error: mErr } = await supabase.rpc('buddy_mutual_snap_streak', {
-          p_a: userId,
-          p_b: bid,
-        });
-        setBuddyMutual(!mErr && typeof mutual === 'number' ? mutual : 0);
+        // buddy_mutual_snap_streak() ham social_posts satırlarını geriye
+        // tarıyordu — 4 saatlik otomatik silme sonrası artık hep 0 dönerdi.
+        // Kalıcı sayaç (bkz. database/52) doğrudan kolon olarak tutuluyor.
+        const { data: buddyRow } = await supabase
+          .from('user_profiles')
+          .select('buddy_streak_current, buddy_streak_partner_id')
+          .eq('user_id', userId)
+          .maybeSingle();
+        const currentIsForThisBuddy = buddyRow?.buddy_streak_partner_id === bid;
+        setBuddyMutual(currentIsForThisBuddy ? Number(buddyRow?.buddy_streak_current) || 0 : 0);
       } else {
         setStreakBuddyLabel('');
         setBuddyMutual(0);
@@ -2345,12 +2432,16 @@ export default function SosyalScreen() {
       const profileMap: Record<string, any> = {};
       (profiles ?? []).forEach((p: any) => { profileMap[p.user_id] = p; });
 
-      const mapped: SnapPost[] = visiblePosts.map((post: any) => {
+      // 'snaps' bucket'ı artık private (bkz. database/51_private_snaps_bucket.sql):
+      // ham path/eski public URL doğrudan gösterilemiyor, her biri için
+      // süreli imzalı URL üretmek gerekiyor.
+      const mapped: SnapPost[] = await Promise.all(visiblePosts.map(async (post: any) => {
         const createdAt = new Date(post.created_at);
         const expiresAt = new Date(createdAt.getTime() + 4 * 60 * 60 * 1000);
         const prof = profileMap[post.user_id];
-        const vUrl = post.video_url && String(post.video_url).trim() !== '' ? post.video_url : '';
-        const isVid = !!vUrl;
+        const rawVideo = post.video_url && String(post.video_url).trim() !== '' ? post.video_url : '';
+        const isVid = !!rawVideo;
+        const signedUri = await resolveSnapUrl(isVid ? rawVideo : post.image_url);
         return {
           id: post.id,
           userId: post.user_id,
@@ -2361,7 +2452,7 @@ export default function SosyalScreen() {
             avatarColor: '#f59e0b',
             avatarUrl: prof?.avatar_url,
           },
-          imageUri: isVid ? vUrl : (post.image_url ?? ''),
+          imageUri: signedUri ?? '',
           ...(isVid ? { isVideo: true } : {}),
           location: {
             lat: post.latitude ?? 37.1591,
@@ -2375,8 +2466,9 @@ export default function SosyalScreen() {
           replayedBy: Array.isArray(post.replayed_by) ? post.replayed_by : [],
           isPublic: prof?.is_public ?? true, // Gizlilik ayarı
         };
-      });
-      setSnaps(mapped);
+      }));
+      // imzalı URL üretilemeyenleri (erişim yok/silinmiş dosya) listeye hiç koyma
+      setSnaps(mapped.filter(s => !!s.imageUri));
     } catch {
       // Hata durumunda mevcut snap'leri koru
     } finally {
@@ -2735,9 +2827,10 @@ export default function SosyalScreen() {
         return;
       }
 
-      // 3. Public URL al
-      const { data: urlData } = supabase.storage.from('snaps').getPublicUrl(fileName);
-      const publicUrl = urlData.publicUrl;
+      // 3. 'snaps' bucket'ı artık private — public URL yerine sade storage
+      // path'i saklıyoruz, görüntülenirken resolveSnapUrl() ile imzalı
+      // (süreli) URL'e çevrilecek.
+      const publicUrl = fileName;
 
       // 4. Konum al — izin yoksa/alınamazsa UYDURMA, null bırak (Şehir Radarı sadece gerçek konumları gösterir)
       let latitude: number | null = null;
@@ -2809,6 +2902,12 @@ export default function SosyalScreen() {
       const { error: rpcErr } = await supabase.rpc('refresh_snap_streak', { p_user_id: userId });
       if (rpcErr) {
         /* Kolon/RPC yoksa streak sunucuda güncellenmez; yine de profili yenile */
+      }
+      // İkili zincir artık kalıcı bir sayaçla tutuluyor (bkz. database/52) —
+      // her kıvılcım atışında hem kendi hem buddy tarafında güncelleniyor.
+      const { error: buddyRpcErr } = await supabase.rpc('refresh_buddy_streak', { p_user_id: userId });
+      if (buddyRpcErr) {
+        /* buddy seçili değilse ya da kolon yoksa sessizce geç */
       }
       void loadStreakData(userId);
 
@@ -2969,7 +3068,7 @@ export default function SosyalScreen() {
       // Zaten arkadaş veya istek var mı kontrol et
       const { data: existingRows, error: existingError } = await supabase
         .from('friendships')
-        .select('id, status')
+        .select('id, status, sender_id')
         .or(`and(sender_id.eq.${userId},receiver_id.eq.${selectedUser.user_id}),and(sender_id.eq.${selectedUser.user_id},receiver_id.eq.${userId})`);
       console.log('[Arkadaşlık İsteği - arama] mevcut kayıt kontrolü', { userId, target: selectedUser.user_id, existingRows, existingError });
       const existing = existingRows && existingRows.length > 0 ? existingRows[0] : null;
@@ -2985,14 +3084,25 @@ export default function SosyalScreen() {
           );
           return;
         } else if (existing.status === 'pending') {
+          if (existing.sender_id === selectedUser.user_id) {
+            // Karşı taraf bize zaten istek göndermiş — "istek zaten var" demek
+            // yerine, iki taraf da birbirine istek göndermek istediğine göre
+            // isteği burada doğrudan kabul edip arkadaş yapıyoruz.
+            await handleAcceptRequest(existing.id, selectedUser.user_id);
+            return;
+          }
           AppAlert.alert(tr('sosyalMain.istekGonderildi') || 'İstek İletildi', tr('sosyalMain.zatenIstekGonderilmis', { name: selectedUser.name || selectedUser.username }) || 'Bu kişiye zaten bir arkadaşlık isteği gönderilmiş.');
           return;
         } else {
-          // 'rejected' (veya beklenmeyen bir durum) — eski kaydı temizleyip
-          // yeni bir istek gönderilmesine izin ver, sessizce hiçbir şey
-          // yapmadan çıkma (önceki hata buydu).
-          console.log('[Arkadaşlık İsteği - arama] eski/rejected kayıt temizleniyor', existing);
-          const { error: cleanupError } = await supabase.from('friendships').delete().eq('id', existing.id);
+          // 'rejected' (veya beklenmeyen bir durum) — HER İKİ yöndeki eski
+          // kayıtları temizleyip yeni bir istek gönderilmesine izin ver.
+          // Sadece existingRows[0]'ı silmek yetmiyordu: iki yönde de rejected
+          // satır varsa ikincisi unique constraint'e çarpıyordu.
+          console.log('[Arkadaşlık İsteği - arama] eski/rejected kayıtlar temizleniyor', existingRows);
+          const { error: cleanupError } = await supabase
+            .from('friendships')
+            .delete()
+            .or(`and(sender_id.eq.${userId},receiver_id.eq.${selectedUser.user_id}),and(sender_id.eq.${selectedUser.user_id},receiver_id.eq.${userId})`);
           if (cleanupError) throw cleanupError;
         }
       }
@@ -3039,7 +3149,7 @@ export default function SosyalScreen() {
     try {
       const { data: existingRows, error: existingError } = await supabase
         .from('friendships')
-        .select('id, status')
+        .select('id, status, sender_id')
         .or(`and(sender_id.eq.${userId},receiver_id.eq.${user.user_id}),and(sender_id.eq.${user.user_id},receiver_id.eq.${userId})`);
       console.log('[Mesajlar Arama] mevcut kayıt kontrolü', { userId, target: user.user_id, existingRows, existingError });
       const existing = existingRows && existingRows.length > 0 ? existingRows[0] : null;
@@ -3050,6 +3160,11 @@ export default function SosyalScreen() {
       }
 
       if (existing && existing.status === 'pending') {
+        if (existing.sender_id === user.user_id) {
+          // Karşı taraf bize zaten istek göndermiş — otomatik kabul edip arkadaş yap
+          await handleAcceptRequest(existing.id, user.user_id);
+          return;
+        }
         AppAlert.alert(
           tr('sosyalMain.istekGonderildi') || 'İstek İletildi',
           tr('sosyalMain.zatenIstekGonderilmis', { name: user.name || user.username }) || 'Bu kişiye zaten bir arkadaşlık isteği gönderilmiş.'
@@ -3109,9 +3224,23 @@ export default function SosyalScreen() {
         return;
       }
 
+      // QR akışı arama sonuçları gibi önceden filtrelenmemiş — bu yüzden
+      // engelleme burada ayrıca kontrol edilmeli. Yoksa engellenen/engelleyen
+      // kişi QR kodunu okutarak isteği ve bildirimi (notify.friendRequest)
+      // yine de tetikleyebiliyordu.
+      const { data: qrBlockRows } = await supabase
+        .from('blocked_users')
+        .select('id')
+        .or(`and(blocker_id.eq.${userId},blocked_id.eq.${data.user_id}),and(blocker_id.eq.${data.user_id},blocked_id.eq.${userId})`);
+      if (qrBlockRows && qrBlockRows.length > 0) {
+        AppAlert.alert(tr('sosyalMain.erişimEngellendi'), tr('sosyalMain.erişimEngellendi'));
+        setQrScanned(false);
+        return;
+      }
+
       const { data: existingQrRows } = await supabase
         .from('friendships')
-        .select('id, status')
+        .select('id, status, sender_id')
         .or(`and(sender_id.eq.${currentUserId},receiver_id.eq.${data.user_id}),and(sender_id.eq.${data.user_id},receiver_id.eq.${currentUserId})`);
       const existing = existingQrRows && existingQrRows.length > 0 ? existingQrRows[0] : null;
       console.log('[Arkadaşlık İsteği - QR] mevcut kayıt kontrolü', existing);
@@ -3122,12 +3251,21 @@ export default function SosyalScreen() {
           setQrScanned(false);
           return;
         } else if (existing.status === 'pending') {
+          if (existing.sender_id === data.user_id) {
+            // Karşı taraf bize zaten istek göndermiş — otomatik kabul edip arkadaş yap
+            await handleAcceptRequest(existing.id, data.user_id);
+            setQrScanned(false);
+            return;
+          }
           AppAlert.alert(tr('sosyalMain.istekMevcut'), tr('sosyalMain.zatenIstekGonderilmis', { name: `@${data.username}` }));
           setQrScanned(false);
           return;
         } else {
-          // 'rejected' — eski kaydı temizleyip yeni isteğe izin ver
-          const { error: cleanupError } = await supabase.from('friendships').delete().eq('id', existing.id);
+          // 'rejected' — HER İKİ yöndeki eski kayıtları temizleyip yeni isteğe izin ver
+          const { error: cleanupError } = await supabase
+            .from('friendships')
+            .delete()
+            .or(`and(sender_id.eq.${currentUserId},receiver_id.eq.${data.user_id}),and(sender_id.eq.${data.user_id},receiver_id.eq.${currentUserId})`);
           if (cleanupError) throw cleanupError;
         }
       }

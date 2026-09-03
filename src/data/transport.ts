@@ -89,6 +89,7 @@ export const MOCK_STOPS = [
     lng: 38.79683639017905,
     region: "Merkez",
     buses: [
+      { line: "0", route: BUS_ROUTES["0"], baseTime: 20, color: COLORS.purple },
       { line: "21", route: BUS_ROUTES["21"], baseTime: 2, color: COLORS.orange },
       { line: "21A", route: BUS_ROUTES["21A"], baseTime: 9, color: COLORS.orange },
       { line: "22", route: BUS_ROUTES["22"], baseTime: 4, color: COLORS.red },
@@ -119,9 +120,11 @@ export const MOCK_STOPS = [
     lng: 38.78088814044136,
     region: "Merkez",
     buses: [
+      { line: "23", route: BUS_ROUTES["23"], baseTime: 5, color: COLORS.green },
       { line: "33", route: BUS_ROUTES["33"], baseTime: 6, color: COLORS.blue },
       { line: "34", route: BUS_ROUTES["34"], baseTime: 10, color: COLORS.teal },
       { line: "36", route: BUS_ROUTES["36"], baseTime: 12, color: COLORS.purple },
+      { line: "81", route: BUS_ROUTES["81"], baseTime: 14, color: COLORS.rose },
       { line: "R2", route: BUS_ROUTES["R2"], baseTime: 15, color: COLORS.purple }
     ]
   },
@@ -147,7 +150,7 @@ export const MOCK_STOPS = [
     lng: 38.80445313859036,
     region: "Karaköprü",
     buses: [
-      { line: "0", route: BUS_ROUTES["0"], baseTime: 45, color: COLORS.purple },
+      { line: "26", route: BUS_ROUTES["26"], baseTime: 14, color: COLORS.purple },
       { line: "36", route: BUS_ROUTES["36"], baseTime: 2, color: COLORS.blue },
       { line: "38", route: BUS_ROUTES["38"], baseTime: 15, color: COLORS.indigo },
       { line: "41A", route: BUS_ROUTES["41A"], baseTime: 12, color: COLORS.rose },
@@ -211,6 +214,7 @@ export const MOCK_STOPS = [
       { line: "43", route: BUS_ROUTES["43"], baseTime: 7, color: COLORS.blue },
       { line: "43A", route: BUS_ROUTES["43A"], baseTime: 2, color: COLORS.red },
       { line: "44", route: BUS_ROUTES["44"], baseTime: 8, color: COLORS.purple },
+      { line: "61", route: BUS_ROUTES["61"], baseTime: 9, color: COLORS.red },
       { line: "64", route: BUS_ROUTES["64"], baseTime: 10, color: COLORS.pink },
       { line: "90E", route: BUS_ROUTES["90E"], baseTime: 15, color: COLORS.indigo }
     ]
@@ -271,7 +275,11 @@ export const MOCK_STOPS = [
     lng: 38.79074412324491,
     region: "Merkez",
     buses: [
+      { line: "20", route: BUS_ROUTES["20"], baseTime: 5, color: COLORS.pink },
+      { line: "21", route: BUS_ROUTES["21"], baseTime: 4, color: COLORS.orange },
       { line: "22", route: BUS_ROUTES["22"], baseTime: 6, color: COLORS.red },
+      { line: "23", route: BUS_ROUTES["23"], baseTime: 7, color: COLORS.green },
+      { line: "61", route: BUS_ROUTES["61"], baseTime: 8, color: COLORS.red },
       { line: "63", route: BUS_ROUTES["63"], baseTime: 3, color: COLORS.indigo }
     ]
   },
@@ -282,8 +290,10 @@ export const MOCK_STOPS = [
     lng: 38.793593,
     region: "Merkez",
     buses: [
+      { line: "20", route: BUS_ROUTES["20"], baseTime: 5, color: COLORS.pink },
       { line: "33", route: BUS_ROUTES["33"], baseTime: 4, color: COLORS.blue },
-      { line: "36", route: BUS_ROUTES["36"], baseTime: 10, color: COLORS.purple }
+      { line: "36", route: BUS_ROUTES["36"], baseTime: 10, color: COLORS.purple },
+      { line: "95", route: BUS_ROUTES["95"], baseTime: 12, color: COLORS.slate }
     ]
   },
   {
@@ -293,8 +303,11 @@ export const MOCK_STOPS = [
     lng: 38.794911528474444,
     region: "Merkez",
     buses: [
-      { line: "21", route: BUS_ROUTES["21"], baseTime: 5, color: COLORS.orange },
-      { line: "73", route: BUS_ROUTES["73"], baseTime: 8, color: COLORS.teal }
+      { line: "34", route: BUS_ROUTES["34"], baseTime: 6, color: COLORS.teal },
+      { line: "43", route: BUS_ROUTES["43"], baseTime: 9, color: COLORS.blue },
+      { line: "70", route: BUS_ROUTES["70"], baseTime: 10, color: COLORS.orange },
+      { line: "73", route: BUS_ROUTES["73"], baseTime: 8, color: COLORS.teal },
+      { line: "78", route: BUS_ROUTES["78"], baseTime: 12, color: COLORS.indigo }
     ]
   },
   {
@@ -302,10 +315,17 @@ export const MOCK_STOPS = [
     name: "Urfa City AVM",
     lat: 37.182287655757285,
     lng: 38.80703688091813,
-    region: "Merkez",
+    region: "Karaköprü",
     buses: [
-      { line: "63", route: BUS_ROUTES["63"], baseTime: 5, color: COLORS.indigo },
-      { line: "R2", route: BUS_ROUTES["R2"], baseTime: 12, color: COLORS.purple }
+      { line: "12", route: BUS_ROUTES["12"], baseTime: 10, color: COLORS.blue },
+      { line: "36", route: BUS_ROUTES["36"], baseTime: 8, color: COLORS.purple },
+      { line: "61", route: BUS_ROUTES["61"], baseTime: 4, color: COLORS.red },
+      { line: "62", route: BUS_ROUTES["62"], baseTime: 5, color: COLORS.green },
+      { line: "64", route: BUS_ROUTES["64"], baseTime: 6, color: COLORS.orange },
+      { line: "71", route: BUS_ROUTES["71"], baseTime: 9, color: COLORS.purple },
+      { line: "71A", route: BUS_ROUTES["71A"], baseTime: 11, color: COLORS.pink },
+      { line: "72", route: BUS_ROUTES["72"], baseTime: 6, color: COLORS.indigo },
+      { line: "76B", route: BUS_ROUTES["76B"], baseTime: 10, color: COLORS.rose }
     ]
   },
   {
@@ -315,8 +335,16 @@ export const MOCK_STOPS = [
     lng: 38.80691955208026,
     region: "Karaköprü",
     buses: [
-      { line: "73", route: BUS_ROUTES["73"], baseTime: 15, color: COLORS.teal },
-      { line: "74", route: BUS_ROUTES["74"], baseTime: 10, color: COLORS.teal }
+      { line: "42", route: BUS_ROUTES["42"], baseTime: 6, color: COLORS.orange },
+      { line: "43", route: BUS_ROUTES["43"], baseTime: 7, color: COLORS.blue },
+      { line: "43A", route: BUS_ROUTES["43A"], baseTime: 5, color: COLORS.red },
+      { line: "48", route: BUS_ROUTES["48"], baseTime: 8, color: COLORS.orange },
+      { line: "52", route: BUS_ROUTES["52"], baseTime: 9, color: COLORS.pink },
+      { line: "61", route: BUS_ROUTES["61"], baseTime: 6, color: COLORS.red },
+      { line: "74", route: BUS_ROUTES["74"], baseTime: 10, color: COLORS.teal },
+      { line: "90E", route: BUS_ROUTES["90E"], baseTime: 12, color: COLORS.indigo },
+      { line: "103", route: BUS_ROUTES["103"], baseTime: 18, color: COLORS.lime },
+      { line: "105", route: BUS_ROUTES["105"], baseTime: 20, color: COLORS.amber }
     ]
   },
   {
@@ -326,8 +354,10 @@ export const MOCK_STOPS = [
     lng: 38.79063104599802,
     region: "Balıklıgöl",
     buses: [
+      { line: "24", route: BUS_ROUTES["24"], baseTime: 6, color: COLORS.green },
       { line: "48", route: BUS_ROUTES["48"], baseTime: 8, color: COLORS.orange },
-      { line: "63", route: BUS_ROUTES["63"], baseTime: 4, color: COLORS.indigo }
+      { line: "63", route: BUS_ROUTES["63"], baseTime: 4, color: COLORS.indigo },
+      { line: "R2", route: BUS_ROUTES["R2"], baseTime: 9, color: COLORS.purple }
     ]
   },
   {
@@ -337,8 +367,13 @@ export const MOCK_STOPS = [
     lng: 38.792004594411864,
     region: "Karaköprü",
     buses: [
-      { line: "72", route: BUS_ROUTES["72"], baseTime: 12, color: COLORS.indigo },
-      { line: "74", route: BUS_ROUTES["74"], baseTime: 20, color: COLORS.teal }
+      { line: "70", route: BUS_ROUTES["70"], baseTime: 14, color: COLORS.orange },
+      { line: "74", route: BUS_ROUTES["74"], baseTime: 20, color: COLORS.teal },
+      { line: "75", route: BUS_ROUTES["75"], baseTime: 10, color: COLORS.blue },
+      { line: "79", route: BUS_ROUTES["79"], baseTime: 16, color: COLORS.rose },
+      { line: "90K", route: BUS_ROUTES["90K"], baseTime: 18, color: COLORS.teal },
+      { line: "170", route: BUS_ROUTES["170"], baseTime: 22, color: COLORS.lime },
+      { line: "180", route: BUS_ROUTES["180"], baseTime: 25, color: COLORS.amber }
     ]
   },
   {
@@ -348,6 +383,8 @@ export const MOCK_STOPS = [
     lng: 38.84338159626168,
     region: "Karaköprü",
     buses: [
+      { line: "12", route: BUS_ROUTES["12"], baseTime: 12, color: COLORS.blue },
+      { line: "52", route: BUS_ROUTES["52"], baseTime: 6, color: COLORS.pink },
       { line: "76", route: BUS_ROUTES["76"], baseTime: 15, color: COLORS.purple },
       { line: "90", route: BUS_ROUTES["90"], baseTime: 10, color: COLORS.rose }
     ]

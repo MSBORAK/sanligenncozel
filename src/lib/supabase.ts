@@ -38,17 +38,49 @@ export const getStorageUrl = (bucket: string, path: string): string => {
  */
 export const processImageUrl = (urlOrPath?: string | null, bucket: string = 'images'): string | null => {
   if (!urlOrPath || urlOrPath.trim() === '') return null;
-  
+
   const trimmedPath = urlOrPath.trim();
-  
+
   // Eğer zaten tam bir URL ise (http/https ile başlıyorsa) direkt dön
   if (trimmedPath.startsWith('http://') || trimmedPath.startsWith('https://')) {
     return trimmedPath;
   }
-  
+
   // Eğer Storage path'i ise (örn: 'story/baskan.jpg') public URL'e çevir
   try {
     return getStorageUrl(bucket, trimmedPath);
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * 'snaps' bucket'ı artık private (bkz. database/51_private_snaps_bucket.sql) —
+ * bu yüzden getPublicUrl() dönen link artık çalışmıyor, süreli imzalı URL
+ * (signed URL) üretmek gerekiyor. Hem eski satırlarda duran tam public URL'i
+ * ("https://.../storage/v1/object/public/snaps/<path>") hem de yeni
+ * kayıtlarda tutulan sade path'i ("<userId>/<timestamp>.jpg") kabul eder.
+ */
+export const resolveSnapUrl = async (urlOrPath?: string | null, expiresInSeconds = 3600): Promise<string | null> => {
+  if (!urlOrPath || urlOrPath.trim() === '') return null;
+  const trimmed = urlOrPath.trim();
+
+  let path = trimmed;
+  const marker = '/object/public/snaps/';
+  const signedMarker = '/object/sign/snaps/';
+  if (trimmed.includes(marker)) {
+    path = trimmed.split(marker)[1]?.split('?')[0] ?? trimmed;
+  } else if (trimmed.includes(signedMarker)) {
+    path = trimmed.split(signedMarker)[1]?.split('?')[0] ?? trimmed;
+  } else if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    // Tanınmayan bir tam URL — bucket'a ait değil, olduğu gibi dön
+    return trimmed;
+  }
+
+  try {
+    const { data, error } = await supabase.storage.from('snaps').createSignedUrl(path, expiresInSeconds);
+    if (error || !data?.signedUrl) return null;
+    return data.signedUrl;
   } catch {
     return null;
   }

@@ -20,7 +20,15 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
       .then((v) => {
-        if (v === 'dark' || v === 'light' || v === 'inverse') setMode(v);
+        // 'inverse' (Gece Parıltısı) seçenek listesinden kaldırıldı çünkü
+        // metin renkleri o temada okunmuyordu — daha önce bunu seçmiş
+        // kullanıcıları sessizce 'dark'a düşürüyoruz, bozuk temada kalmasınlar.
+        if (v === 'inverse') {
+          setMode('dark');
+          AsyncStorage.setItem(STORAGE_KEY, 'dark').catch(() => {});
+        } else if (v === 'dark' || v === 'light') {
+          setMode(v);
+        }
       })
       .catch((e) => {
         if (__DEV__) console.warn('Tema tercihi okunamadı:', e);
@@ -36,7 +44,8 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
 
   const toggleTheme = useCallback(() => {
     setMode((prev) => {
-      const next = prev === 'light' ? 'dark' : prev === 'dark' ? 'inverse' : 'light';
+      // 'inverse' döngüden çıkarıldı (bkz. yukarıdaki not) — sadece light/dark arası geçer
+      const next = prev === 'light' ? 'dark' : 'light';
       AsyncStorage.setItem(STORAGE_KEY, next).catch((e) => {
         if (__DEV__) console.warn('Tema tercihi kaydedilemedi:', e);
       });
