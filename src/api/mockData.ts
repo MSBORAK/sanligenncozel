@@ -388,6 +388,38 @@ export const MOCK_LIBRARIES: Library[] = [
     workingHours: 'Hafta içi 08:00 - 20:00',
     coordinates: { lat: 37.1722, lon: 38.9984 },
   },
+  {
+    id: '5',
+    name: 'Buluntu Hoca Semt Kütüphanesi',
+    address: 'Hakimdede Mah., Şanlıurfa Merkez',
+    phone: '0414 318 51 00',
+    workingHours: 'Hafta içi 08:00 - 17:00',
+    coordinates: { lat: 37.1750, lon: 38.7850 },
+  },
+  {
+    id: '6',
+    name: 'Karaköprü Halk Kütüphanesi',
+    address: 'Şenevler Mah., Karaköprü',
+    phone: '0414 347 72 36',
+    workingHours: 'Hafta içi 08:00 - 17:00',
+    coordinates: { lat: 37.2010, lon: 38.7930 },
+  },
+  {
+    id: '7',
+    name: 'Karaköprü Belediyesi Atakent Okuma Evi',
+    address: 'Şenevler Mah. Orman Yolu Cad., Karaköprü',
+    phone: '0414 347 72 36',
+    workingHours: 'Hafta içi 08:00 - 17:00',
+    coordinates: { lat: 37.2035, lon: 38.7965 },
+  },
+  {
+    id: '8',
+    name: 'Turgut Özal Parkı Çocuk Kütüphanesi',
+    address: 'Ulubatlı Mah. 366. Sk., Haliliye',
+    phone: '0532 382 21 69',
+    workingHours: 'Hafta içi 08:00 - 22:00, Cumartesi 08:00 - 17:00',
+    coordinates: { lat: 37.1540, lon: 38.7810 },
+  },
 ];
 
 // Hafta Sonu Planları verileri
