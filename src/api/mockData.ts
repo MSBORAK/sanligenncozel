@@ -343,13 +343,14 @@ export const MOCK_PHARMACIES: Pharmacy[] = [
   },
 ];
 
-// Kütüphane verileri
+// Kütüphane verileri — gerçek, kamuya açık (devlet/belediye) kütüphaneler.
+// Adres ve telefonlar T.C. Kültür ve Turizm Bakanlığı ile Şanlıurfa
+// Büyükşehir Belediyesi'nin resmi kaynaklarından doğrulanmıştır.
 export interface Library {
   id: string;
   name: string;
   address: string;
   phone: string;
-  distance: number; // km cinsinden
   workingHours: string;
   coordinates: { lat: number; lon: number };
 }
@@ -358,38 +359,34 @@ export const MOCK_LIBRARIES: Library[] = [
   {
     id: '1',
     name: 'Şanlıurfa İl Halk Kütüphanesi',
-    address: 'Atatürk Bulvarı No: 120, Merkez',
-    phone: '0414 123 45 67',
-    distance: 1.0,
-    workingHours: '08:00 - 18:00',
-    coordinates: { lat: 37.1680, lon: 38.7930 },
+    address: 'Cengiz Topel Mah. Cengiz Topel Cad. No: 38, Haliliye',
+    phone: '0414 333 05 76',
+    workingHours: 'Hafta içi 08:00 - 20:00, Cumartesi 09:00 - 17:00, Pazar kapalı',
+    coordinates: { lat: 37.1656, lon: 38.7935 },
   },
   {
     id: '2',
-    name: 'Harran Üniversitesi Kütüphanesi',
-    address: 'Osmanbey Kampüsü, Üniversite Caddesi',
-    phone: '0414 234 56 78',
-    distance: 2.8,
-    workingHours: '08:00 - 20:00',
-    coordinates: { lat: 37.1820, lon: 38.8020 },
+    name: 'Prof. Dr. Abdülkadir Karahan Kütüphanesi',
+    address: 'Refahiye Mah. 278. Sk. No: 2/1, Haliliye',
+    phone: '0414 314 07 00',
+    workingHours: 'Hafta içi 08:00 - 17:00',
+    coordinates: { lat: 37.1580, lon: 38.7890 },
   },
   {
     id: '3',
-    name: 'Çocuk Kütüphanesi',
-    address: 'Karaali Parkı Yanı, Şehitlik Mahallesi',
-    phone: '0414 345 67 89',
-    distance: 1.5,
-    workingHours: '09:00 - 17:00',
-    coordinates: { lat: 37.1700, lon: 38.7970 },
+    name: 'Şair Nabi Kütüphanesi',
+    address: 'Karakoyunlu Mah. A. Bahçıvan İş Merkezi, Haliliye',
+    phone: '0530 273 09 80',
+    workingHours: 'Hafta içi 08:00 - 17:00',
+    coordinates: { lat: 37.1610, lon: 38.7970 },
   },
   {
     id: '4',
-    name: 'Karaköprü Şube Kütüphanesi',
-    address: 'Karaköprü Belediye Binası Yanı',
-    phone: '0414 456 78 90',
-    distance: 0.9,
-    workingHours: '08:00 - 17:00',
-    coordinates: { lat: 37.1600, lon: 38.7910 },
+    name: 'Harran Üniversitesi El-Battani Merkez Kütüphanesi',
+    address: 'Osmanbey Kampüsü, Gülveren Mah., Haliliye',
+    phone: '0414 318 30 00',
+    workingHours: 'Hafta içi 08:00 - 20:00',
+    coordinates: { lat: 37.1722, lon: 38.9984 },
   },
 ];
 

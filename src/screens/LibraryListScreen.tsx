@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { AppAlert } from '@/lib/alert';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Library, MapPin, Clock, Navigation } from 'lucide-react-native';
+import { Library, MapPin, Clock, Navigation, Phone, Info } from 'lucide-react-native';
 import { cardOuterShadow, cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import { MOCK_LIBRARIES, Library as LibraryType } from '@/api/mockData';
 import { useAppTheme } from '@/theme/useAppTheme';
@@ -16,9 +16,15 @@ const LibraryListScreen = () => {
   const cardBorder = isDark ? cardBorderDark : cardBorderLight;
 
   const handleDirections = useCallback((library: LibraryType) => {
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(library.address)}`;
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${library.name}, ${library.address}, Şanlıurfa`)}`;
     Linking.openURL(url).catch(err => {
       console.error('Yol tarifi açılamadı:', err);
+      AppAlert.alert(tr('common.error'), tr('pharmacy.linkAcilamadi'));
+    });
+  }, [tr]);
+
+  const handleCall = useCallback((phone: string) => {
+    Linking.openURL(`tel:${phone.replace(/\s/g, '')}`).catch(() => {
       AppAlert.alert(tr('common.error'), tr('pharmacy.linkAcilamadi'));
     });
   }, [tr]);
@@ -41,21 +47,33 @@ const LibraryListScreen = () => {
             <View style={styles.detailsRow}>
               <View style={styles.detailItem}>
                 <Clock color={txt2} size={14} />
-                <Text style={[styles.detailText, { color: txt2 }]}>{item.workingHours}</Text>
+                <Text style={[styles.detailText, { color: txt2 }]} numberOfLines={1}>{item.workingHours}</Text>
               </View>
-              <Text style={[styles.distance, { color: txt1 }]}>{item.distance.toFixed(1)} km</Text>
             </View>
+            <TouchableOpacity style={styles.phoneRow} onPress={() => handleCall(item.phone)} hitSlop={6}>
+              <Phone color={txt1} size={14} />
+              <Text style={[styles.phoneText, { color: txt1 }]}>{item.phone}</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            style={[styles.directionsButton, { backgroundColor: chipBg }]}
-            onPress={() => handleDirections(item)}
-            activeOpacity={0.9}
-          >
-            <Navigation color={txt1} size={20} />
-          </TouchableOpacity>
+          <View style={styles.actionsCol}>
+            <TouchableOpacity
+              style={[styles.directionsButton, { backgroundColor: chipBg }]}
+              onPress={() => handleDirections(item)}
+              activeOpacity={0.9}
+            >
+              <Navigation color={txt1} size={20} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.directionsButton, { backgroundColor: chipBg }]}
+              onPress={() => handleCall(item.phone)}
+              activeOpacity={0.9}
+            >
+              <Phone color={txt1} size={18} />
+            </TouchableOpacity>
+          </View>
         </TouchableOpacity>
       </View>
-  ), [cardBg, cardBdr, chipBg, txt1, txt2, amber, handleDirections]);
+  ), [cardBg, cardBdr, chipBg, txt1, txt2, amber, handleDirections, handleCall]);
 
   const listBottomPad = Math.max(insets.bottom, 20);
 
@@ -81,6 +99,12 @@ const LibraryListScreen = () => {
           <View style={styles.emptyState}>
             <Library color={txt2} size={32} strokeWidth={2} />
             <Text style={[styles.emptyStateText, { color: txt2 }]}>{tr('library.sonucBulunamadi')}</Text>
+          </View>
+        }
+        ListFooterComponent={
+          <View style={[styles.disclaimer, { backgroundColor: chipBg }]}>
+            <Info color={txt2} size={16} strokeWidth={2} />
+            <Text style={[styles.disclaimerText, { color: txt2 }]}>{tr('library.uyariMetni')}</Text>
           </View>
         }
       />
@@ -175,17 +199,39 @@ const styles = StyleSheet.create({
   detailText: {
     fontSize: 12,
   },
-  distance: {
-    fontSize: 14,
-    fontWeight: '600',
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 6,
+  },
+  phoneText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  actionsCol: {
+    gap: 8,
+    marginLeft: 10,
   },
   directionsButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 10,
+  },
+  disclaimer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    padding: 14,
+    borderRadius: 14,
+    marginTop: 4,
+  },
+  disclaimerText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
   },
 });
 

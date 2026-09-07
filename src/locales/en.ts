@@ -206,6 +206,7 @@ export default {
     title: 'Libraries',
     kutuphaneBulundu: '{{count}} libraries found',
     sonucBulunamadi: 'No registered libraries found.',
+    uyariMetni: 'Hours may change on public holidays and seasonally. We recommend calling ahead to confirm before visiting.',
   },
   culturalRoute: {
     title: 'Cultural Routes',

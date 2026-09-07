@@ -206,6 +206,7 @@ export default {
     title: 'Kütüphaneler',
     kutuphaneBulundu: '{{count}} kütüphane bulundu',
     sonucBulunamadi: 'Kayıtlı kütüphane bulunamadı.',
+    uyariMetni: 'Çalışma saatleri resmî tatillerde ve dönem dönem değişebilir. Kesin bilgi için gitmeden önce kütüphaneyi telefonla aramanızı öneririz.',
   },
   culturalRoute: {
     title: 'Gezi Rotaları',
