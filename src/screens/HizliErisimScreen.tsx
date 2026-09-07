@@ -57,6 +57,7 @@ export default function HizliErisimScreen() {
       >
         <Text style={[s.eyebrow, { color: t.txt2 }]}>{tr('hizliErisim.eyebrow')}</Text>
         <Text style={[s.title, { color: t.txt1 }]}>{tr('hizliErisim.title')}</Text>
+        <Text style={[s.subtitle, { color: t.txt2 }]}>{tr('hizliErisim.subtitle')}</Text>
 
         {/* İki büyük tall kart — küçük kartlarla aynı ikon ailesi (lucide line icon) */}
         <View style={s.tallRow}>
@@ -68,7 +69,7 @@ export default function HizliErisimScreen() {
               onPress={() => handlePress(item)}
             >
               <View style={[s.tallIconWrap, { backgroundColor: t.chipBg }]}>
-                <item.icon color={t.txt1} size={34} strokeWidth={1.6} />
+                <item.icon color={t.txt1} size={40} strokeWidth={1.5} />
               </View>
               <Text style={[s.tallLabel, { color: t.txt1 }]} numberOfLines={1}>{tr(item.nameKey)}</Text>
             </TouchableOpacity>
@@ -76,6 +77,7 @@ export default function HizliErisimScreen() {
         </View>
 
         {/* Küçük ikon kutucukları — 4'lü grid */}
+        <Text style={[s.sectionEyebrow, { color: t.txt2 }]}>{tr('hizliErisim.sehirHizmetleri')}</Text>
         <View style={s.smallGrid}>
           {small.map((item) => (
             <TouchableOpacity
@@ -100,9 +102,11 @@ const s = StyleSheet.create({
   root: { flex: 1 },
   scroll: { paddingHorizontal: 18, paddingBottom: 126 },
   eyebrow: { fontSize: 10, fontWeight: '800', letterSpacing: 1.35, marginBottom: 4, textTransform: 'uppercase' },
-  title: { fontSize: 26, fontWeight: '700', fontFamily: SERIF, letterSpacing: -0.3, marginBottom: 18 },
+  title: { fontSize: 26, fontWeight: '700', fontFamily: SERIF, letterSpacing: -0.3, marginBottom: 4 },
+  subtitle: { fontSize: 14, fontWeight: '500', marginBottom: 18 },
+  sectionEyebrow: { fontSize: 10, fontWeight: '800', letterSpacing: 1.35, marginBottom: 10, textTransform: 'uppercase' },
 
-  tallRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  tallRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   tallCard: {
     flex: 1, aspectRatio: 0.92, borderRadius: 20, borderWidth: 1.2,
     padding: 12, justifyContent: 'space-between', overflow: 'hidden',
