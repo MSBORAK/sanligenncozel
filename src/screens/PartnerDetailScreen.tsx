@@ -58,6 +58,7 @@ import { MOCK_PARTNERS } from '@/api/mockData';
 
 type Props = StackScreenProps<RootStackParamList, 'PartnerDetail'>;
 
+const SERIF = Platform.select<string>({ ios: 'Georgia', android: 'serif', default: 'serif' });
 const HERO_RATIO = 0.62;
 const RADIUS = 24;
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -143,7 +144,7 @@ const PartnerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { partnerId } = route.params;
   const t = useAppTheme();
   const { i18n, t: tr } = useTranslation();
-  const { isDark, pageBg, cardBg, cardBdr, chipBg, txt1, txt2, accent: amber } = t;
+  const { isDark, pageBg, cardBg, cardBdr, chipBg, txt1, txt2, accent: amber, ctaBg, ctaTxt } = t;
   const insets = useSafeAreaInsets();
   const { isFavoritePartner, toggleFavorite } = useFavorites();
   const { profile } = useUser();
@@ -409,32 +410,32 @@ const PartnerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             <TouchableOpacity
               style={[
                 styles.mapCta,
-                { backgroundColor: isRedeemed ? chipBg : amber, borderWidth: isRedeemed ? 1 : 0, borderColor: cardBdr },
+                { backgroundColor: isRedeemed ? chipBg : ctaBg, borderWidth: isRedeemed ? 1 : 0, borderColor: cardBdr },
               ]}
               activeOpacity={0.88}
               onPress={handleUseOfferPress}
               disabled={isRedeemed || redeemLoading}
             >
               {redeemLoading ? (
-                <ActivityIndicator color={isRedeemed ? txt2 : pageBg} size="small" />
+                <ActivityIndicator color={isRedeemed ? txt2 : ctaTxt} size="small" />
               ) : isRedeemed ? (
                 <CheckCircle2 color={txt2} size={18} strokeWidth={2.2} />
               ) : (
-                <QrCode color={pageBg} size={18} strokeWidth={2.2} />
+                <QrCode color={ctaTxt} size={18} strokeWidth={2.2} />
               )}
-              <Text style={[styles.mapCtaText, { color: isRedeemed ? txt2 : pageBg }]}>
+              <Text style={[styles.mapCtaText, { color: isRedeemed ? txt2 : ctaTxt }]}>
                 {isRedeemed ? tr('partnerDetail.firsatKullanildi') : tr('partnerDetail.firsatiKullan')}
               </Text>
             </TouchableOpacity>
           ) : null}
 
           <TouchableOpacity
-            style={[styles.mapCta, { backgroundColor: txt1 }]}
+            style={[styles.mapCta, cardBorder, { backgroundColor: cardBg, marginTop: partner.id ? 12 : 0 }]}
             activeOpacity={0.88}
             onPress={() => openInMaps(partner.title)}
           >
-            <Navigation color={pageBg} size={18} strokeWidth={2.2} />
-            <Text style={[styles.mapCtaText, { color: pageBg }]}>{tr('heritageDetail.haritadaAc')}</Text>
+            <Navigation color={txt1} size={18} strokeWidth={2.2} />
+            <Text style={[styles.mapCtaText, { color: txt1 }]}>{tr('heritageDetail.haritadaAc')}</Text>
           </TouchableOpacity>
 
           {canOpenLink ? (
@@ -565,8 +566,9 @@ const styles = StyleSheet.create({
   sheetHandleWrap: { alignItems: 'center', marginBottom: 14 },
   sheetHandle: { width: 40, height: 4, borderRadius: 2 },
   title: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: 24,
+    fontFamily: SERIF,
+    fontWeight: '500',
+    fontSize: 25,
     letterSpacing: -0.4,
     lineHeight: 30,
     marginBottom: 12,
