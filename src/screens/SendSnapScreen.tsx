@@ -131,11 +131,9 @@ const SendSnapScreen = ({ route }: any) => {
 
       if (error) throw error;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('social-media')
-        .getPublicUrl(data.path);
-
-      return publicUrl;
+      // Bucket artık private — public URL yerine sade path saklanıyor,
+      // görüntülenirken resolveSocialMediaUrl ile imzalı URL üretilecek.
+      return data.path;
     } catch (error) {
       console.error('Image upload error:', error);
       return null;

@@ -24,7 +24,7 @@ import { ArrowLeft, Send, Camera, X, RefreshCw, Heart, Reply } from 'lucide-reac
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types/navigation';
-import { supabase, processImageUrl } from '@/lib/supabase';
+import { supabase, processImageUrl, resolveSocialMediaUrl } from '@/lib/supabase';
 import { notify } from '@/lib/notifications';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import { Video, ResizeMode } from 'expo-av';
@@ -700,11 +700,18 @@ const ChatScreen = () => {
     if (!message.is_snap || !message.image_url) return;
 
     const isMe = message.sender_id === currentUserId;
-    
+    // 'social-media' bucket'ı artık private — ham path'i doğrudan
+    // gösterilemez, imzalı (süreli) URL üretmemiz gerekiyor.
+    const resolvedUrl = await resolveSocialMediaUrl(message.image_url);
+    if (!resolvedUrl) {
+      AppAlert.alert(tr('common.error'), tr('sosyalProfile.fotografYuklenemedi'));
+      return;
+    }
+
     // Gönderen her zaman açabilir
     if (isMe) {
       navigation.navigate('SnapView', {
-        imageUrl: message.image_url,
+        imageUrl: resolvedUrl,
         canView: true,
       });
       return;
@@ -724,7 +731,7 @@ const ChatScreen = () => {
 
     // Snap'i aç
     navigation.navigate('SnapView', {
-      imageUrl: message.image_url,
+      imageUrl: resolvedUrl,
       messageId: message.id,
       canView: true,
     });

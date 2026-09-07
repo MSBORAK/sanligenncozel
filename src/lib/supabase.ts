@@ -61,13 +61,13 @@ export const processImageUrl = (urlOrPath?: string | null, bucket: string = 'ima
  * ("https://.../storage/v1/object/public/snaps/<path>") hem de yeni
  * kayıtlarda tutulan sade path'i ("<userId>/<timestamp>.jpg") kabul eder.
  */
-export const resolveSnapUrl = async (urlOrPath?: string | null, expiresInSeconds = 3600): Promise<string | null> => {
+export const resolveBucketUrl = async (bucket: string, urlOrPath?: string | null, expiresInSeconds = 3600): Promise<string | null> => {
   if (!urlOrPath || urlOrPath.trim() === '') return null;
   const trimmed = urlOrPath.trim();
 
   let path = trimmed;
-  const marker = '/object/public/snaps/';
-  const signedMarker = '/object/sign/snaps/';
+  const marker = `/object/public/${bucket}/`;
+  const signedMarker = `/object/sign/${bucket}/`;
   if (trimmed.includes(marker)) {
     path = trimmed.split(marker)[1]?.split('?')[0] ?? trimmed;
   } else if (trimmed.includes(signedMarker)) {
@@ -78,10 +78,16 @@ export const resolveSnapUrl = async (urlOrPath?: string | null, expiresInSeconds
   }
 
   try {
-    const { data, error } = await supabase.storage.from('snaps').createSignedUrl(path, expiresInSeconds);
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresInSeconds);
     if (error || !data?.signedUrl) return null;
     return data.signedUrl;
   } catch {
     return null;
   }
 };
+
+export const resolveSnapUrl = (urlOrPath?: string | null, expiresInSeconds = 3600) =>
+  resolveBucketUrl('snaps', urlOrPath, expiresInSeconds);
+
+export const resolveSocialMediaUrl = (urlOrPath?: string | null, expiresInSeconds = 3600) =>
+  resolveBucketUrl('social-media', urlOrPath, expiresInSeconds);
