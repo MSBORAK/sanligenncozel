@@ -27,6 +27,7 @@ import { Editorial } from '@/theme/colors';
 import { cardOuterShadow } from '@/constants/Shadows';
 import * as Haptics from 'expo-haptics';
 import LottieView from 'lottie-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
 import { buildWeatherUrl, toOwmCurrent, toOwmForecast } from '@/utils/weather';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -508,7 +509,14 @@ export default function HomeScreen() {
             style={[s.sosyalBg,{backgroundColor:sosyalBgColor}]}
             imageStyle={s.sosyalBgImage}
           >
-            <View style={s.sosyalScrim} pointerEvents="none" />
+            <LinearGradient
+              colors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.32)', 'rgba(0,0,0,0.05)']}
+              locations={[0, 0.55, 1]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={s.sosyalScrim}
+              pointerEvents="none"
+            />
             <View style={s.sosyalLiveBadge}>
               <View style={[s.sosyalLiveDot,{backgroundColor:'#4ADE80'}]}/>
               <Text style={s.sosyalLiveTxt}>{tr('home.live')}</Text>
@@ -1178,7 +1186,7 @@ const s = StyleSheet.create({
     shadowColor:'#111114', shadowOffset:{width:0,height:8}, shadowOpacity:0.16, shadowRadius:20, elevation:8},
   sosyalBg:     {flex:1, padding:18, justifyContent:'center', gap:8, backgroundColor:'#000'},
   sosyalBgImage:{opacity:0.85},
-  sosyalScrim:  {...StyleSheet.absoluteFillObject, backgroundColor:'rgba(0,0,0,0.4)'},
+  sosyalScrim:  {...StyleSheet.absoluteFillObject},
   sosyalLiveBadge:{flexDirection:'row', alignItems:'center', gap:5, alignSelf:'flex-start', backgroundColor:'rgba(255,255,255,0.12)', paddingHorizontal:10, paddingVertical:4, borderRadius:999, borderWidth:1, borderColor:'rgba(255,255,255,0.22)'},
   sosyalLiveDot:{width:7, height:7, borderRadius:3.5, backgroundColor:'#4ADE80'},
   sosyalLiveTxt:{fontSize:11, fontWeight:'800', color:'#fff', letterSpacing:0.6},
