@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Image,
+  View, Text, StyleSheet, ScrollView, Image, ImageBackground,
   TouchableOpacity, Modal, Platform, RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -495,16 +495,20 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity activeOpacity={0.88} onPress={handleSosyalPress} style={[s.lunchSocialCard,{backgroundColor:ctaBg, borderColor:cardBdr}]}>
-          <View style={s.sosyalLeft}>
+        <TouchableOpacity activeOpacity={0.88} onPress={handleSosyalPress} style={[s.lunchSocialCard,{borderColor:cardBdr}]}>
+          <ImageBackground
+            source={require('@/assets/images/sanli-dark-genc-kart-bg.png')}
+            resizeMode="cover"
+            style={s.sosyalBg}
+            imageStyle={s.sosyalBgImage}
+          >
             <View style={s.sosyalLiveBadge}>
-              <View style={[s.sosyalLiveDot,{backgroundColor:'#22C55E'}]}/>
-              <Text style={[s.sosyalLiveTxt,{color:ctaTxt}]}>{tr('home.live')}</Text>
+              <View style={[s.sosyalLiveDot,{backgroundColor:'#4ADE80'}]}/>
+              <Text style={s.sosyalLiveTxt}>{tr('home.live')}</Text>
             </View>
-            <Text style={[s.sosyalTitle,{color:ctaTxt}]}>{tr('home.sanliSosyal')}</Text>
-            <Text style={[s.sosyalSub,{color:ctaTxt, opacity:0.62}]}>{tr('home.sanliSosyalSub')}</Text>
-          </View>
-          <LottieView source={require('@/assets/images/friends.json')} autoPlay loop resizeMode="contain" style={s.sosyalLottie}/>
+            <Text style={s.sosyalTitle}>{tr('home.sanliSosyal')}</Text>
+            <Text style={s.sosyalSub}>{tr('home.sanliSosyalSub')}</Text>
+          </ImageBackground>
         </TouchableOpacity>
 
         <View style={s.lunchSection}>
@@ -1012,7 +1016,7 @@ const s = StyleSheet.create({
   lunchQuickText:{fontSize:11, fontWeight:'800', color:'#111114', textAlign:'center', letterSpacing:-0.1},
   lunchEventRow:{minHeight:66, flexDirection:'row', alignItems:'center', gap:12, paddingHorizontal:14, paddingVertical:10, borderBottomWidth:1, borderBottomColor:'rgba(17,17,20,0.12)'},
   lunchEventIcon:{width:38, height:38, borderRadius:14, alignItems:'center', justifyContent:'center'},
-  lunchSocialCard:{marginTop:16, borderRadius:20, borderWidth:1.35, padding:18, minHeight:122, flexDirection:'row', alignItems:'center', justifyContent:'space-between', overflow:'hidden', backgroundColor:'rgba(255,248,234,0.86)'},
+  lunchSocialCard:{marginTop:16, borderRadius:20, borderWidth:1.35, minHeight:130, overflow:'hidden'},
   sosyalCompact:{marginTop:14, borderRadius:14, borderWidth:1.2, paddingHorizontal:16, paddingVertical:14, flexDirection:'row', alignItems:'center', gap:10},
   sosyalCompactDot:{width:8, height:8, borderRadius:4},
   sosyalCompactTitle:{fontSize:15, fontWeight:'800', flex:1},
@@ -1165,14 +1169,14 @@ const s = StyleSheet.create({
   // ŞanlıSosyal
   sosyalCard:   {borderRadius:28, padding:22, flexDirection:'row', alignItems:'center', justifyContent:'space-between', overflow:'hidden', minHeight:130,
     shadowColor:'#111114', shadowOffset:{width:0,height:8}, shadowOpacity:0.16, shadowRadius:20, elevation:8},
-  sosyalLeft:   {flex:1, gap:8},
-  sosyalLiveBadge:{flexDirection:'row', alignItems:'center', gap:5, alignSelf:'flex-start', backgroundColor:'rgba(255,248,234,0.12)', paddingHorizontal:10, paddingVertical:4, borderRadius:999, borderWidth:1, borderColor:'rgba(255,248,234,0.22)'},
+  sosyalBg:     {flex:1, padding:18, justifyContent:'center', gap:8},
+  sosyalBgImage:{opacity:0.94},
+  sosyalLiveBadge:{flexDirection:'row', alignItems:'center', gap:5, alignSelf:'flex-start', backgroundColor:'rgba(255,255,255,0.12)', paddingHorizontal:10, paddingVertical:4, borderRadius:999, borderWidth:1, borderColor:'rgba(255,255,255,0.22)'},
   sosyalLiveDot:{width:7, height:7, borderRadius:3.5, backgroundColor:'#4ADE80'},
   sosyalLiveTxt:{fontSize:11, fontWeight:'800', color:'#fff', letterSpacing:0.6},
   sosyalTitle:  {fontSize:26, fontWeight:'800', color:'#fff', letterSpacing:-0.4},
-  sosyalSub:    {fontSize:13, color:'rgba(255,255,255,0.6)', fontWeight:'500', lineHeight:19},
+  sosyalSub:    {fontSize:13, color:'rgba(255,255,255,0.65)', fontWeight:'500', lineHeight:19},
   sosyalRight:  {width:100, height:100, alignItems:'center', justifyContent:'center'},
-  sosyalLottie: {width:100, height:100, backgroundColor:'transparent'},
 
   // Partners — kupon / bilet tasarımı
   pScroll:   {paddingHorizontal:20, paddingVertical:14},

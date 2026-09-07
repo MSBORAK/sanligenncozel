@@ -8,7 +8,6 @@ import {
   Calendar, Search, Pill, Library, Route,
   Bus,
 } from 'lucide-react-native';
-import LottieView from 'lottie-react-native';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@/theme/useAppTheme';
@@ -19,13 +18,15 @@ const SERIF = Platform.select<string>({ ios: 'Georgia', android: 'serif', defaul
 
 type Size = 'wide' | 'tall' | 'small';
 
-const SERVICES: { nameKey: string; screen: string; lottie: any; icon: any; size: Size }[] = [
-  { nameKey: 'hizliErisim.etkinlik',   screen: 'Events',        lottie: require('@/assets/images/El calendario.json'),    icon: Calendar, size: 'tall'  },
-  { nameKey: 'hizliErisim.kesfet',     screen: 'Magazine',      lottie: require('@/assets/images/Map pin location.json'), icon: Search,   size: 'tall'  },
-  { nameKey: 'hizliErisim.eczane',     screen: 'PharmacyList',  lottie: require('@/assets/images/AR Tablet.json'),        icon: Pill,     size: 'small' },
-  { nameKey: 'hizliErisim.kutuphane',  screen: 'LibraryList',   lottie: require('@/assets/images/Books.json'),            icon: Library,  size: 'small' },
-  { nameKey: 'hizliErisim.geziRotasi', screen: 'CulturalRoute', lottie: require('@/assets/images/Travel is fun.json'),    icon: Route,    size: 'small' },
-  { nameKey: 'hizliErisim.ulasim',     screen: 'Transport',     lottie: require('@/assets/images/bus vehicle.json'),      icon: Bus,      size: 'small' },
+// Hepsi tek bir ikon ailesinde (lucide line icon) — önceden her kart farklı
+// bir illüstratörün Lottie animasyonunu kullanıyordu, tutarsız duruyordu.
+const SERVICES: { nameKey: string; screen: string; icon: any; size: Size }[] = [
+  { nameKey: 'hizliErisim.etkinlik',   screen: 'Events',        icon: Calendar, size: 'tall'  },
+  { nameKey: 'hizliErisim.kesfet',     screen: 'Magazine',      icon: Search,   size: 'tall'  },
+  { nameKey: 'hizliErisim.eczane',     screen: 'PharmacyList',  icon: Pill,     size: 'small' },
+  { nameKey: 'hizliErisim.kutuphane',  screen: 'LibraryList',   icon: Library,  size: 'small' },
+  { nameKey: 'hizliErisim.geziRotasi', screen: 'CulturalRoute', icon: Route,    size: 'small' },
+  { nameKey: 'hizliErisim.ulasim',     screen: 'Transport',     icon: Bus,      size: 'small' },
 ];
 
 export default function HizliErisimScreen() {
@@ -57,7 +58,7 @@ export default function HizliErisimScreen() {
         <Text style={[s.eyebrow, { color: t.txt2 }]}>{tr('hizliErisim.eyebrow')}</Text>
         <Text style={[s.title, { color: t.txt1 }]}>{tr('hizliErisim.title')}</Text>
 
-        {/* İki büyük tall kart — lottie belirgin */}
+        {/* İki büyük tall kart — küçük kartlarla aynı ikon ailesi (lucide line icon) */}
         <View style={s.tallRow}>
           {tall.map((item) => (
             <TouchableOpacity
@@ -66,13 +67,9 @@ export default function HizliErisimScreen() {
               style={[s.tallCard, { borderColor: t.cardBdr, backgroundColor: t.cardBg }]}
               onPress={() => handlePress(item)}
             >
-              {item.lottie ? (
-                <LottieView source={item.lottie} autoPlay loop style={s.tallLottie} />
-              ) : (
-                <View style={[s.tallIconWrap, { backgroundColor: t.chipBg }]}>
-                  <item.icon color={t.txt1} size={30} strokeWidth={1.6} />
-                </View>
-              )}
+              <View style={[s.tallIconWrap, { backgroundColor: t.chipBg }]}>
+                <item.icon color={t.txt1} size={34} strokeWidth={1.6} />
+              </View>
               <Text style={[s.tallLabel, { color: t.txt1 }]} numberOfLines={1}>{tr(item.nameKey)}</Text>
             </TouchableOpacity>
           ))}
@@ -87,13 +84,9 @@ export default function HizliErisimScreen() {
               style={[s.smallCard, { borderColor: t.cardBdr, backgroundColor: t.cardBg }]}
               onPress={() => handlePress(item)}
             >
-              {item.lottie ? (
-                <LottieView source={item.lottie} autoPlay loop style={s.smallLottie} />
-              ) : (
-                <View style={[s.smallIconWrap, { backgroundColor: t.chipBg }]}>
-                  <item.icon color={t.txt1} size={20} strokeWidth={1.8} />
-                </View>
-              )}
+              <View style={[s.smallIconWrap, { backgroundColor: t.chipBg }]}>
+                <item.icon color={t.txt1} size={20} strokeWidth={1.8} />
+              </View>
               <Text style={[s.smallLabel, { color: t.txt1 }]} numberOfLines={1}>{tr(item.nameKey)}</Text>
             </TouchableOpacity>
           ))}
@@ -117,15 +110,7 @@ const s = StyleSheet.create({
   tallIconWrap: {
     flex: 1, borderRadius: 16, alignItems: 'center', justifyContent: 'center',
   },
-  tallLottie: { flex: 1, width: '100%' },
   tallLabel: { fontSize: 15.5, fontWeight: '800', letterSpacing: -0.2, marginTop: 8 },
-
-  wideCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    borderRadius: 18, borderWidth: 1.2, padding: 16, marginBottom: 10,
-  },
-  wideLabel: { flex: 1, fontSize: 15.5, fontWeight: '800', letterSpacing: -0.2 },
-  wideArrow: { fontSize: 18, fontWeight: '700' },
 
   smallGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   smallCard: {
@@ -135,6 +120,5 @@ const s = StyleSheet.create({
   smallIconWrap: {
     width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
   },
-  smallLottie: { width: 40, height: 40 },
   smallLabel: { fontSize: 13.5, fontWeight: '800', letterSpacing: -0.1, flexShrink: 1 },
 });
