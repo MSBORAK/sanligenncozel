@@ -362,7 +362,7 @@ export const MOCK_LIBRARIES: Library[] = [
     address: 'Cengiz Topel Mah. Cengiz Topel Cad. No: 38, Haliliye',
     phone: '0414 333 05 76',
     workingHours: 'Hafta içi 08:00 - 20:00, Cumartesi 09:00 - 17:00, Pazar kapalı',
-    coordinates: { lat: 37.1656, lon: 38.7935 },
+    coordinates: { lat: 37.1612, lon: 38.7881 },
   },
   {
     id: '2',
@@ -370,7 +370,7 @@ export const MOCK_LIBRARIES: Library[] = [
     address: 'Refahiye Mah. 278. Sk. No: 2/1, Haliliye',
     phone: '0414 314 07 00',
     workingHours: 'Hafta içi 08:00 - 17:00',
-    coordinates: { lat: 37.1580, lon: 38.7890 },
+    coordinates: { lat: 37.1788, lon: 38.8031 },
   },
   {
     id: '3',
@@ -378,7 +378,7 @@ export const MOCK_LIBRARIES: Library[] = [
     address: 'Karakoyunlu Mah. A. Bahçıvan İş Merkezi, Haliliye',
     phone: '0530 273 09 80',
     workingHours: 'Hafta içi 08:00 - 17:00',
-    coordinates: { lat: 37.1610, lon: 38.7970 },
+    coordinates: { lat: 37.1582, lon: 38.7891 },
   },
   {
     id: '4',
@@ -386,23 +386,23 @@ export const MOCK_LIBRARIES: Library[] = [
     address: 'Osmanbey Kampüsü, Gülveren Mah., Haliliye',
     phone: '0414 318 30 00',
     workingHours: 'Hafta içi 08:00 - 20:00',
-    coordinates: { lat: 37.1722, lon: 38.9984 },
+    coordinates: { lat: 37.1576, lon: 38.9917 },
   },
   {
     id: '5',
     name: 'Buluntu Hoca Semt Kütüphanesi',
-    address: 'Hakimdede Mah., Şanlıurfa Merkez',
+    address: 'Buluntu Hoca Bulvarı, Karaköprü',
     phone: '0414 318 51 00',
     workingHours: 'Hafta içi 08:00 - 17:00',
-    coordinates: { lat: 37.1750, lon: 38.7850 },
+    coordinates: { lat: 37.2277, lon: 38.8120 },
   },
   {
     id: '6',
     name: 'Karaköprü Halk Kütüphanesi',
-    address: 'Şenevler Mah., Karaköprü',
-    phone: '0414 347 72 36',
+    address: 'Akbayır Mah. 1037. Sk. No: 6 (Necmettin Cevheri Kültür Merkezi), Karaköprü',
+    phone: '0414 347 72 38',
     workingHours: 'Hafta içi 08:00 - 17:00',
-    coordinates: { lat: 37.2010, lon: 38.7930 },
+    coordinates: { lat: 37.2056, lon: 38.8127 },
   },
   {
     id: '7',
@@ -410,7 +410,7 @@ export const MOCK_LIBRARIES: Library[] = [
     address: 'Şenevler Mah. Orman Yolu Cad., Karaköprü',
     phone: '0414 347 72 36',
     workingHours: 'Hafta içi 08:00 - 17:00',
-    coordinates: { lat: 37.2035, lon: 38.7965 },
+    coordinates: { lat: 37.2277, lon: 38.7993 },
   },
   {
     id: '8',
@@ -418,7 +418,7 @@ export const MOCK_LIBRARIES: Library[] = [
     address: 'Ulubatlı Mah. 366. Sk., Haliliye',
     phone: '0532 382 21 69',
     workingHours: 'Hafta içi 08:00 - 22:00, Cumartesi 08:00 - 17:00',
-    coordinates: { lat: 37.1540, lon: 38.7810 },
+    coordinates: { lat: 37.1751, lon: 38.8114 },
   },
 ];
 
