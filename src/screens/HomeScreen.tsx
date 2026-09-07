@@ -216,6 +216,7 @@ export default function HomeScreen() {
   const sosyalBgImage = mode === 'dark'
     ? require('@/assets/images/sanli-sosyal-genc-bg-editorial.png')
     : require('@/assets/images/sanli-sosyal-genc-bg.png');
+  const sosyalBgColor = mode === 'dark' ? '#2F2418' : '#000';
 
   const [promoModalVisible,setPromoModalVisible]           = useState(false);
   const [promoOffer,setPromoOffer]                         = useState<{ baslik: string; aciklama: string; kategori: string } | null>(null);
@@ -500,13 +501,14 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity activeOpacity={0.88} onPress={handleSosyalPress} style={[s.lunchSocialCard,{borderColor:cardBdr}]}>
+        <TouchableOpacity activeOpacity={0.88} onPress={handleSosyalPress} style={[s.lunchSocialCard,{borderColor:cardBdr, backgroundColor:sosyalBgColor}]}>
           <ImageBackground
             source={sosyalBgImage}
             resizeMode="cover"
-            style={s.sosyalBg}
+            style={[s.sosyalBg,{backgroundColor:sosyalBgColor}]}
             imageStyle={s.sosyalBgImage}
           >
+            <View style={s.sosyalScrim} pointerEvents="none" />
             <View style={s.sosyalLiveBadge}>
               <View style={[s.sosyalLiveDot,{backgroundColor:'#4ADE80'}]}/>
               <Text style={s.sosyalLiveTxt}>{tr('home.live')}</Text>
@@ -1021,7 +1023,7 @@ const s = StyleSheet.create({
   lunchQuickText:{fontSize:11, fontWeight:'800', color:'#111114', textAlign:'center', letterSpacing:-0.1},
   lunchEventRow:{minHeight:66, flexDirection:'row', alignItems:'center', gap:12, paddingHorizontal:14, paddingVertical:10, borderBottomWidth:1, borderBottomColor:'rgba(17,17,20,0.12)'},
   lunchEventIcon:{width:38, height:38, borderRadius:14, alignItems:'center', justifyContent:'center'},
-  lunchSocialCard:{marginTop:16, borderRadius:20, borderWidth:1.35, minHeight:130, overflow:'hidden'},
+  lunchSocialCard:{marginTop:16, borderRadius:20, borderWidth:1.35, minHeight:130, overflow:'hidden', backgroundColor:'#000'},
   sosyalCompact:{marginTop:14, borderRadius:14, borderWidth:1.2, paddingHorizontal:16, paddingVertical:14, flexDirection:'row', alignItems:'center', gap:10},
   sosyalCompactDot:{width:8, height:8, borderRadius:4},
   sosyalCompactTitle:{fontSize:15, fontWeight:'800', flex:1},
@@ -1174,8 +1176,9 @@ const s = StyleSheet.create({
   // ŞanlıSosyal
   sosyalCard:   {borderRadius:28, padding:22, flexDirection:'row', alignItems:'center', justifyContent:'space-between', overflow:'hidden', minHeight:130,
     shadowColor:'#111114', shadowOffset:{width:0,height:8}, shadowOpacity:0.16, shadowRadius:20, elevation:8},
-  sosyalBg:     {flex:1, padding:18, justifyContent:'center', gap:8},
-  sosyalBgImage:{opacity:0.94},
+  sosyalBg:     {flex:1, padding:18, justifyContent:'center', gap:8, backgroundColor:'#000'},
+  sosyalBgImage:{opacity:0.85},
+  sosyalScrim:  {...StyleSheet.absoluteFillObject, backgroundColor:'rgba(0,0,0,0.4)'},
   sosyalLiveBadge:{flexDirection:'row', alignItems:'center', gap:5, alignSelf:'flex-start', backgroundColor:'rgba(255,255,255,0.12)', paddingHorizontal:10, paddingVertical:4, borderRadius:999, borderWidth:1, borderColor:'rgba(255,255,255,0.22)'},
   sosyalLiveDot:{width:7, height:7, borderRadius:3.5, backgroundColor:'#4ADE80'},
   sosyalLiveTxt:{fontSize:11, fontWeight:'800', color:'#fff', letterSpacing:0.6},
