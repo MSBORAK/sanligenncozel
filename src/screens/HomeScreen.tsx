@@ -18,6 +18,7 @@ import { MOCK_BUSES, MOCK_MAGAZINES } from '@/api/mockData';
 import { localizeHeritageItem, CURATED_LANDMARK_TRANSLATIONS } from '@/data/mockLocalization';
 import { HomeScreenProps, MainTabParamList } from '@/types/navigation';
 import { useAppTheme } from '@/theme/useAppTheme';
+import { useThemeMode } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabase';
 import { pickLocalized } from '@/lib/localizeContent';
@@ -211,6 +212,10 @@ export default function HomeScreen() {
   const { profile, isGuest } = useUser();
   const homeTheme = useAppTheme();
   const isDark = homeTheme.isDark;
+  const { mode } = useThemeMode();
+  const sosyalBgImage = mode === 'dark'
+    ? require('@/assets/images/sanli-sosyal-genc-bg-editorial.png')
+    : require('@/assets/images/sanli-sosyal-genc-bg.png');
 
   const [promoModalVisible,setPromoModalVisible]           = useState(false);
   const [promoOffer,setPromoOffer]                         = useState<{ baslik: string; aciklama: string; kategori: string } | null>(null);
@@ -497,7 +502,7 @@ export default function HomeScreen() {
 
         <TouchableOpacity activeOpacity={0.88} onPress={handleSosyalPress} style={[s.lunchSocialCard,{borderColor:cardBdr}]}>
           <ImageBackground
-            source={require('@/assets/images/sanli-dark-genc-kart-bg.png')}
+            source={sosyalBgImage}
             resizeMode="cover"
             style={s.sosyalBg}
             imageStyle={s.sosyalBgImage}
