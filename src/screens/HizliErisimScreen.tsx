@@ -6,7 +6,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native';
 import {
   Calendar, Search, Pill, Library, Route,
-  Sparkles, Bus,
+  Bus,
 } from 'lucide-react-native';
 import LottieView from 'lottie-react-native';
 import * as Haptics from 'expo-haptics';
@@ -22,7 +22,6 @@ type Size = 'wide' | 'tall' | 'small';
 const SERVICES: { nameKey: string; screen: string; lottie: any; icon: any; size: Size }[] = [
   { nameKey: 'hizliErisim.etkinlik',   screen: 'Events',        lottie: require('@/assets/images/El calendario.json'),    icon: Calendar, size: 'tall'  },
   { nameKey: 'hizliErisim.kesfet',     screen: 'Magazine',      lottie: require('@/assets/images/Map pin location.json'), icon: Search,   size: 'tall'  },
-  { nameKey: 'hizliErisim.asistan',    screen: 'Assistant',     lottie: null,                                             icon: Sparkles, size: 'wide'  },
   { nameKey: 'hizliErisim.eczane',     screen: 'PharmacyList',  lottie: require('@/assets/images/AR Tablet.json'),        icon: Pill,     size: 'small' },
   { nameKey: 'hizliErisim.kutuphane',  screen: 'LibraryList',   lottie: require('@/assets/images/Books.json'),            icon: Library,  size: 'small' },
   { nameKey: 'hizliErisim.geziRotasi', screen: 'CulturalRoute', lottie: require('@/assets/images/Travel is fun.json'),    icon: Route,    size: 'small' },
@@ -47,7 +46,6 @@ export default function HizliErisimScreen() {
   };
 
   const tall = SERVICES.filter((i) => i.size === 'tall');
-  const wide = SERVICES.find((i) => i.size === 'wide')!;
   const small = SERVICES.filter((i) => i.size === 'small');
 
   return (
@@ -79,17 +77,6 @@ export default function HizliErisimScreen() {
             </TouchableOpacity>
           ))}
         </View>
-
-        {/* Geniş banner — Asistan */}
-        <TouchableOpacity
-          activeOpacity={0.88}
-          onPress={() => handlePress(wide)}
-          style={[s.wideCard, { backgroundColor: t.ctaBg, borderColor: t.cardBdr }]}
-        >
-          <Sparkles color={t.ctaTxt} size={26} strokeWidth={1.8} />
-          <Text style={[s.wideLabel, { color: t.ctaTxt }]}>{tr('hizliErisim.sanliAsistan')}</Text>
-          <Text style={[s.wideArrow, { color: t.ctaTxt }]}>→</Text>
-        </TouchableOpacity>
 
         {/* Küçük ikon kutucukları — 4'lü grid */}
         <View style={s.smallGrid}>

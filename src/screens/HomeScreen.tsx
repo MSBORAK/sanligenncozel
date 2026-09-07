@@ -530,20 +530,6 @@ export default function HomeScreen() {
               </TouchableOpacity>
             ))}
           </View>
-          <TouchableOpacity
-            activeOpacity={0.88}
-            onPress={()=>navigation.navigate('Assistant')}
-            style={[s.assistantBanner,{backgroundColor:ctaBg}]}
-          >
-            <View style={s.assistantBannerLeft}>
-              <Sparkles color={ctaTxt} size={20} strokeWidth={2}/>
-              <View style={{flex:1}}>
-                <Text style={[s.assistantBannerTitle,{color:ctaTxt}]}>{tr('home.sanliAsistan')}</Text>
-                <Text style={[s.assistantBannerSub,{color:ctaTxt,opacity:0.6}]}>{tr('home.sanliAsistanSub')}</Text>
-              </View>
-            </View>
-            <Text style={{color:ctaTxt,fontSize:16}}>→</Text>
-          </TouchableOpacity>
         </View>
 
         <View style={s.lunchSection}>
