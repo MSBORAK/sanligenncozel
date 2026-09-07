@@ -51,6 +51,19 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 
       // Push token'ı arka planda kaydet (hata olsa da devam et)
       registerForPushNotificationsAsync(user.id).catch(() => {});
+
+      // Hesap silme talebi göndermiş ama fikrini değiştirip tekrar giriş
+      // yapmış bir kullanıcıysa, bekleyen talebi iptal et — yoksa 30 gün
+      // sonra hâlâ aktif kullandığı hesabı sessizce silinirdi.
+      (async () => {
+        try {
+          await supabase
+            .from('hesap_silme_talepleri')
+            .update({ durum: 'iptal_edildi' })
+            .eq('kullanici_id', user.id)
+            .eq('durum', 'beklemede');
+        } catch {}
+      })();
     } catch {
       setProfile(null);
     } finally {

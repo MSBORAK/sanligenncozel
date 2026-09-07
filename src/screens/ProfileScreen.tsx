@@ -7,7 +7,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import {
-  ChevronRight, Bell, ShieldCheck, User as UserIcon, X,
+  ChevronRight, ChevronDown, Bell, ShieldCheck, User as UserIcon, X,
   HelpCircle, MessageSquare, Send, Heart, Users, LogOut, Flame,
   Star, MapPin, FileText, ScrollText, Trash2, Mail, CreditCard, Palette, Languages,
   Grid3x3,
@@ -24,6 +24,8 @@ import { LanguageCode } from '@/i18n';
 import { cardInnerClip, cardBorderLight, cardBorderDark } from '@/constants/Shadows';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList, MainTabParamList } from '@/types/navigation';
+
+const SERIF = Platform.select<string>({ ios: 'Georgia', android: 'serif', default: 'serif' });
 import { PRIVACY_POLICY_TEXT, TERMS_OF_USE_TEXT, KVKK_TEXT } from '@/constants/legalTexts';
 
 type Nav = StackNavigationProp<RootStackParamList>;
@@ -50,6 +52,45 @@ const OTHER_APPS = [
 
 type LegalDoc = 'privacy' | 'terms' | 'kvkk' | null;
 
+const FAQ_ITEMS: { q: string; a: string }[] = [
+  {
+    q: 'Genç Kart nedir, nasıl edinirim?',
+    a: 'Genç Kart, 18-30 yaş arasındaki Şanlıurfalı gençlere şehirdeki anlaşmalı işletmelerde indirim sağlayan dijital bir kimlik kartıdır. Hesabını oluşturup profilini tamamladığında Genç Kart otomatik olarak hesabına tanımlanır, Genç Kart sekmesinden QR kodunu işletmede okutarak indirimden yararlanabilirsin.',
+  },
+  {
+    q: 'Kupon/fırsatları nasıl kullanırım?',
+    a: 'Genç Kart sayfasındaki bir fırsatın üzerine dokun, "Kuponu Kullan" butonuna bas ve işletmede QR kodunu göster. Kart sahibi kimliğin doğrulanır, indirim işletme tarafından uygulanır.',
+  },
+  {
+    q: 'Şanlı Sosyal\'de kimler mesajlarımı görebilir?',
+    a: 'Sadece karşılıklı kabul ettiğin arkadaşların seninle mesajlaşabilir ve Kıvılcım (fotoğraf/video) paylaşımlarını görebilir. Arkadaş olmayan biri sana mesaj gönderemez, gönderilerini göremez.',
+  },
+  {
+    q: 'Birini nasıl engellerim veya şikayet ederim?',
+    a: 'Şanlı Sosyal\'de kişinin profiline gir, sağ üstteki menüden "Engelle" veya "Şikayet Et" seçeneğine dokun. Engellediğin kişi seni arayamaz, sana istek gönderemez, seni göremez. Engellediklerini Şanlı Sosyal profilindeki "Engellenen Kullanıcılar" bölümünden yönetebilirsin.',
+  },
+  {
+    q: 'Misafir (giriş yapmadan) modda neler kısıtlı?',
+    a: 'Misafir modda Keşfet, Gezi Rotaları, Etkinlikler, Ulaşım gibi genel bilgileri görebilirsin ama Genç Kart fırsatlarını kullanamaz, Şanlı Sosyal\'e giremez ve favori ekleyemezsin. Bu özellikler için hesap oluşturman gerekir.',
+  },
+  {
+    q: 'Ulaşım sayfasındaki bilgiler ne kadar güncel?',
+    a: 'Otobüs hat ve durak bilgileri Şanlıurfa Büyükşehir Belediyesi\'nin resmi verilerine dayanır. Sefer saatleri belediye tarafından değiştirilebileceğinden, kritik bir yolculuk öncesi güncel saatleri belediyenin resmi kanallarından teyit etmen önerilir.',
+  },
+  {
+    q: 'Bildirim almıyorum, ne yapmalıyım?',
+    a: 'Cihazının Ayarlar > Bildirimler bölümünden ŞanlıGenç için bildirimlerin açık olduğundan emin ol. Uygulama içinde de Profil > Görünüm bölümünden bildirim tercihini kontrol edebilirsin.',
+  },
+  {
+    q: 'Hesabımı nasıl silerim?',
+    a: 'Profil sayfasının en altındaki "Hesabımı Sil" seçeneğine dokun. Onayladığında hesabın ve tüm verilerin kalıcı olarak silinmesi için talebin oluşturulur.',
+  },
+  {
+    q: 'Bir hata/öneri bildirmek istiyorum, nereden yapabilirim?',
+    a: 'Profil > Geri Bildirim bölümünden hata, şikayet veya özellik isteğini doğrudan bize iletebilirsin. İstersen destek@sanligenc.app adresine de yazabilirsin.',
+  },
+];
+
 const ProfileScreen = () => {
   const t = useAppTheme();
   const { mode, setMode } = useThemeMode();
@@ -57,6 +98,8 @@ const ProfileScreen = () => {
   const { language, setLanguage, supportedLanguages } = useLanguage();
   const { profile, isGuest, refreshProfile } = useUser();
   const [legalDoc, setLegalDoc] = useState<LegalDoc>(null);
+  const [faqVisible, setFaqVisible] = useState(false);
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [accountSettingsVisible, setAccountSettingsVisible] = useState(false);
   const [deleteAccountVisible, setDeleteAccountVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -64,8 +107,6 @@ const ProfileScreen = () => {
   const [editUsername, setEditUsername] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [eventNotificationsEnabled, setEventNotificationsEnabled] = useState(true);
-  const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
-  const [personalizationEnabled, setPersonalizationEnabled] = useState(true);
   const [radarVisible, setRadarVisible] = useState(true);
   const [radarVisibleSaving, setRadarVisibleSaving] = useState(false);
   const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
@@ -416,22 +457,6 @@ const ProfileScreen = () => {
                 onValueChange={setEventNotificationsEnabled}
               />
               <ToggleRow
-                icon={<ShieldCheck color={txt1} size={20} strokeWidth={2.2} />}
-                iconBg={chipBg}
-                title={tr('profileScreen.kullanimAnalitigi')}
-                subtitle={tr('profileScreen.kullanimAnalitigiSub')}
-                value={analyticsEnabled}
-                onValueChange={setAnalyticsEnabled}
-              />
-              <ToggleRow
-                icon={<UserIcon color={txt1} size={20} strokeWidth={2.2} />}
-                iconBg={chipBg}
-                title={tr('profileScreen.kisisellestirme')}
-                subtitle={tr('profileScreen.kisisellestirmeSub')}
-                value={personalizationEnabled}
-                onValueChange={setPersonalizationEnabled}
-              />
-              <ToggleRow
                 icon={<MapPin color={txt1} size={20} strokeWidth={2.2} />}
                 iconBg={chipBg}
                 title={tr('profileScreen.sehirRadariGorunurluk')}
@@ -510,7 +535,7 @@ const ProfileScreen = () => {
                 subtitle={tr('profileScreen.sikSorulanlar')}
                 icon={<HelpCircle color={txt1} size={20} strokeWidth={2.2} />}
                 iconBg={chipBg}
-                onPress={() => AppAlert.alert(tr('profileScreen.yardim'), tr('profileScreen.yakindaSssEklenecek'), [{ text: tr('sendSnap.tamam') }])}
+                onPress={() => setFaqVisible(true)}
               />
               <MenuItem
                 label={tr('profileScreen.iletisim')}
@@ -598,6 +623,57 @@ const ProfileScreen = () => {
                 </>
               )}
               <TouchableOpacity style={styles.modalBtn} onPress={() => setLegalDoc(null)}>
+                <View style={[styles.modalBtnGrad, { backgroundColor: ctaBg }]}>
+                  <Text style={[styles.modalBtnText, { color: ctaTxt }]}>{tr('common.close')}</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Yardım & SSS */}
+        <Modal
+          animationType="slide"
+          transparent
+          visible={faqVisible}
+          onRequestClose={() => { setFaqVisible(false); setOpenFaqIndex(null); }}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={[modalCardStyle, styles.legalModalView]}>
+              <TouchableOpacity
+                style={styles.modalClose}
+                onPress={() => { setFaqVisible(false); setOpenFaqIndex(null); }}
+              >
+                <X color={txt2} size={22} />
+              </TouchableOpacity>
+              <View style={[styles.modalIconWrap, { backgroundColor: chipBg }]}>
+                <HelpCircle color={txt1} size={26} strokeWidth={2} />
+              </View>
+              <Text style={[styles.modalTitle, { color: txt1 }]}>{tr('profileScreen.yardim')}</Text>
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.legalScroll}>
+                {FAQ_ITEMS.map((item, index) => {
+                  const isOpen = openFaqIndex === index;
+                  return (
+                    <TouchableOpacity
+                      key={index}
+                      activeOpacity={0.8}
+                      style={[styles.faqItem, { borderBottomColor: t.divider }]}
+                      onPress={() => setOpenFaqIndex(isOpen ? null : index)}
+                    >
+                      <View style={styles.faqQRow}>
+                        <Text style={[styles.faqQ, { color: txt1 }]}>{item.q}</Text>
+                        <ChevronDown
+                          color={txt2}
+                          size={18}
+                          style={{ transform: [{ rotate: isOpen ? '180deg' : '0deg' }] }}
+                        />
+                      </View>
+                      {isOpen && <Text style={[styles.faqA, { color: txt2 }]}>{item.a}</Text>}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+              <TouchableOpacity style={styles.modalBtn} onPress={() => { setFaqVisible(false); setOpenFaqIndex(null); }}>
                 <View style={[styles.modalBtnGrad, { backgroundColor: ctaBg }]}>
                   <Text style={[styles.modalBtnText, { color: ctaTxt }]}>{tr('common.close')}</Text>
                 </View>
@@ -954,9 +1030,10 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   heroTitle: {
-    fontSize: 26,
-    fontWeight: '800',
+    fontSize: 27,
+    fontWeight: '500',
     letterSpacing: -0.5,
+    fontFamily: SERIF,
   },
   heroUsername: {
     fontSize: 14,
@@ -1161,6 +1238,26 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     lineHeight: 21,
     textAlign: 'left',
+  },
+  faqItem: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  faqQRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  faqQ: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  faqA: {
+    marginTop: 8,
+    fontSize: 13,
+    lineHeight: 19,
   },
   modalClose: { alignSelf: 'flex-end', padding: 4, marginBottom: 8 },
   modalIconWrap: {

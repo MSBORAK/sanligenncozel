@@ -817,7 +817,7 @@ const SosyalProfileScreen = ({ route }: any) => {
       }
 
       // Dosyayı yükle
-      const fileName = `avatars/${profile.userId}_${Date.now()}.jpg`;
+      const fileName = `${profile.userId}/${Date.now()}.jpg`;
       const uploadUrl = `${SUPABASE_URL}/storage/v1/object/avatars/${fileName}`;
 
       const fetchResp = await fetch(uri);

@@ -296,7 +296,7 @@ const GencKartScreen = () => {
                            <MapPin color={Colors.white} size={16}/>
                            <Text style={styles.cardLogoText}>{tr('hizliErisim.eyebrow')}</Text>
                         </View>
-                        <Text style={styles.cardAgeText}>16-30 YAŞ</Text>
+                        <Text style={styles.cardAgeText}>18-30 YAŞ</Text>
                     </View>
                     <View style={styles.contactlessContainer}>
                         <Wifi color="rgba(255,255,255,0.85)" size={20} />
